@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loopover - Free Mobile Games</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0a0f;--surface:#111118;--card:#16161f;--border:rgba(255,255,255,0.07);--accent:#e8ff47;--accent2:#47d4ff;--text:#f0f0f0;--muted:#888;--radius:16px}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.6;overflow-x:hidden}
+nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:20px 40px;background:rgba(10,10,15,0.9);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:0.08em;color:var(--accent);text-decoration:none}
+.nav-links{display:flex;gap:32px}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:0.875rem;letter-spacing:0.05em;text-transform:uppercase;font-weight:500;transition:color 0.2s}
+.nav-links a:hover{color:var(--text)}
+.hero{min-height:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:220px 24px 48px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 40%,rgba(232,255,71,0.07) 0%,transparent 70%),radial-gradient(ellipse 50% 40% at 80% 80%,rgba(71,212,255,0.05) 0%,transparent 60%);pointer-events:none}
+.hero-eyebrow{font-size:0.75rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--accent);font-weight:500;margin-bottom:20px;animation:fadeUp 0.8s 0.1s both}
+.hero-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(5rem,15vw,12rem);line-height:0.9;letter-spacing:0.02em;animation:fadeUp 0.8s 0.2s both}
+.hero-title span{color:var(--accent)}
+.hero-sub{margin-top:28px;font-size:clamp(1rem,2vw,1.2rem);color:var(--muted);max-width:480px;animation:fadeUp 0.8s 0.35s both}
+.hero-sub strong{color:var(--text);font-weight:500}
+.hero-stats{margin-top:52px;display:flex;gap:48px;justify-content:center;animation:fadeUp 0.8s 0.5s both}
+.stat{text-align:center}
+.stat-num{font-family:'Bebas Neue',sans-serif;font-size:2.8rem;color:var(--accent);letter-spacing:0.04em}
+.stat-label{font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.12em}
+.scroll-hint{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:56px;animation:fadeUp 1s 1s both;color:var(--muted);font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase}
+.scroll-line{width:1px;height:40px;background:linear-gradient(to bottom,var(--accent),transparent);animation:scrollPulse 2s ease-in-out infinite}
+.section{padding:48px 24px;max-width:1200px;margin:0 auto}
+.section-header{display:flex;align-items:baseline;gap:20px;margin-bottom:60px}
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.5rem,6vw,4rem);letter-spacing:0.04em}
+.section-line{flex:1;height:1px;background:linear-gradient(to right,var(--border),transparent)}
+.featured-card{position:relative;border-radius:24px;overflow:hidden;border:1px solid var(--border);background:var(--card);display:grid;grid-template-columns:1fr 1fr;margin-bottom:24px;text-decoration:none;color:inherit;transition:transform 0.35s,box-shadow 0.35s}
+.featured-card:hover{transform:translateY(-4px);box-shadow:0 24px 60px rgba(232,255,71,0.08)}
+.featured-content{padding:52px 48px;display:flex;flex-direction:column;justify-content:center;gap:20px}
+.featured-badge{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#000;font-size:0.7rem;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;padding:6px 14px;border-radius:100px;width:fit-content}
+.featured-name{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,4vw,3.2rem);letter-spacing:0.03em;line-height:1}
+.featured-desc{font-size:0.95rem;color:var(--muted);line-height:1.7;max-width:340px}
+.featured-meta{display:flex;gap:24px;flex-wrap:wrap}
+.meta-item{display:flex;flex-direction:column;gap:2px}
+.meta-val{font-weight:500;font-size:1rem}
+.meta-key{font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em}
+.play-btn{display:inline-flex;align-items:center;gap:10px;background:var(--accent);color:#000;padding:14px 28px;border-radius:100px;font-weight:700;font-size:0.875rem;letter-spacing:0.05em;width:fit-content;transition:transform 0.2s,box-shadow 0.2s}
+.featured-card:hover .play-btn{transform:scale(1.04);box-shadow:0 8px 24px rgba(232,255,71,0.35)}
+.featured-visual{position:relative;overflow:hidden;background:#0d0d14;display:flex;align-items:stretch;min-height:400px}
+.featured-screenshots{display:flex;width:100%}
+.featured-screenshots img{flex:1;object-fit:cover;object-position:center top;min-width:0;opacity:0.9;transition:opacity 0.3s}
+.featured-card:hover .featured-screenshots img{opacity:1}
+.featured-overlay{position:absolute;inset:0;background:linear-gradient(to right,var(--card) 0%,transparent 18%,transparent 82%,var(--card) 100%),linear-gradient(to bottom,transparent 60%,rgba(10,10,15,0.6) 100%);pointer-events:none}
+.featured-icon-badge{position:absolute;bottom:20px;right:20px;width:64px;height:64px;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.5);border:2px solid rgba(255,255,255,0.1);background:var(--card)}
+.games-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px}
+.game-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;text-decoration:none;color:inherit;position:relative;transition:transform 0.3s,border-color 0.3s,box-shadow 0.3s}
+.game-card::after{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent2),transparent);opacity:0;transition:opacity 0.3s;z-index:1}
+.game-card:hover::after{opacity:1}
+.game-card:hover{transform:translateY(-5px);border-color:rgba(255,255,255,0.14);box-shadow:0 20px 48px rgba(0,0,0,0.35)}
+.card-shots{width:100%;height:160px;display:flex;overflow:hidden;background:#0d0d14;flex-shrink:0;position:relative}
+.card-shots img{flex:1;object-fit:cover;object-position:center top;min-width:0;transition:transform 0.4s ease}
+.game-card:hover .card-shots img{transform:scale(1.05)}
+.card-shots-fade{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,var(--card) 100%);pointer-events:none}
+.card-body{padding:20px 22px 22px;display:flex;flex-direction:column;gap:14px;flex:1}
+.card-top{display:flex;align-items:flex-start;gap:14px}
+.game-icon{width:56px;height:56px;border-radius:14px;flex-shrink:0;object-fit:cover;margin-top:-34px;position:relative;z-index:2;box-shadow:0 6px 18px rgba(0,0,0,0.5);border:2px solid rgba(255,255,255,0.09);background:var(--surface)}
+.card-info{flex:1;padding-top:4px}
+.game-name{font-weight:500;font-size:0.95rem;line-height:1.3;margin-bottom:3px}
+.game-downloads{font-size:0.78rem;color:var(--accent);font-weight:500}
+.game-desc{font-size:0.875rem;color:var(--muted);line-height:1.65;flex:1}
+.card-footer{display:flex;align-items:center;justify-content:space-between;padding-top:14px;border-top:1px solid var(--border)}
+.rating{display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--muted)}
+.stars{color:#ffd447;letter-spacing:-2px}
+.view-link{font-size:0.75rem;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent2);display:flex;align-items:center;gap:4px;transition:gap 0.2s}
+.game-card:hover .view-link{gap:8px}
+.rank{position:absolute;top:130px;right:12px;font-family:'Bebas Neue',sans-serif;font-size:3.5rem;color:rgba(255,255,255,0.05);line-height:1;pointer-events:none;user-select:none;z-index:3}
+footer{border-top:1px solid var(--border);padding:48px 40px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px}
+.footer-logo{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:var(--accent);letter-spacing:0.08em}
+.footer-links{display:flex;gap:28px}
+.footer-links a{color:var(--muted);text-decoration:none;font-size:0.8rem;letter-spacing:0.06em;text-transform:uppercase;transition:color 0.2s}
+.footer-links a:hover{color:var(--text)}
+.footer-copy{color:var(--muted);font-size:0.75rem;width:100%;text-align:center;margin-top:8px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scrollPulse{0%,100%{opacity:0.4}50%{opacity:1}}
+@media(max-width:768px){
+  nav{padding:16px 20px}
+  .nav-links{display:none}
+  .featured-card{grid-template-columns:1fr}
+  .featured-visual{min-height:200px;order:-1}
+  .featured-content{padding:28px 24px}
+  .featured-meta{flex-wrap:wrap;gap:16px}
+  .hero-stats{gap:24px}
+  .stat-num{font-size:2rem}
+  .section{padding:60px 16px}
+  .section-header{margin-bottom:32px}
+  .games-grid{grid-template-columns:1fr;gap:16px}
+  .card-shots{height:140px}
+  .game-icon{width:48px;height:48px;border-radius:12px}
+  footer{flex-direction:column;align-items:flex-start;padding:32px 20px}
+  .footer-links{flex-wrap:wrap;gap:16px}
+}
+</style>
+</head>
+<body>
+<nav>
+  <a class="nav-logo" href="/">Loopover</a>
+  <div class="nav-links">
+    <a href="#games">Games</a>
+    <a href="mailto:contactloopover@gmail.com">Contact</a>
+    <a href="/privacy.html">Privacy</a>
+  </div>
+</nav>
+<section class="hero">
+  <p class="hero-eyebrow">Free Mobile Games</p>
+  <h1 class="hero-title">Loop<span>over</span></h1>
+  <p class="hero-sub"><strong>Free games. Real fun.</strong> Pick up, play, and get hooked — right in your pocket.</p>
+  <div class="hero-stats">
+    <div class="stat"><div class="stat-num">1M+</div><div class="stat-label">Downloads</div></div>
+    <div class="stat"><div class="stat-num">9</div><div class="stat-label">Games</div></div>
+    <div class="stat"><div class="stat-num">Free</div><div class="stat-label">Always</div></div>
+  </div>
+  <div class="scroll-hint"><div class="scroll-line"></div>Scroll</div>
+</section>
+<section class="section" id="games">
+  <div class="section-header">
+    <h2 class="section-title">Games</h2>
+    <div class="section-line"></div>
+  </div>
+  <a class="featured-card" href="https://play.google.com/store/apps/details?id=com.loopover.LSAH" target="_blank" rel="noopener">
+    <div class="featured-content">
+      <span class="featured-badge">&#127942; Most Downloaded</span>
+      <h3 class="featured-name">Assassin Hunter</h3>
+      <p class="featured-desc">Assassinate your targets, outmanoeuvre guards, and master the art of stealth in this gripping strategy puzzle game.</p>
+      <div class="featured-meta">
+        <div class="meta-item"><span class="meta-val">1M+</span><span class="meta-key">Downloads</span></div>
+        <div class="meta-item"><span class="meta-val">4.6 &#9733;</span><span class="meta-key">Rating</span></div>
+        <div class="meta-item"><span class="meta-val">Free</span><span class="meta-key">Price</span></div>
+      </div>
+      <span class="play-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 20.5v-17c0-.83.94-1.3 1.6-.8l14 8.5c.6.36.6 1.24 0 1.6l-14 8.5c-.66.5-1.6.03-1.6-.8z"/></svg>
+        Play on Google Play
+      </span>
+    </div>
+    <div class="featured-visual">
+      <div class="featured-screenshots">
+        <img src="https://play-lh.googleusercontent.com/J9a4lRZWOn_el7rPMmbPa5yI5qiBgeHWFvptQ6K4Sj71pcWY7KkqIh79QQ9rn_5cAhI=w1920-h1080" alt="Assassin Hunter gameplay" loading="lazy">
+        <img src="https://play-lh.googleusercontent.com/7OCiF8kCuSVlkrGjPeXmeqdlZpq50yJNobOfL2JW9J2acT3FifrSoO9unvmi-y1HQ9M=w1920-h1080" alt="Assassin Hunter gameplay" loading="lazy">
+        <img src="https://play-lh.googleusercontent.com/GmKzOzfmAAOKUAeD6InKb2BqyYQEbA4MoawYsCfgPIoMtiUXl30C6e8ExX2Xb0YONg=w1920-h1080" alt="Assassin Hunter gameplay" loading="lazy">
+      </div>
+      <div class="featured-overlay"></div>
+      <img class="featured-icon-badge" src="https://play-lh.googleusercontent.com/EB3qyCo0r6sMN5tTQ9Mr6Ia6opz7TWeGELx2_w-PLnwhfjd7dbG-bd-TG8CVyNdD2A=s512" alt="Assassin Hunter icon" loading="lazy">
+    </div>
+  </a>
+  <div class="games-grid">
+    <a class="game-card" href="https://play.google.com/store/apps/details?id=com.loopover.FloppyFish" target="_blank" rel="noopener">
+      <div class="card-shots">
+        <img src="https://play-lh.googleusercontent.com/OleKajeQxDqwylvX9JoZGUTiNQnMqZtJSA-E7aRYnkQZ6PecOLsomAMHXYBsVushuk2Q=w1920-h1080" alt="" loading="lazy">
+        <img src="https://play-lh.googleusercontent.com/bPmfhmMFigxIzIS54pUf91oHYSbE84xWBBq2kV_TuehYmDAQOmL4LgN7eByGWu1H69UI=w1920-h1080" alt="" loading="lazy">
+        <img src="https://play-lh.googleusercontent.com/rkvWZwRvFIxqCRt6rxvoxXsK9cQquhBbWAUMMCSVBFZwLpIKgaRG-Vm6614edFAGPzA=w1920-h1080" alt="" loading="lazy">
+        <div class="card-shots-fade"></div>
+      </div>
+      <div class="rank">2</div>
+      <div class="card-body">
+        <div class="card-top">
+          <img class="game-icon" src="https://play-lh.googleusercontent.com/pdn9AUvJvxn-7FmSgQM3hyoLO3wKRLqReE1Z9IiZSpX8ww9tkCUGwpMFVMlgl5YMB1N5gmGswqcXzNyetQKAxw=s512" alt="Floppy Fish">
+          <div class="card-info" style="display:flex;flex-direction:column;width:100%">
+            <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+              <div class="game-name">Floppy Fish</div>
+              <span style="background:var(--accent);color:#000;font-size:0.62rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;padding:4px 9px;border-radius:100px;white-space:nowrap;margin-left:8px">🔥 Trending</span>
+            </div>
+            <div class="game-downloads">1K+ Downloads</div>
+          </div>
+        </div>
+        <p class="game-desc">Tap to keep your fish airborne, dodge obstacles, and chase the high score in this addictive one-tap classic.</p>
+        <div class="card-footer"><div class="rating"><span class="stars">&#9733;&#9733;&#9733;&#9733;</span>&nbsp;4.2</div><span class="view-link">Play Free &rarr;</span></div>
+      </div>
+    </a>
+    <a class="game-card" href="https://play.google.com/store/apps/details?id=com.loopover.Minesweeper" target="_blank" rel="noopener">
+      <div class="card-shots" style="background:#131320">
+        <img src="https://play-lh.googleusercontent.com/TxGhErw2yyOkaYau9NETxqVkjDc-MEh7V_pFjZ-t4vWqZfO8MsCC0gEhrmqs02s-=s512" alt="" loading="lazy" style="object-fit:contain;padding:16px">
+        <div class="card-shots-fade"></div>
+      </div>
+      <div class="rank">3</div>
+      <div class="card-body">
+        <div class="card-top">
+          <img class="game-icon" src="https://play-lh.googleusercontent.com/TxGhErw2yyOkaYau9NETxqVkjDc-MEh7V_pFjZ-t4vWqZfO8MsCC0gEhrmqs02s-=s512" alt="Minesweeper">
+          <div class="card-info"><div class="game-name">Minesweeper</div><div class="game-downloads">100+ Downloads</div></div>
+        </div>
+        <p class="game-desc">The timeless classic, rebuilt clean and simple. Flag the mines, clear the board, beat your best time.</p>
+        <div class="card-footer"><div class="rating"><span class="stars">&#9733;&#9733;&#9733;&#9733;</span>&nbsp;Free</div><span class="view-link">Play Free &rarr;</span></div>
+      </div>
+    </a>
+    <a class="game-card" href="https://play.google.com/store/apps/details?id=com.loopover.Circles" target="_blank" rel="noopener">
+      <div class="card-shots" style="background:#0f1320">
+        <img src="https://play-lh.googleusercontent.com/uZ3Wma8IidjtlvjTD8gVfjymZFtwfFLPY0CckyKisw7ULCjDg1DuDGNX31NQiXflPZo=s512" alt="" loading="lazy" style="object-fit:contain;padding:16px">
+        <div class="card-shots-fade"></div>
+      </div>
+      <div class="rank">4</div>
+      <div class="card-body">
+        <div class="card-top">
+          <img class="game-icon" src="https://play-lh.googleusercontent.com/uZ3Wma8IidjtlvjTD8gVfjymZFtwfFLPY0CckyKisw7ULCjDg1DuDGNX31NQiXflPZo=s512" alt="Circles">
+          <div class="card-info"><div class="game-name">Circles Brain Training</div><div class="game-downloads">10+ Downloads</div></div>
+        </div>
+        <p class="game-desc">Train your brain with this satisfying offline puzzle game. Challenge your reactions and pattern recognition.</p>
+        <div class="card-footer"><div class="rating"><span class="stars">&#9733;&#9733;&#9733;&#9733;</span>&nbsp;Free</div><span class="view-link">Play Free &rarr;</span></div>
+      </div>
+    </a>
+    <a class="game-card" href="https://play.google.com/store/apps/details?id=com.loopover.LearnToWalkMonsters" target="_blank" rel="noopener">
+      <div class="card-shots" style="background:#0f1a10">
+        <img src="https://play-lh.googleusercontent.com/ug6gr2Zf415RHvqH64W6bzxVFSod9615oWF18uIVOarlMqYDD_XxtnCkR6tYwYD_mlQ=s512" alt="" loading="lazy" style="object-fit:contain;padding:16px">
+        <div class="card-shots-fade"></div>
+      </div>
+      <div class="rank">5</div>
+      <div class="card-body">
+        <div class="card-top">
+          <img class="game-icon" src="https://play-lh.googleusercontent.com/ug6gr2Zf415RHvqH64W6bzxVFSod9615oWF18uIVOarlMqYDD_XxtnCkR6tYwYD_mlQ=s512" alt="Monsters">
+          <div class="card-info"><div class="game-name">Monsters Can Walk</div><div class="game-downloads">100+ Downloads</div></div>
+        </div>
+        <p class="game-desc">Teach your monster to walk in this quirky physics simulator. Evolve movement, adapt limbs, and survive the chaos.</p>
+        <div class="card-footer"><div class="rating"><span class="stars">&#9733;&#9733;&#9733;&#9733;</span>&nbsp;Free</div><span class="view-link">Play Free &rarr;</span></div>
+      </div>
+    </a>
+    <a class="game-card" href="https://play.google.com/store/apps/details?id=com.loopover.ArmyCommand" target="_blank" rel="noopener">
+      <div class="card-shots" style="background:#12100d">
+        <img src="https://play-lh.googleusercontent.com/JHSnmVUkGDnYngi7DjhZ3PdUljmIooFtquMhJDmlYQNB2MzlAZzMTACFxX6caMTUDyYv=s512" alt="" loading="lazy" style="object-fit:contain;padding:16px">
+        <div class="card-shots-fade"></div>
+      </div>
+      <div class="rank">6</div>
+      <div class="card-body">
+        <div class="card-top">
+          <img class="game-icon" src="https://play-lh.googleusercontent.com/JHSnmVUkGDnYngi7DjhZ3PdUljmIooFtquMhJDmlYQNB2MzlAZzMTACFxX6caMTUDyYv=s512" alt="Army Command">
+          <div class="card-info"><div class="game-name">Army Command</div><div class="game-downloads">500+ Downloads</div></div>
+        </div>
+        <p class="game-desc">Command your forces, watch your army grow, and dominate in this satisfying idle strategy simulator.</p>
+        <div class="card-footer"><div class="rating"><span class="stars">&#9733;&#9733;&#9733;&#9733;</span>&nbsp;Free</div><span class="view-link">Play Free &rarr;</span></div>
+      </div>
+    </a>
+    <a class="game-card" href="https://play.google.com/store/apps/details?id=com.loopover.ShapeShift" target="_blank" rel="noopener">
+      <div class="card-shots" style="background:#120d1a">
+        <img src="https://play-lh.googleusercontent.com/D5wIoCPla3DjIlwd0trCpUhtWFKVlHVU7Qb6mon51KEGLJb0JXbvIAOGoWtTxNF2M_g=s512" alt="" loading="lazy" style="object-fit:contain;padding:16px">
+        <div class="card-shots-fade"></div>
+      </div>
+      <div class="rank">7</div>
+      <div class="card-body">
+        <div class="card-top">
+          <img class="game-icon" src="https://play-lh.googleusercontent.com/D5wIoCPla3DjIlwd0trCpUhtWFKVlHVU7Qb6mon51KEGLJb0JXbvIAOGoWtTxNF2M_g=s512" alt="ShapeShift">
+          <div class="card-info"><div class="game-name">ShapeShift</div><div class="game-downloads">100+ Downloads</div></div>
+        </div>
+        <p class="game-desc">Match your shape to the right gate, race through levels, keep shifting to stay alive. Fast-paced and wildly fun.</p>
+        <div class="card-footer"><div class="rating"><span class="stars">&#9733;&#9733;&#9733;&#9733;</span>&nbsp;Free</div><span class="view-link">Play Free &rarr;</span></div>
+      </div>
+    </a>
+    <a class="game-card" href="https://play.google.com/store/apps/details?id=com.loopover.ImmunoGrid" target="_blank" rel="noopener">
+      <div class="card-shots" style="background:#0d1418">
+        <img src="https://play-lh.googleusercontent.com/1FsfMmEBZhtQQPfFAseainwixdznw0YpkrpcdwAzVW97wcuREYmGMexxMJpmRVtyr4xr=s512" alt="" loading="lazy" style="object-fit:contain;padding:16px">
+        <div class="card-shots-fade"></div>
+      </div>
+      <div class="rank">8</div>
+      <div class="card-body">
+        <div class="card-top">
+          <img class="game-icon" src="https://play-lh.googleusercontent.com/1FsfMmEBZhtQQPfFAseainwixdznw0YpkrpcdwAzVW97wcuREYmGMexxMJpmRVtyr4xr=s512" alt="ImmunoGrid">
+          <div class="card-info"><div class="game-name">ImmunoGrid</div><div class="game-downloads">100+ Downloads</div></div>
+        </div>
+        <p class="game-desc">A unique strategic puzzle where you battle viruses on a grid. Defend, attack, and outsmart your microscopic enemies.</p>
+        <div class="card-footer"><div class="rating"><span class="stars">&#9733;&#9733;&#9733;&#9733;</span>&nbsp;Free</div><span class="view-link">Play Free &rarr;</span></div>
+      </div>
+    </a>
+    <a class="game-card" href="https://play.google.com/store/apps/details?id=com.loopover.PlanetDrifters" target="_blank" rel="noopener">
+      <div class="card-shots" style="background:#0d1118">
+        <img src="https://play-lh.googleusercontent.com/-dPZgYGQjBR8fUnOQ43qqRs3GDBVZq5_6cF3hyesfdbxpw3OetScqG2A0Y4TSH5H2NE=s512" alt="" loading="lazy" style="object-fit:contain;padding:16px">
+        <div class="card-shots-fade"></div>
+      </div>
+      <div class="rank">9</div>
+      <div class="card-body">
+        <div class="card-top">
+          <img class="game-icon" src="https://play-lh.googleusercontent.com/-dPZgYGQjBR8fUnOQ43qqRs3GDBVZq5_6cF3hyesfdbxpw3OetScqG2A0Y4TSH5H2NE=s512" alt="Planet Drifters">
+          <div class="card-info"><div class="game-name">Planet Drifters</div><div class="game-downloads">100+ Downloads</div></div>
+        </div>
+        <p class="game-desc">Race and drift across alien planets in this fast-paced driving game. Push the limits of gravity and speed.</p>
+        <div class="card-footer"><div class="rating"><span class="stars">&#9733;&#9733;&#9733;&#9733;</span>&nbsp;Free</div><span class="view-link">Play Free &rarr;</span></div>
+      </div>
+    </a>
+  </div>
+</section>
+<footer>
+  <span class="footer-logo">Loopover</span>
+  <div class="footer-links">
+    <a href="mailto:contactloopover@gmail.com">Contact</a>
+    <a href="/privacy.html">Privacy Policy</a>
+    <a href="https://play.google.com/store/apps/dev?id=8423034874360651700" target="_blank" rel="noopener">Google Play</a>
+  </div>
+  <p class="footer-copy">&copy; 2026 Loopover. All rights reserved.</p>
+</footer>
+<script>
+window.addEventListener('DOMContentLoaded',function(){
+  if(!window.IntersectionObserver)return;
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e,i){
+      if(e.isIntersecting){setTimeout(function(){e.target.style.opacity='1';e.target.style.transform='none'},i*60);obs.unobserve(e.target)}
+    });
+  },{threshold:0.06});
+  document.querySelectorAll('.game-card,.featured-card,.section-header').forEach(function(el){
+    el.style.opacity='0';el.style.transform='translateY(20px)';el.style.transition='opacity 0.5s ease,transform 0.5s ease';
+    obs.observe(el);
+  });
+});
+</script>
+</body>
+</html>
