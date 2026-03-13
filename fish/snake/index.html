@@ -6,73 +6,71 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#000000">
-    <title>Snake: Discrete Pro</title>
+    <title>Snake: Pro Balance</title>
     <style>
-        :root { --glow: #00ff41; --gold: #ffcc00; }
+        :root { --glow: #00ff41; }
         body {
             display: flex; justify-content: center; align-items: center;
             height: 100vh; margin: 0; background: #000;
-            font-family: 'Courier New', Courier, monospace; overflow: hidden; touch-action: none;
+            font-family: sans-serif; overflow: hidden; touch-action: none;
             user-select: none;
         }
         .game-container { position: relative; width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; }
-        .header { width: 90%; display: flex; justify-content: space-between; margin-bottom: 10px; z-index: 5; }
-        .stat { display: flex; flex-direction: column; }
-        .label { font-size: 10px; color: #444; text-transform: uppercase; }
-        #score, #highScore { font-size: 20px; font-weight: bold; color: var(--glow); }
-        #highScore { color: var(--gold); }
-        
+        .header { width: 90%; display: flex; justify-content: space-between; margin-bottom: 10px; z-index: 5; color: var(--glow); font-weight: bold; }
         canvas { 
-            background: #000; border: 2px solid #111; border-radius: 4px; 
-            max-width: 95vw; max-height: 95vw; cursor: crosshair; display: block;
+            background: #000; border: 1px solid #222; border-radius: 4px; 
+            max-width: 95vw; max-height: 95vw; display: block; image-rendering: pixelated;
         }
-
-        /* Discrete Joystick */
         #joy-base {
-            position: fixed; width: 80px; height: 80px; 
-            border: 1px solid rgba(255,255,255,0.05); /* Very faint border */
-            border-radius: 50%; pointer-events: none; display: none; z-index: 100;
+            position: fixed; width: 60px; height: 60px; 
+            border: 1px solid rgba(255,255,255,0.03); border-radius: 50%;
+            pointer-events: none; display: none; z-index: 100;
         }
         #joy-stick {
-            position: absolute; width: 30px; height: 30px; background: var(--glow);
-            border-radius: 50%; opacity: 0.15; /* Barely visible */
-            left: 25px; top: 25px; pointer-events: none;
+            position: absolute; width: 20px; height: 20px; background: var(--glow);
+            border-radius: 50%; opacity: 0.1; left: 20px; top: 20px;
         }
-
         #overlay {
             position: absolute; top: 40px; bottom: 0; left: 0; right: 0;
-            background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
+            background: rgba(0,0,0,0.8); display: flex; flex-direction: column;
             justify-content: center; align-items: center; z-index: 10; pointer-events: none;
         }
-        h2 { color: #fff; letter-spacing: 5px; margin: 0; text-shadow: 0 0 10px var(--glow); }
-        p { color: #888; font-size: 11px; text-align: center; line-height: 1.5; padding: 10px; }
+        h2 { color: #fff; letter-spacing: 5px; margin: 0; }
+        p { color: #666; font-size: 11px; text-align: center; }
     </style>
 </head>
 <body>
 
     <div class="game-container">
         <div class="header">
-            <div class="stat"><span class="label">Score</span><div id="score">0</div></div>
-            <div class="stat" style="text-align:right"><span class="label">Best</span><div id="highScore">0</div></div>
+            <div>Score: <span id="score">0</span></div>
+            <div>Best: <span id="highScore">0</span></div>
         </div>
         <canvas id="gameCanvas" width="400" height="400"></canvas>
         <div id="joy-base"><div id="joy-stick"></div></div>
         <div id="overlay">
-            <h2 id="overlay-title">SNAKE</h2>
+            <h2 id="title">SNAKE</h2>
             <p><strong>WASD / ARROWS</strong><br>OR<br><strong>TAP / CLICK</strong> TO START</p>
         </div>
     </div>
 
 <script>
-    const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
+    const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d', { alpha: false });
     const scoreEl = document.getElementById('score'), highEl = document.getElementById('highScore');
     const overlay = document.getElementById('overlay'), joyBase = document.getElementById('joy-base'), joyStick = document.getElementById('joy-stick');
 
     const grid = 20;
-    let score, highScore, snake, food, fx, isPlaying, fps, lastTime;
+    const START_FPS = 7;   // Slower starting speed
+    const MAX_FPS = 18;    // Challenging but fair cap
+    const SPEED_INC = 0.4; // How much to speed up per fruit
+
+    let score, highScore, snake, food, isPlaying, fps, lastTime;
+
+    const MAX_PARTICLES = 12;
+    const particles = Array.from({ length: MAX_PARTICLES }, () => ({ x: 0, y: 0, vx: 0, vy: 0, life: 0, color: '' }));
 
     let active = false, startX, startY;
-    const joyLimit = 35, threshold = 12;
+    const joyLimit = 30, threshold = 10;
 
     highScore = parseInt(localStorage.getItem('snakeHigh')) || 0;
     highEl.innerText = highScore;
@@ -80,22 +78,30 @@
     function init() {
         snake = { x: 160, y: 160, dx: grid, dy: 0, cells: [], maxCells: 4 };
         food = { x: 300, y: 300 };
-        fx = []; score = 0; fps = 10;
-        scoreEl.innerText = score;
+        score = 0; 
+        fps = START_FPS; 
         isPlaying = false;
+        scoreEl.innerText = score;
         overlay.style.display = 'flex';
         renderStatic();
     }
 
     function renderStatic() {
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        ctx.fillStyle = '#ff3333'; ctx.beginPath(); ctx.arc(food.x+10, food.y+10, 6, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#000'; ctx.fillRect(0,0,400,400);
+        ctx.fillStyle = '#ff3333'; ctx.fillRect(food.x+4, food.y+4, 12, 12);
         ctx.fillStyle = '#00ff41'; ctx.fillRect(snake.x+1, snake.y+1, 18, 18);
     }
 
-    function burst(x, y, color, count, speed, size) {
-        for(let i=0; i<count; i++) {
-            fx.push({ x, y, vx: (Math.random()-0.5)*speed, vy: (Math.random()-0.5)*speed, life: 1.0, color, size: Math.random()*size+2 });
+    function spawnBurst(x, y, color, count) {
+        let spawned = 0;
+        for (let p of particles) {
+            if (p.life <= 0) {
+                p.x = x; p.y = y;
+                p.vx = (Math.random() - 0.5) * 6;
+                p.vy = (Math.random() - 0.5) * 6;
+                p.life = 1.0; p.color = color;
+                if (++spawned >= count) break;
+            }
         }
     }
 
@@ -106,7 +112,8 @@
         if (delta < 1000 / fps) return;
         lastTime = t;
 
-        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 400, 400);
+
         snake.x += snake.dx; snake.y += snake.dy;
         if (snake.x < 0) snake.x = 380; else if (snake.x >= 400) snake.x = 0;
         if (snake.y < 0) snake.y = 380; else if (snake.y >= 400) snake.y = 0;
@@ -114,31 +121,39 @@
         snake.cells.unshift({x: snake.x, y: snake.y});
         if (snake.cells.length > snake.maxCells) snake.cells.pop();
 
-        ctx.shadowBlur = 15; ctx.shadowColor = 'red';
-        ctx.fillStyle = '#ff3333'; ctx.beginPath(); ctx.arc(food.x+10, food.y+10, 6, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#ff3333'; ctx.fillRect(food.x+4, food.y+4, 12, 12);
 
         snake.cells.forEach((cell, i) => {
-            ctx.shadowBlur = i === 0 ? 15 : 0; ctx.shadowColor = '#00ff41';
+            if (i === 0) {
+                ctx.fillStyle = 'rgba(0, 255, 65, 0.2)';
+                ctx.fillRect(cell.x-2, cell.y-2, 24, 24);
+            }
             ctx.fillStyle = i === 0 ? '#00ff41' : '#008f11';
             ctx.fillRect(cell.x+1, cell.y+1, 18, 18);
             if (i > 0 && cell.x === snake.x && cell.y === snake.y) end();
         });
 
         if (snake.x === food.x && snake.y === food.y) {
-            snake.maxCells++; score += 10; scoreEl.innerText = score; fps += 0.2;
-            burst(food.x+10, food.y+10, '#00ff41', 8, 4, 2);
+            snake.maxCells++; score += 10; scoreEl.innerText = score;
+            
+            // Speed curve logic
+            if (fps < MAX_FPS) fps += SPEED_INC;
+            
+            spawnBurst(food.x+10, food.y+10, score > highScore ? '#ffcc00' : '#00ff41', 4);
             if (score > highScore) {
-                highScore = score; highEl.innerText = highScore; localStorage.setItem('snakeHigh', highScore);
-                burst(food.x+10, food.y+10, `hsl(${Math.random()*360},100%,50%)`, 20, 10, 4);
+                highScore = score; highEl.innerText = highScore;
+                localStorage.setItem('snakeHigh', highScore);
             }
-            food.x = Math.floor(Math.random()*20)*grid; food.y = Math.floor(Math.random()*20)*grid;
+            food.x = ((Math.random() * 20) | 0) * grid;
+            food.y = ((Math.random() * 20) | 0) * grid;
         }
 
-        ctx.shadowBlur = 0;
-        for(let i = fx.length-1; i >= 0; i--) {
-            const p = fx[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.02;
-            if(p.life <= 0) { fx.splice(i, 1); continue; }
-            ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size);
+        for (let p of particles) {
+            if (p.life > 0) {
+                p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+                ctx.fillStyle = p.color; ctx.globalAlpha = p.life;
+                ctx.fillRect(p.x|0, p.y|0, 3, 3);
+            }
         }
         ctx.globalAlpha = 1;
     }
@@ -153,50 +168,40 @@
 
     function end() { isPlaying = false; init(); }
 
+    function startPtr(e) {
+        active = true;
+        startX = (e.pageX || e.touches[0].pageX); startY = (e.pageY || e.touches[0].pageY);
+        joyBase.style.display = 'block';
+        joyBase.style.left = (startX - 30) + 'px'; joyBase.style.top = (startY - 30) + 'px';
+    }
+
+    function movePtr(e) {
+        if (!active) return;
+        if (e.touches) e.preventDefault();
+        const px = (e.pageX || e.touches[0].pageX), py = (e.pageY || e.touches[0].pageY);
+        let dx = px - startX, dy = py - startY;
+        if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0;
+        const d = Math.abs(dx || dy);
+        if (d > joyLimit) { if(dx) dx = (dx/d)*joyLimit; if(dy) dy = (dy/d)*joyLimit; }
+        joyStick.style.transform = `translate(${dx}px, ${dy}px)`;
+        if (d > threshold) {
+            if (dx) handleInput(dx > 0 ? 'r' : 'l');
+            else handleInput(dy > 0 ? 'd' : 'u');
+        }
+    }
+
+    function endPtr() { active = false; joyBase.style.display = 'none'; }
+
     window.addEventListener('keydown', e => {
         const k = e.key.toLowerCase();
         if (k === 'arrowleft' || k === 'a') handleInput('l');
         else if (k === 'arrowup' || k === 'w') handleInput('u');
         else if (k === 'arrowright' || k === 'd') handleInput('r');
         else if (k === 'arrowdown' || k === 's') handleInput('d');
-        if(k.includes('arrow')) e.preventDefault();
     });
 
-    function onStart(e) {
-        active = true;
-        startX = (e.pageX || e.touches[0].pageX); startY = (e.pageY || e.touches[0].pageY);
-        joyBase.style.display = 'block';
-        joyBase.style.left = `${startX - 40}px`; joyBase.style.top = `${startY - 40}px`;
-        joyStick.style.transform = `translate(0px, 0px)`;
-    }
-
-    function onMove(e) {
-        if (!active) return;
-        if (e.touches) e.preventDefault();
-        const pageX = (e.pageX || e.touches[0].pageX), pageY = (e.pageY || e.touches[0].pageY);
-        let dx = pageX - startX, dy = pageY - startY;
-
-        // Force Cardinal Movement (Stick only moves in + shape)
-        if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0;
-
-        const dist = Math.abs(dx || dy);
-        if (dist > joyLimit) {
-            if (dx) dx = (dx / dist) * joyLimit;
-            if (dy) dy = (dy / dist) * joyLimit;
-        }
-
-        joyStick.style.transform = `translate(${dx}px, ${dy}px)`;
-
-        if (Math.abs(dx || dy) > threshold) {
-            if (dx) handleInput(dx > 0 ? 'r' : 'l');
-            else handleInput(dy > 0 ? 'd' : 'u');
-        }
-    }
-
-    function onEnd() { active = false; joyBase.style.display = 'none'; }
-
-    window.addEventListener('mousedown', onStart); window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onEnd);
-    window.addEventListener('touchstart', onStart, {passive: false}); window.addEventListener('touchmove', onMove, {passive: false}); window.addEventListener('touchend', onEnd);
+    window.addEventListener('mousedown', startPtr); window.addEventListener('mousemove', movePtr); window.addEventListener('mouseup', endPtr);
+    window.addEventListener('touchstart', startPtr, {passive: false}); window.addEventListener('touchmove', movePtr, {passive: false}); window.addEventListener('touchend', endPtr);
 
     init();
 </script>
