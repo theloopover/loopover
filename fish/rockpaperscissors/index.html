@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two-Hand RPS: Streak Edition</title>
+    <style>
+        :root {
+            --primary: #4a90e2;
+            --secondary: #f39c12;
+            --success: #2ecc71;
+            --danger: #e74c3c;
+            --accent: #9b59b6;
+            --bg: #1a1a2e;
+            --text: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        #header {
+            text-align: center;
+            padding: 15px;
+            width: 100%;
+            background: rgba(0,0,0,0.2);
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            font-weight: bold;
+            font-size: 1rem;
+            color: var(--secondary);
+            margin-bottom: 5px;
+        }
+
+        #streakDisplay {
+            font-size: 0.9rem;
+            color: var(--accent);
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            height: 1.2em;
+        }
+
+        #resultText {
+            font-size: 1.4rem;
+            margin: 10px 0;
+            min-height: 1.5em;
+        }
+
+        #battlefield {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            width: 100%;
+            flex-grow: 1;
+            max-width: 500px;
+        }
+
+        .hand-display {
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .hand-icon {
+            font-size: 4.5rem;
+            display: block;
+            margin-bottom: 10px;
+            filter: drop-shadow(0 0 10px rgba(255,255,255,0.1));
+        }
+
+        .label { font-size: 0.75rem; text-transform: uppercase; opacity: 0.6; }
+
+        #controls {
+            background: #16213e;
+            width: 100%;
+            padding: 20px;
+            border-radius: 25px 25px 0 0;
+            box-shadow: 0 -5px 25px rgba(0,0,0,0.6);
+            box-sizing: border-box;
+        }
+
+        .panel {
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .active { display: flex; }
+
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        button {
+            padding: 14px;
+            font-size: 0.95rem;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            background: var(--primary);
+            color: white;
+            font-weight: bold;
+            flex: 1;
+            transition: transform 0.1s;
+        }
+
+        button:active { transform: scale(0.92); }
+
+        .btn-throw { background: var(--secondary); padding: 18px; font-size: 1.1rem; }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .streak-active { color: var(--accent); text-shadow: 0 0 10px var(--accent); }
+    </style>
+</head>
+<body>
+
+    <div id="header">
+        <div class="stats">
+            <span>Score: <span id="score">0</span></span>
+            <span>High: <span id="highScore">0</span></span>
+            <span>Level: <span id="level">1</span></span>
+        </div>
+        <div id="streakDisplay">Streak: 0</div>
+        <div id="resultText">Pick your first hand!</div>
+    </div>
+
+    <div id="battlefield">
+        <div class="hand-display" id="playerDisplay">
+            <span class="label">Your Throw</span>
+            <span class="hand-icon" id="playerHand">❓</span>
+        </div>
+        <div class="hand-display" id="cpuDisplay">
+            <span class="label">CPU Pool</span>
+            <span class="hand-icon" id="cpuHand">❓</span>
+        </div>
+    </div>
+
+    <div id="controls">
+        <div id="poolPanel" class="panel active">
+            <p style="text-align: center; margin: 0; font-size: 0.9rem;">Pick 2 hands for your pool</p>
+            <div class="btn-group">
+                <button onclick="pickPool(0)">🪨 Rock</button>
+                <button onclick="pickPool(1)">📄 Paper</button>
+                <button onclick="pickPool(2)">✂️ Scissors</button>
+            </div>
+            <div id="poolIndicators" style="text-align:center; font-size: 1.1rem; margin-top: 5px;">
+                Pool: <span id="p1">-</span>, <span id="p2">-</span>
+            </div>
+        </div>
+
+        <div id="throwPanel" class="panel">
+            <p style="text-align: center; margin: 0; font-size: 0.9rem;">Final Choice!</p>
+            <div class="btn-group">
+                <button id="throwBtn1" class="btn-throw" onclick="resolveRound(0)"></button>
+                <button id="throwBtn2" class="btn-throw" onclick="resolveRound(1)"></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const hands = ["Rock", "Paper", "Scissors"];
+        const icons = ["🪨", "📄", "✂️"];
+        
+        let gameState = {
+            score: 0,
+            highScore: localStorage.getItem('rps_highScore') || 0,
+            level: 1,
+            streak: 0,
+            playerPool: [],
+            cpuPool: []
+        };
+
+        document.getElementById('highScore').innerText = gameState.highScore;
+
+        function pickPool(handIndex) {
+            gameState.playerPool.push(handIndex);
+            document.getElementById(`p${gameState.playerPool.length}`).innerText = icons[handIndex];
+
+            if (gameState.playerPool.length === 2) {
+                startThrowPhase();
+            } else {
+                document.getElementById('resultText').innerText = "Pick your second hand!";
+            }
+        }
+
+        function startThrowPhase() {
+            gameState.cpuPool = [Math.floor(Math.random() * 3), Math.floor(Math.random() * 3)];
+            document.getElementById('cpuHand').innerText = `${icons[gameState.cpuPool[0]]}${icons[gameState.cpuPool[1]]}`;
+            document.getElementById('resultText').innerText = "Pools revealed! Throw!";
+
+            document.getElementById('throwBtn1').innerText = icons[gameState.playerPool[0]] + " " + hands[gameState.playerPool[0]];
+            document.getElementById('throwBtn2').innerText = icons[gameState.playerPool[1]] + " " + hands[gameState.playerPool[1]];
+
+            document.getElementById('poolPanel').classList.remove('active');
+            document.getElementById('throwPanel').classList.add('active');
+        }
+
+        function resolveRound(poolIndex) {
+            const playerThrow = gameState.playerPool[poolIndex];
+            const cpuThrow = gameState.cpuPool[Math.floor(Math.random() * 2)];
+            const isSuperPair = gameState.playerPool[0] === gameState.playerPool[1];
+            
+            document.getElementById('playerHand').innerText = icons[playerThrow];
+            document.getElementById('cpuHand').innerText = icons[cpuThrow];
+            
+            let resultMsg = "";
+            let basePoints = 0;
+            let roundWon = false;
+
+            // RPS Logic
+            if (playerThrow === cpuThrow) {
+                if (isSuperPair) {
+                    resultMsg = "Super Mirror!";
+                    basePoints = 1;
+                    roundWon = true; // Still counts as progress for Super pairs
+                } else {
+                    resultMsg = "Draw!";
+                    gameState.streak = 0; // Reset streak on draw
+                }
+            } else if ((playerThrow === 0 && cpuThrow === 2) || (playerThrow === 1 && cpuThrow === 0) || (playerThrow === 2 && cpuThrow === 1)) {
+                resultMsg = isSuperPair ? "SUPER WIN!" : "Win!";
+                basePoints = isSuperPair ? 2 : 1;
+                roundWon = true;
+            } else {
+                resultMsg = "Lost Round!";
+                gameState.streak = 0; // Reset streak on loss
+            }
+
+            if (roundWon) {
+                gameState.streak++;
+                let bonus = 0;
+                // Streak Bonus every 3 wins
+                if (gameState.streak >= 3) {
+                    bonus = 1;
+                    resultMsg += " + Combo Bonus!";
+                }
+                updateScore(basePoints + bonus);
+            }
+
+            document.getElementById('resultText').innerText = resultMsg;
+            updateStreakUI();
+            setTimeout(resetRound, 1800);
+        }
+
+        function updateScore(p) {
+            gameState.score += p;
+            document.getElementById('score').innerText = gameState.score;
+            if (gameState.score > gameState.highScore) {
+                gameState.highScore = gameState.score;
+                localStorage.setItem('rps_highScore', gameState.highScore);
+                document.getElementById('highScore').innerText = gameState.highScore;
+            }
+            gameState.level = Math.floor(gameState.score / 5) + 1;
+            document.getElementById('level').innerText = gameState.level;
+        }
+
+        function updateStreakUI() {
+            const sd = document.getElementById('streakDisplay');
+            sd.innerText = `Streak: ${gameState.streak}`;
+            if (gameState.streak >= 3) {
+                sd.classList.add('streak-active');
+            } else {
+                sd.classList.remove('streak-active');
+            }
+        }
+
+        function resetRound() {
+            gameState.playerPool = [];
+            gameState.cpuPool = [];
+            document.getElementById('p1').innerText = "-";
+            document.getElementById('p2').innerText = "-";
+            document.getElementById('playerHand').innerText = "❓";
+            document.getElementById('cpuHand').innerText = "❓";
+            document.getElementById('resultText').innerText = "Pick your first hand!";
+            document.getElementById('throwPanel').classList.remove('active');
+            document.getElementById('poolPanel').classList.add('active');
+        }
+    </script>
+</body>
+</html>
