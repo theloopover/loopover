@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>fish</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#000;color:#fff;font-family:'DM Sans',sans-serif;overflow:hidden}
+
+body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:64px}
+
+.title{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,8vw,5rem);letter-spacing:0.04em;line-height:1;opacity:0;animation:fadeIn 1.2s 0.3s forwards}
+.title span{color:#e8ff47}
+
+.links{display:flex;flex-direction:column;align-items:center;gap:20px;opacity:0;animation:fadeIn 1s 1s forwards}
+
+.links a{color:#fff;text-decoration:none;font-size:clamp(1.5rem,5vw,3rem);letter-spacing:0.15em;text-transform:uppercase;font-family:'Bebas Neue',sans-serif;position:relative;transition:color 0.2s}
+.links a::after{content:'';position:absolute;bottom:-3px;left:0;width:0;height:2px;background:#e8ff47;transition:width 0.3s ease}
+.links a:hover::after{width:100%}
+.links a:hover{color:#e8ff47}
+
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+  <h1 class="title">Welcome <span>Fish</span></h1>
+  <nav class="links">
+    <a href="/fish/snake">Snake</a>
+  </nav>
+</body>
+</html>
