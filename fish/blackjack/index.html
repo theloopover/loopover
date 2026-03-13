@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blackjack Switch (Cross-Platform)</title>
+    <title>Blackjack Switch (Full Rules)</title>
     <style>
         :root { --card-width: 80px; --card-height: 120px; }
         body { 
@@ -15,17 +15,15 @@
             display: flex; flex-direction: column; min-height: 100vh; justify-content: space-between; padding: 15px; box-sizing: border-box; max-width: 1000px; margin: 0 auto;
         }
         #status-bar { 
-            background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; font-size: 1rem; font-weight: bold; min-height: 24px; color: #ADBC9F; transition: all 0.3s;
+            background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; font-size: 1rem; font-weight: bold; min-height: 24px; color: #ADBC9F; transition: transform 0.2s;
         }
         
-        /* Mobile First: Horizontal Scroll for Hands */
         .hand { 
             display: flex; gap: 10px; overflow-x: auto; padding: 20px 10px; min-height: var(--card-height);
             -webkit-overflow-scrolling: touch; scrollbar-width: none; align-items: center;
         }
         .hand::-webkit-scrollbar { display: none; }
         
-        /* Desktop: Wrap Hands and add Hover */
         @media (min-width: 768px) {
             .hand { flex-wrap: wrap; justify-content: center; overflow-x: visible; }
             .card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
@@ -41,11 +39,14 @@
         .card.back { background: radial-gradient(#4361ee, #3f37c9); border: 2px solid white; color: transparent; cursor: pointer; }
         
         #center-area { display: flex; justify-content: center; align-items: center; gap: 30px; margin: 20px 0; }
+        
         .active-card { 
             width: 110px; height: 160px; background: white; color: black; border-radius: 12px; 
             display: flex; align-items: center; justify-content: center; font-size: 2.5rem; 
             border: 5px solid #ADBC9F; box-shadow: 0 0 20px rgba(173, 188, 159, 0.6);
         }
+        /* Explicitly added rule for the center card color */
+        .active-card.red { color: #d32f2f; } 
         
         .btn { 
             background: #ADBC9F; color: #12372A; border: none; padding: 15px 30px; 
@@ -54,7 +55,6 @@
         }
         .btn:active { transform: translateY(4px); box-shadow: 0 0 #436850; }
 
-        /* GPU-Accelerated Animations */
         @keyframes popIn {
             0% { transform: scale(0.5); opacity: 0; }
             70% { transform: scale(1.1); }
@@ -67,7 +67,6 @@
         .anim-pop { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         .anim-draw { animation: slideDown 0.3s ease-out forwards; }
 
-        /* Suit Picker Overlay */
         #suit-picker { 
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(5px);
@@ -103,8 +102,8 @@
     <div class="picker-content">
         <h2>Pick a Suit</h2>
         <button class="suit-btn" onclick="selectSuit('♠')">♠</button>
-        <button class="suit-btn" style="color:red" onclick="selectSuit('♥')">♥</button>
-        <button class="suit-btn" style="color:red" onclick="selectSuit('♦')">♦</button>
+        <button class="suit-btn" style="color:#d32f2f" onclick="selectSuit('♥')">♥</button>
+        <button class="suit-btn" style="color:#d32f2f" onclick="selectSuit('♦')">♦</button>
         <button class="suit-btn" onclick="selectSuit('♣')">♣</button>
     </div>
 </div>
@@ -115,6 +114,7 @@
     let deck = [], playerHand = [], cpuHand = [], centerCard = null;
     let penaltyStack = 0, currentSuit = '', mustCover = false;
     let pCardsJustDrawn = 0, cCardsJustDrawn = 0, triggerCenterAnim = false;
+    let isPlayerTurn = true; // Added strict turn control
 
     function initGame() {
         deck = [];
@@ -127,6 +127,7 @@
         pCardsJustDrawn = 7; 
         cCardsJustDrawn = 7;
         triggerCenterAnim = true;
+        isPlayerTurn = true;
         render();
     }
 
@@ -140,7 +141,7 @@
             el.onclick = () => playCard(i);
             pHandDiv.appendChild(el);
         });
-        pCardsJustDrawn = 0; // Reset after render
+        pCardsJustDrawn = 0; 
 
         const cpuHandDiv = document.getElementById('cpu-hand');
         cpuHandDiv.innerHTML = '';
@@ -149,15 +150,14 @@
             el.className = `card back ${i >= cpuHand.length - cCardsJustDrawn ? 'anim-draw' : ''}`;
             cpuHandDiv.appendChild(el);
         });
-        cCardsJustDrawn = 0; // Reset after render
+        cCardsJustDrawn = 0; 
 
         const centerDiv = document.getElementById('current-card-display');
         centerDiv.innerHTML = centerCard.rank + currentSuit;
         
-        // Remove and re-add animation class to trigger reflow
         centerDiv.className = `active-card ${(currentSuit==='♥'||currentSuit==='♦')?'red':''}`;
         if (triggerCenterAnim) {
-            void centerDiv.offsetWidth; // Trigger reflow
+            void centerDiv.offsetWidth; 
             centerDiv.classList.add('anim-pop');
             triggerCenterAnim = false;
         }
@@ -174,51 +174,73 @@
     }
 
     function playCard(index) {
+        if (!isPlayerTurn) return; // Prevent playing out of turn
+
         const card = playerHand[index];
         const isBlackJack = (card.rank === 'J' && (card.suit === '♠' || card.suit === '♣'));
+        const isRedJack = (card.rank === 'J' && (card.suit === '♥' || card.suit === '♦'));
 
-        if (mustCover && card.suit !== currentSuit) return log("MUST COVER THE QUEEN'S SUIT!");
+        // Queen covering logic (Allowed to play another Queen of a different suit)
+        if (mustCover) {
+            if (card.suit !== currentSuit && card.rank !== 'Q') return log("MUST COVER WITH SAME SUIT OR A QUEEN!");
+        }
         
+        // Penalty defensive logic
         if (penaltyStack > 0) {
-            const canDefend = (penaltyStack % 5 === 0) ? isBlackJack : (card.rank === '2');
-            if (!canDefend) return log(`PLAY PENALTY OR DRAW ${penaltyStack}!`);
+            let canDefend = false;
+            if (isRedJack) canDefend = true; // Red Jack saves you
+            else if (penaltyStack % 5 === 0) canDefend = isBlackJack;
+            else canDefend = (card.rank === '2');
+
+            if (!canDefend) return log(`PLAY VALID PENALTY CARD, RED JACK, OR DRAW ${penaltyStack}!`);
         }
 
-        if (card.rank === centerCard.rank || card.suit === currentSuit || card.rank === 'A') {
-            centerCard = playerHand.splice(index, 1)[0];
-            currentSuit = centerCard.suit;
+        const isMatch = card.rank === centerCard.rank || card.suit === currentSuit || card.rank === 'A' || (penaltyStack > 0 && isRedJack);
+        if (!isMatch) return log("INVALID MOVE!");
+
+        // Valid play executed
+        centerCard = playerHand.splice(index, 1)[0];
+        currentSuit = centerCard.suit;
+        triggerCenterAnim = true;
+        isPlayerTurn = false; // Turn ends by default unless a power card overrides it
+
+        // Process penalty stacking / cancelling
+        if (isRedJack && penaltyStack > 0) {
+            penaltyStack = 0;
+            log("RED JACK CANCELLED THE PENALTY!");
+        } else if (centerCard.rank === '2') {
+            penaltyStack += 2;
+        } else if (isBlackJack) {
+            penaltyStack += 5;
+        }
+
+        if (checkWin()) return;
+
+        // Process turn-based Power Cards
+        if (centerCard.rank === 'Q') {
+            mustCover = true;
+            log("QUEEN PLAYED! NOW COVER IT.");
+            isPlayerTurn = true; // Keep the turn
+            render();
+        } else if (centerCard.rank === 'K') {
             mustCover = false;
-            triggerCenterAnim = true;
-            
-            if (centerCard.rank === 'Q') {
-                mustCover = true;
-                log("QUEEN PLAYED! NOW COVER IT.");
-                render();
-            } else if (centerCard.rank === 'K') {
-                log("KING! YOU GO AGAIN.");
-                render();
-            } else {
-                handlePowerCards(centerCard, true);
-            }
-        }
-    }
-
-    function handlePowerCards(card, isPlayer) {
-        if (card.rank === '2') penaltyStack += 2;
-        if (card.rank === 'J' && (card.suit === '♠' || card.suit === '♣')) penaltyStack += 5;
-        
-        if (card.rank === 'A' && isPlayer) {
+            log("KING! YOU GO AGAIN.");
+            isPlayerTurn = true; // Keep the turn
+            render();
+        } else if (centerCard.rank === '8') {
+            mustCover = false;
+            log("EIGHT! CPU MISSES A GO.");
+            isPlayerTurn = true; // Keep the turn
+            render();
+        } else if (centerCard.rank === 'A') {
+            mustCover = false;
             document.getElementById('suit-picker').style.display = 'flex';
             render();
-            return;
-        } else if (card.rank === 'A' && !isPlayer) {
-            currentSuit = suits[Math.floor(Math.random() * 4)];
-        }
-
-        render();
-        if (!checkWin()) {
-            if (isPlayer) { log("CPU TURN..."); setTimeout(cpuTurn, 1000); }
-            else { log("YOUR TURN!"); }
+            // Wait for selectSuit() to end turn
+        } else {
+            mustCover = false;
+            render();
+            setTimeout(cpuTurn, 1000);
         }
     }
 
@@ -226,12 +248,15 @@
         currentSuit = s;
         document.getElementById('suit-picker').style.display = 'none';
         triggerCenterAnim = true;
+        isPlayerTurn = false;
         render();
         log("CPU TURN...");
         setTimeout(cpuTurn, 1000);
     }
 
     function playerDraw() {
+        if (!isPlayerTurn) return; // Prevent drawing out of turn
+
         if (mustCover) {
             if(deck.length > 0) { playerHand.push(deck.pop()); pCardsJustDrawn++; }
             mustCover = false;
@@ -242,15 +267,28 @@
             penaltyStack = 0;
             log(`DREW CARDS.`);
         }
+        isPlayerTurn = false;
         render();
         setTimeout(cpuTurn, 800);
     }
 
     function cpuTurn() {
+        if (checkWin()) return;
+        isPlayerTurn = false; 
+
         const idx = cpuHand.findIndex(c => {
-            if (mustCover) return c.suit === currentSuit;
-            if (penaltyStack > 0) return (penaltyStack % 5 === 0) ? (c.rank === 'J' && (c.suit === '♠' || c.suit === '♣')) : (c.rank === '2');
-            return c.rank === centerCard.rank || c.suit === currentSuit || c.rank === 'A';
+            const isBlackJack = (c.rank === 'J' && (c.suit === '♠' || c.suit === '♣'));
+            const isRedJack = (c.rank === 'J' && (c.suit === '♥' || c.suit === '♦'));
+            
+            if (mustCover) {
+                if (c.suit !== currentSuit && c.rank !== 'Q') return false;
+            } else if (penaltyStack > 0) {
+                if (isRedJack) return true;
+                if (penaltyStack % 5 === 0) return isBlackJack;
+                return c.rank === '2';
+            }
+            
+            return c.rank === centerCard.rank || c.suit === currentSuit || c.rank === 'A' || (penaltyStack > 0 && isRedJack);
         });
 
         if (idx !== -1) {
@@ -259,31 +297,62 @@
             currentSuit = card.suit;
             triggerCenterAnim = true;
 
+            const isBlackJack = (card.rank === 'J' && (card.suit === '♠' || card.suit === '♣'));
+            const isRedJack = (card.rank === 'J' && (card.suit === '♥' || card.suit === '♦'));
+
+            if (isRedJack && penaltyStack > 0) {
+                penaltyStack = 0;
+                log("CPU RED JACK! PENALTY CANCELLED.");
+            } else if (card.rank === '2') {
+                penaltyStack += 2;
+            } else if (isBlackJack) {
+                penaltyStack += 5;
+            }
+
+            if (checkWin()) return;
+
             if (card.rank === 'Q') {
                 mustCover = true;
                 log("CPU PLAYED QUEEN!");
                 render();
-                setTimeout(cpuTurn, 1000);
+                setTimeout(cpuTurn, 1000); // CPU must cover it
             } else if (card.rank === 'K') {
+                mustCover = false;
                 log("CPU KING! IT GOES AGAIN.");
                 render();
-                setTimeout(cpuTurn, 1000);
+                setTimeout(cpuTurn, 1000); // CPU goes again
+            } else if (card.rank === '8') {
+                mustCover = false;
+                log("CPU EIGHT! YOU MISS A GO.");
+                render();
+                setTimeout(cpuTurn, 1000); // CPU goes again
+            } else if (card.rank === 'A') {
+                mustCover = false;
+                currentSuit = suits[Math.floor(Math.random() * 4)];
+                log(`CPU PLAYED ACE! SUIT IS ${currentSuit}`);
+                render();
+                isPlayerTurn = true;
             } else {
                 mustCover = false;
-                handlePowerCards(card, false);
+                render();
+                log("YOUR TURN!");
+                isPlayerTurn = true;
             }
         } else {
             if (mustCover) { 
                 if(deck.length > 0) { cpuHand.push(deck.pop()); cCardsJustDrawn++; }
                 mustCover = false; 
+                log("CPU COULDN'T COVER. DRAWN 1.");
             } else { 
-                for(let i=0; i<(penaltyStack||1); i++) if(deck.length > 0) { cpuHand.push(deck.pop()); cCardsJustDrawn++; }
+                const count = penaltyStack || 1;
+                for(let i=0; i<count; i++) if(deck.length > 0) { cpuHand.push(deck.pop()); cCardsJustDrawn++; }
                 penaltyStack = 0; 
+                log(`CPU DREW CARDS.`);
             }
             render();
+            isPlayerTurn = true;
             log("YOUR TURN!");
         }
-        checkWin();
     }
 
     function checkWin() {
