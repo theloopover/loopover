@@ -2,106 +2,129 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RPS Ultra</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>RPS Ultra: Record Breaker</title>
     <style>
-        :root { --bg: #000; --txt: #fff; --acc: #bb86fc; --dim: #555; }
+        :root { 
+            --bg: #000; 
+            --txt: #fff; 
+            --acc: #bb86fc; 
+            --dim: #aaa; /* Silver for high readability */
+            --lose: #ff4b2b;
+            --record: #39ff14; /* Neon Green */
+        }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
         
         body {
             margin: 0; background: var(--bg); color: var(--txt);
-            font-family: system-ui, -apple-system, sans-serif;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
             height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+            transition: background-color 0.2s;
         }
 
-        /* High-Efficiency Header */
-        #header { text-align: center; padding: 20px 0 10px; flex-shrink: 0; }
-        #mainScore { font-size: 5rem; font-weight: 900; line-height: 1; display: block; }
-        .stats { font-size: 0.8rem; color: var(--dim); letter-spacing: 2px; margin-top: 5px; }
+        /* Header */
+        #header { text-align: center; padding: 35px 0 10px; flex-shrink: 0; }
+        #mainScore { font-size: 6rem; font-weight: 900; line-height: 0.8; display: block; }
+        #streak { font-size: 1.1rem; font-weight: 700; min-height: 1.5em; transition: color 0.4s; letter-spacing: 2px; margin-top: 5px; }
+        
+        .stats { font-size: 0.9rem; color: var(--dim); letter-spacing: 3px; text-transform: uppercase; margin-top: 10px; font-weight: 800; }
+        #hiLabel { transition: color 0.3s, text-shadow 0.3s; }
 
-        #hint { text-align: center; color: var(--acc); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; height: 1rem; }
-
-        /* Battlefield Layout */
+        /* Stage */
         #stage {
-            display: flex; justify-content: space-around; align-items: center;
-            flex-grow: 1; position: relative; padding: 0 10px;
+            display: flex; flex-direction: column; justify-content: space-around;
+            align-items: center; flex-grow: 1; position: relative; padding: 20px 0;
         }
 
-        .char { display: flex; flex-direction: column; align-items: center; width: 40%; }
-        .stick { width: 80px; height: 120px; stroke: #fff; stroke-width: 4; fill: none; }
-        .cpu-s { stroke: var(--acc); }
-        .hand { font-size: 4rem; height: 5rem; display: flex; align-items: center; justify-content: center; }
+        .label { font-size: 1.4rem; font-weight: 900; letter-spacing: 10px; color: var(--dim); transition: color 0.3s; }
+        .cpu-label-active { color: var(--acc); text-shadow: 0 0 10px var(--acc); }
 
-        #pool { font-size: 1.5rem; color: var(--acc); position: absolute; bottom: 20%; }
+        .pool-display { font-size: 2.8rem; height: 3.2rem; margin: 5px 0; letter-spacing: 15px; transition: opacity 0.2s; font-weight: bold; }
 
-        /* Hardware Accelerated Overlays */
+        #confrontation {
+            position: absolute; top: 50%; left: 0; width: 100%;
+            transform: translateY(-50%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 15px; pointer-events: none; z-index: 10;
+        }
+
+        .fighter { font-size: 8.5rem; line-height: 1; opacity: 0; transform: scale(0.5); transition: all 0.3s cubic-bezier(.18,.89,.32,1.28); }
+        .fighter.active { opacity: 1; transform: scale(1); }
+
         #msg {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 2rem; font-weight: 900; text-align: center;
-            opacity: 0; pointer-events: none; will-change: transform, opacity;
-            background: rgba(0,0,0,0.9); padding: 10px 20px; border-radius: 8px; z-index: 10;
+            font-size: 2.2rem; font-weight: 900; text-align: center;
+            opacity: 0; z-index: 20; background: rgba(0,0,0,0.95);
+            padding: 12px 30px; border-radius: 10px; white-space: nowrap; transition: color 0.2s;
+            border: 2px solid #444;
         }
 
-        /* Controls: Optimized for Thumb & Mouse */
-        #ctrls { padding: 20px; border-top: 1px solid #222; background: var(--bg); flex-shrink: 0; }
-        .pane { display: none; gap: 10px; justify-content: center; }
+        #hint { text-align: center; color: #fff; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 4px; padding: 20px 0; font-weight: 900; }
+        
+        /* Controls */
+        #ctrls { padding: 20px 20px 60px; border-top: 2px solid #222; background: var(--bg); }
+        .pane { display: none; gap: 15px; justify-content: center; max-width: 500px; margin: 0 auto; }
         .active { display: flex; }
 
         button {
-            flex: 1; max-width: 110px; height: 80px;
-            background: none; border: 2px solid var(--dim); color: #fff;
-            font-size: 2.5rem; border-radius: 12px; cursor: pointer;
-            transition: transform 0.05s;
+            flex: 1; height: 90px; background: #151515; border: 3px solid var(--dim);
+            color: #fff; font-size: 3.2rem; border-radius: 18px; cursor: pointer;
         }
-        button:active { transform: scale(0.95); background: #222; border-color: #fff; }
+        button:active { transform: scale(0.92); background: #333; border-color: #fff; }
         .btn-t { border-color: var(--acc); color: var(--acc); }
 
-        /* Level Banner */
         #lvlUp {
             position: absolute; top: 0; width: 100%; background: var(--acc);
-            color: #000; text-align: center; padding: 10px 0; font-weight: 900;
-            transform: translateY(-100%); transition: transform 0.4s cubic-bezier(.18,.89,.32,1.28);
+            color: #000; text-align: center; padding: 18px 0; font-weight: 900;
+            transform: translateY(-100%); transition: transform 0.4s; z-index: 100;
+            font-size: 1.3rem; letter-spacing: 2px;
         }
 
-        /* Fast Animations */
-        .show { opacity: 1 !important; transform: translate(-50%, -50%) scale(1.1) !important; }
-        .flash { animation: f 0.15s ease-out; }
-        @keyframes f { 0% { background: #fff; } 100% { background: #000; } }
+        .show { opacity: 1 !important; }
+        .win-flash { animation: wf 0.1s ease-out; }
+        .lose-flash { animation: lf 0.1s ease-out; }
+        @keyframes wf { 0% { background: #444; } 100% { background: #000; } }
+        @keyframes lf { 0% { background: #600; } 100% { background: #000; } }
     </style>
 </head>
 <body id="body">
 
-<div id="lvlUp">LEVEL UP</div>
+<div id="lvlUp">NEW RECORD IN SIGHT</div>
 
 <div id="header">
     <span id="mainScore">0</span>
-    <div class="stats">LEVEL <span id="lv">1</span> • BEST <span id="hi">0</span></div>
+    <div id="streak"></div>
+    <div class="stats">LVL <span>1</span> &nbsp;&bull;&nbsp; <span id="hiLabel">BEST <span id="hi">0</span></span></div>
+</div>
+
+<div id="stage">
+    <div>
+        <div class="label" id="cpuLabel">CPU</div>
+        <div id="cPoolDisp" class="pool-display"></div>
+    </div>
+
+    <div id="confrontation">
+        <div id="cThrow" class="fighter"></div>
+        <div id="pThrow" class="fighter"></div>
+    </div>
+
+    <div id="msg"></div>
+
+    <div>
+        <div id="pPoolDisp" class="pool-display"></div>
+        <div class="label" id="playerLabel">PLAYER</div>
+    </div>
 </div>
 
 <div id="hint">Pick your hands</div>
 
-<div id="stage">
-    <div class="char">
-        <div id="pHand" class="hand">👤</div>
-        <svg class="stick"><circle cx="40" cy="25" r="12"/><path d="M40 37v40m0-30H20m20 0h20m-20 30L25 110m15-33 15 33"/></svg>
-    </div>
-    
-    <div id="pool">--</div>
-
-    <div class="char">
-        <div id="cHand" class="hand">🤖</div>
-        <svg class="stick cpu-s"><rect x="28" y="13" width="24" height="24" rx="2"/><path d="M40 37v40m0-30H20m20 0h20m-20 30L25 110m15-33 15 33"/></svg>
-    </div>
-    <div id="msg"></div>
-</div>
-
 <div id="ctrls">
-    <div id="pPool" class="pane active">
+    <div id="pPoolPane" class="pane active">
         <button data-v="0">🪨</button>
         <button data-v="1">📄</button>
         <button data-v="2">✂️</button>
     </div>
-    <div id="pThrow" class="pane">
+    <div id="pThrowPane" class="pane">
         <button id="t0" class="btn-t"></button>
         <button id="t1" class="btn-t"></button>
     </div>
@@ -109,76 +132,134 @@
 
 <script>
     const icons = ["🪨", "📄", "✂️"], wins = {0:2, 1:0, 2:1};
-    let state = { sc: 0, hi: localStorage.getItem('rps_v9') || 0, lv: 1, pP: [], cP: [] };
+    let state = { 
+        sc: 0, hi: parseInt(localStorage.getItem('rps_v17')) || 0, lv: 1, stk: 0, 
+        pP: [], cP: [], locked: false, history: [] 
+    };
 
     const $ = id => document.getElementById(id);
     $('hi').textContent = state.hi;
 
-    // Use Pointer Events for unified Mobile/PC control
     window.addEventListener('pointerdown', e => {
         const btn = e.target.closest('button');
-        if (!btn) return;
+        if (!btn || state.locked) return;
         
-        if (btn.parentNode.id === 'pPool') {
-            const v = parseInt(btn.dataset.v);
-            state.pP.push(v);
-            $('pool').textContent = state.pP.map(i => icons[i]).join(' ') || '--';
+        if (btn.parentNode.id === 'pPoolPane') {
+            state.pP.push(parseInt(btn.dataset.v));
+            $('pPoolDisp').textContent = state.pP.map(i => icons[i]).join('');
             if (state.pP.length === 2) {
-                state.cP = [Math.random()*3|0, Math.random()*3|0];
-                $('cHand').textContent = "❓❓";
+                generateAI();
+                $('cPoolDisp').textContent = state.cP.map(i => icons[i]).join('');
+                $('cpuLabel').classList.add('cpu-label-active');
                 $('t0').textContent = icons[state.pP[0]];
                 $('t1').textContent = icons[state.pP[1]];
-                $('pPool').classList.remove('active');
-                $('pThrow').classList.add('active');
-                $('hint').textContent = "Final move";
-            } else {
-                $('hint').textContent = "Pick another";
+                $('pPoolPane').classList.remove('active');
+                $('pThrowPane').classList.add('active');
+                $('hint').textContent = (state.lv >= 3) ? "AI tracking patterns..." : "Final Move";
             }
         } 
-        else if (btn.parentNode.id === 'pThrow') {
+        else if (btn.parentNode.id === 'pThrowPane') {
+            state.locked = true;
             resolve(state.pP[btn.id === 't0' ? 0 : 1]);
         }
     });
 
+    function generateAI() {
+        if (state.lv >= 3 && state.history.length > 2) {
+            const counts = [0, 0, 0];
+            state.history.forEach(m => counts[m]++);
+            const fav = counts.indexOf(Math.max(...counts));
+            const counter = (fav + 1) % 3;
+            state.cP = [Math.random() < 0.7 ? counter : (Math.random()*3|0), Math.random() < 0.7 ? counter : (Math.random()*3|0)];
+        } else {
+            state.cP = [Math.random()*3|0, Math.random()*3|0];
+        }
+    }
+
     function resolve(pt) {
+        state.history.push(pt);
+        if (state.history.length > 12) state.history.shift();
         const isS = state.pP[0] === state.pP[1], ca = state.cP[0], cb = state.cP[1];
+        
         let ct = (isS && (wins[ca]===pt || ca===pt)) ? ca : (wins[ca]===pt ? ca : (wins[cb]===pt ? cb : (Math.random()>.5?ca:cb)));
         
-        $('pHand').textContent = icons[pt];
-        $('cHand').textContent = icons[ct];
-        $('pool').textContent = "";
+        $('cPoolDisp').style.opacity = "0";
+        $('pPoolDisp').style.opacity = "0";
+        $('cThrow').textContent = icons[ct];
+        $('pThrow').textContent = icons[pt];
+        $('cThrow').classList.add('active');
+        $('pThrow').classList.add('active');
         
-        let p = 0, m = "LOSE";
-        if (pt === ct) { if(isS){ m="MIRROR +1"; p=1; } else m="DRAW"; }
-        else if (wins[pt] === ct) { if(isS){ m="SUPER WIN +2"; p=2; flash(); } else { m="WIN +1"; p=1; } }
+        let p = 0, m = "";
+        const msgEl = $('msg');
+        msgEl.style.color = "white";
 
-        const r = $('msg');
-        r.textContent = m; r.classList.add('show');
-        
-        update(p);
-        setTimeout(reset, 1200);
+        if (pt === ct) { 
+            if(isS){ m="MIRROR +1"; p=1; state.stk++; } 
+            else m="DRAW"; 
+        }
+        else if (wins[pt] === ct) { 
+            if(isS){ m="SUPER WIN +2"; p=2; flash('win'); } 
+            else { m="WIN +1"; p=1; }
+            state.stk++;
+        } else {
+            if(isS) { m="SUPER LOSS -2"; p=-2; flash('lose'); }
+            else { m="LOSS -1"; p=-1; }
+            state.stk = 0;
+            msgEl.style.color = "var(--lose)";
+        }
+
+        updateUI(p, m);
     }
 
-    function update(p) {
-        state.sc += p;
-        $('mainScore').textContent = state.sc;
-        if (state.sc > state.hi) { state.hi = state.sc; localStorage.setItem('rps_v9', state.hi); $('hi').textContent = state.hi; }
-        let nl = (state.sc / 5 | 0) + 1;
-        if (nl > state.lv) { state.lv = nl; $('lv').textContent = state.lv; banner(); }
+    function updateUI(p, m) {
+        const s = $('streak');
+        if (state.stk > 1) {
+            s.textContent = `STREAK ×${state.stk}`;
+            s.style.color = `hsl(${Math.max(15, 50 - state.stk*3)}, 100%, 60%)`;
+        } else s.textContent = "";
+
+        setTimeout(() => {
+            $('msg').textContent = m;
+            $('msg').classList.add('show');
+            state.sc = Math.max(0, state.sc + p);
+            $('mainScore').textContent = state.sc;
+            
+            // Record Breaker Logic
+            if (state.sc > state.hi) {
+                state.hi = state.sc;
+                localStorage.setItem('rps_v17', state.hi);
+                $('hi').textContent = state.hi;
+                $('hiLabel').style.color = "var(--record)";
+                $('hiLabel').style.textShadow = "0 0 10px var(--record)";
+            }
+            
+            let nl = (state.sc / 5 | 0) + 1;
+            if (nl > state.lv) { state.lv = nl; document.querySelector('.stats span').textContent = state.lv; banner(); }
+        }, 150);
+        setTimeout(reset, 1500);
     }
 
-    function flash() { $('body').classList.add('flash'); setTimeout(() => $('body').classList.remove('flash'), 150); }
-    function banner() { $('lvlUp').style.transform = "translateY(0)"; setTimeout(() => $('lvlUp').style.transform = "translateY(-100%)", 1500); }
+    function flash(t) { 
+        const b = $('body'); b.classList.add(t === 'win' ? 'win-flash' : 'lose-flash'); 
+        setTimeout(() => b.classList.remove('win-flash', 'lose-flash'), 100); 
+    }
+
+    function banner() { $('lvlUp').style.transform = "translateY(0)"; setTimeout(() => $('lvlUp').style.transform = "translateY(-100%)", 2000); }
 
     function reset() {
-        state.pP = [];
+        state.pP = []; state.cP = []; state.locked = false;
         $('msg').classList.remove('show');
-        $('pHand').textContent = "👤";
-        $('cHand').textContent = "🤖";
-        $('pool').textContent = "--";
-        $('hint').textContent = "Pick your hands";
+        $('cThrow').classList.remove('active');
         $('pThrow').classList.remove('active');
-        $('pPool').classList.add('active');
+        $('cPoolDisp').style.opacity = "1";
+        $('pPoolDisp').style.opacity = "1";
+        $('cPoolDisp').textContent = "";
+        $('pPoolDisp').textContent = "";
+        $('cpuLabel').classList.remove('cpu-label-active');
+        $('hint').textContent = "Pick your hands";
+        $('pThrowPane').classList.remove('active');
+        $('pPoolPane').classList.add('active');
     }
 </script>
 </body>
