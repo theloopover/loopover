@@ -8,12 +8,14 @@
         :root {
             --bg: #000000;
             --text: #ffffff;
-            --accent: #bb86fc; /* Subtle purple for interactive elements */
+            --accent: #bb86fc;
             --subtle: #333333;
+            --dim: #666666;
+            --flash: rgba(255, 255, 255, 0.2);
         }
 
         body {
-            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
@@ -21,161 +23,146 @@
             flex-direction: column;
             height: 100vh;
             overflow: hidden;
-            touch-action: manipulation;
-            -webkit-user-select: none;
-            user-select: none;
+            transition: background-color 0.1s ease;
         }
 
-        /* Top Stats Bar - Simplified */
+        /* Flash Animation for Super Wins */
+        .perfect-flash { background-color: var(--text) !important; }
+
         #header {
             display: flex;
             justify-content: space-between;
             padding: 20px 30px;
             font-size: 1.2rem;
             font-weight: 300;
-            letter-spacing: 1px;
             border-bottom: 1px solid var(--subtle);
+            z-index: 5;
         }
 
-        .stat-group { display: flex; gap: 20px; }
-        .stat-label { opacity: 0.5; font-size: 0.8rem; margin-right: 5px;}
+        .stat-label { color: var(--dim); font-size: 0.7rem; margin-right: 5px; text-transform: uppercase; }
 
-        /* Central Battle Arena */
+        #hintText {
+            text-align: center;
+            padding: 15px 0;
+            font-size: 0.8rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
         #battlefield {
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             flex-grow: 1;
-            gap: 40px;
+            gap: 20px;
         }
 
-        .hand-display {
-            text-align: center;
-            transition: transform 0.2s ease;
-        }
-
-        /* HUGE Icons */
         .hand-icon {
-            font-size: 10rem; /* Ultra large */
+            font-size: 8rem;
             line-height: 1;
             display: block;
-            filter: drop-shadow(0 0 15px rgba(255,255,255,0.1));
+            transition: transform 0.1s ease;
         }
 
-        /* Flip CPU hand so they face each other */
         #cpuHand { transform: scaleX(-1); }
 
-        /* Pool indicators (mini icons) */
         #poolIndicators {
-            font-size: 2.5rem;
-            margin-top: -20px;
+            font-size: 2rem;
             color: var(--accent);
             letter-spacing: 10px;
             height: 1.2em;
         }
 
-        /* Bottom Controls Area */
-        #controls {
-            padding: 30px;
-            padding-bottom: 50px; /* Extra space for modern phone home bars */
-            border-top: 1px solid var(--subtle);
-        }
-
-        .panel {
-            display: none;
-            justify-content: center;
-            gap: 20px;
-            animation: fadeIn 0.4s ease;
-        }
-
-        .active { display: flex; }
-
-        /* Sleek, Icon-only buttons */
-        button {
-            background: none;
-            border: 2px solid var(--text);
-            color: var(--text);
-            font-size: 3.5rem;
-            padding: 20px;
-            border-radius: 20px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            flex: 1;
-            max-width: 120px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        button:active {
-            background-color: var(--text);
-            color: var(--bg);
-            transform: scale(0.95);
-        }
-
-        /* Throw buttons are slightly different colored border */
-        .btn-throw {
-            border-color: var(--accent);
-            color: var(--accent);
-        }
-
-        .btn-throw:active {
-            background-color: var(--accent);
-            color: var(--bg);
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Result Text - Minimal & centered */
-        #resultText {
+        /* Result Overlay with Pop effect */
+        #resultOverlay {
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 2.5rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 3px;
+            transform: translate(-50%, -50%) scale(0.5);
+            font-size: 3rem;
+            font-weight: 900;
             text-align: center;
-            width: 100%;
             pointer-events: none;
             opacity: 0;
-            transition: opacity 0.3s ease;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 10;
+            white-space: nowrap;
         }
 
-        .show-result { opacity: 1 !important; }
+        .show-result { opacity: 1 !important; transform: translate(-50%, -50%) scale(1.1) !important; }
 
+        #controls {
+            padding: 20px 30px 50px 30px;
+            border-top: 1px solid var(--subtle);
+            background: var(--bg);
+        }
+
+        #tutorial {
+            font-size: 0.65rem;
+            color: var(--dim);
+            text-align: center;
+            margin-bottom: 10px;
+            transition: opacity 0.5s ease;
+        }
+
+        .panel { display: none; justify-content: center; gap: 15px; }
+        .active { display: flex; }
+
+        button {
+            background: none;
+            border: 1px solid var(--dim);
+            color: var(--text);
+            font-size: 3rem;
+            padding: 15px;
+            border-radius: 15px;
+            flex: 1;
+            max-width: 100px;
+        }
+
+        button:active { background: var(--text); color: var(--bg); }
+        .btn-throw { border-color: var(--accent); color: var(--accent); }
+
+        /* Screen Shake */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            40% { transform: translate(3px, 2px) rotate(0deg); }
+            60% { transform: translate(-3px, 1px) rotate(-1deg); }
+            80% { transform: translate(3px, 1px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .shake { animation: shake 0.3s; }
     </style>
 </head>
 <body>
 
     <div id="header">
         <div class="stat-group">
-            <span><span class="stat-label">HI</span><span id="highScore">0</span></span>
+            <span><span class="stat-label">Hi</span><span id="highScore">0</span></span>
         </div>
         <div class="stat-group">
-            <span><span class="stat-label">LV</span><span id="level">1</span></span>
-            <span><span class="stat-label">SC</span><span id="score">0</span></span>
+            <span><span class="stat-label">Lv</span><span id="level">1</span></span>
+            <span><span class="stat-label">Sc</span><span id="score">0</span></span>
         </div>
     </div>
 
-    <div id="resultText"></div>
+    <div id="hintText">Build pool</div>
+    <div id="resultOverlay"></div>
 
     <div id="battlefield">
-        <div class="hand-display">
-            <span class="hand-icon" id="cpuHand">🤖</span> </div>
-        
-        <div id="poolIndicators">❓❓</div>
-
-        <div class="hand-display">
-            <span class="hand-icon" id="playerHand">👤</span> </div>
+        <div class="hand-display"><span class="hand-icon" id="cpuHand">🤖</span></div>
+        <div id="poolIndicators">--</div>
+        <div class="hand-display"><span class="hand-icon" id="playerHand">👤</span></div>
     </div>
 
     <div id="controls">
+        <div id="tutorial">
+            SAME PAIR: WIN +2 | DRAW +1<br>
+            MIXED PAIR: WIN +1 | DRAW 0
+        </div>
+
         <div id="poolPanel" class="panel active">
             <button onclick="pickPool(0)">🪨</button>
             <button onclick="pickPool(1)">📄</button>
@@ -190,106 +177,81 @@
 
     <script>
         const icons = ["🪨", "📄", "✂️"];
-        
-        let gameState = {
-            score: 0,
-            highScore: localStorage.getItem('rps_ultra_highScore') || 0,
-            level: 1,
-            playerPool: [],
-            cpuPool: []
-        };
-
+        let gameState = { score: 0, highScore: localStorage.getItem('rps_v3_hi') || 0, level: 1, playerPool: [], cpuPool: [] };
         document.getElementById('highScore').innerText = gameState.highScore;
 
-        function pickPool(handIndex) {
-            gameState.playerPool.push(handIndex);
-            
-            // Update the central pool indicators
-            let p1 = gameState.playerPool[0] !== undefined ? icons[gameState.playerPool[0]] : "❓";
-            let p2 = gameState.playerPool[1] !== undefined ? icons[gameState.playerPool[1]] : "❓";
-            document.getElementById('poolIndicators').innerText = p1 + p2;
-
-            if (gameState.playerPool.length === 2) {
-                startThrowPhase();
-            }
+        function pickPool(idx) {
+            gameState.playerPool.push(idx);
+            const p = gameState.playerPool;
+            document.getElementById('poolIndicators').innerText = `${icons[p[0]] || '-'} ${icons[p[1]] || '-'}`;
+            if (p.length === 1) document.getElementById('hintText').innerText = "Finish pool";
+            if (p.length === 2) startThrow();
         }
 
-        function startThrowPhase() {
+        function startThrow() {
             gameState.cpuPool = [Math.floor(Math.random() * 3), Math.floor(Math.random() * 3)];
-            
-            // Briefly show CPU pool in their big hand display, then hide it
             document.getElementById('cpuHand').innerText = icons[gameState.cpuPool[0]] + icons[gameState.cpuPool[1]];
-            
-            // Set up Throw Buttons
+            document.getElementById('hintText').innerText = "Select Throw";
             document.getElementById('throwBtn1').innerText = icons[gameState.playerPool[0]];
             document.getElementById('throwBtn2').innerText = icons[gameState.playerPool[1]];
-
-            // Switch panels
             document.getElementById('poolPanel').classList.remove('active');
             document.getElementById('throwPanel').classList.add('active');
         }
 
-        function resolveRound(poolIndex) {
-            const playerThrow = gameState.playerPool[poolIndex];
-            const cpuThrow = gameState.cpuPool[Math.floor(Math.random() * 2)];
-            const isSuperPair = gameState.playerPool[0] === gameState.playerPool[1];
+        function resolveRound(idx) {
+            const pT = gameState.playerPool[idx];
+            const cT = gameState.cpuPool[Math.floor(Math.random() * 2)];
+            const isSuper = gameState.playerPool[0] === gameState.playerPool[1];
             
-            // Show final throws
-            document.getElementById('playerHand').innerText = icons[playerThrow];
-            document.getElementById('cpuHand').innerText = icons[cpuThrow];
-            document.getElementById('poolIndicators').innerText = ""; // Clear pool view
-            
-            let points = 0;
-            let resultKey = ""; // for simplified messages
+            document.getElementById('playerHand').innerText = icons[pT];
+            document.getElementById('cpuHand').innerText = icons[cT];
+            document.getElementById('poolIndicators').innerText = "";
 
-            if (playerThrow === cpuThrow) {
-                if (isSuperPair) {
-                    resultKey = "SUPER DRAW"; points = 1;
-                } else {
-                    resultKey = "DRAW";
-                }
-            } else if ((playerThrow === 0 && cpuThrow === 2) || (playerThrow === 1 && cpuThrow === 0) || (playerThrow === 2 && cpuThrow === 1)) {
-                if (isSuperPair) {
-                    resultKey = "SUPER WIN"; points = 2;
-                } else {
-                    resultKey = "WIN"; points = 1;
-                }
-            } else {
-                resultKey = "LOSE";
+            let pts = 0; let msg = "LOSE";
+            if (pT === cT) {
+                if (isSuper) { msg = "SUPER DRAW +1"; pts = 1; } 
+                else { msg = "DRAW"; }
+            } else if ((pT === 0 && cT === 2) || (pT === 1 && cT === 0) || (pT === 2 && cT === 1)) {
+                if (isSuper) { msg = "SUPER WIN +2"; pts = 2; triggerPerfect(); } 
+                else { msg = "WIN +1"; pts = 1; }
             }
 
-            // Show central result message
-            const resEl = document.getElementById('resultText');
-            resEl.innerText = resultKey;
-            resEl.classList.add('show-result');
+            const res = document.getElementById('resultOverlay');
+            res.innerText = msg;
+            res.classList.add('show-result');
+            updateScore(pts);
+            setTimeout(reset, 1500);
+        }
 
-            updateScore(points);
-            setTimeout(resetRound, 1500);
+        function triggerPerfect() {
+            document.body.classList.add('perfect-flash');
+            document.getElementById('battlefield').classList.add('shake');
+            setTimeout(() => {
+                document.body.classList.remove('perfect-flash');
+                document.getElementById('battlefield').classList.remove('shake');
+            }, 150);
         }
 
         function updateScore(p) {
+            if (p > 0) document.getElementById('tutorial').style.opacity = "0";
             gameState.score += p;
             document.getElementById('score').innerText = gameState.score;
             if (gameState.score > gameState.highScore) {
                 gameState.highScore = gameState.score;
-                localStorage.setItem('rps_ultra_highScore', gameState.highScore);
+                localStorage.setItem('rps_v3_hi', gameState.highScore);
                 document.getElementById('highScore').innerText = gameState.highScore;
             }
             gameState.level = Math.floor(gameState.score / 5) + 1;
             document.getElementById('level').innerText = gameState.level;
         }
 
-        function resetRound() {
+        function reset() {
             gameState.playerPool = [];
-            gameState.cpuPool = [];
-            
-            // Reset Visuals
-            document.getElementById('resultText').classList.remove('show-result');
+            document.getElementById('resultOverlay').classList.remove('show-result');
             document.getElementById('playerHand').innerText = "👤";
             document.getElementById('cpuHand').innerText = "🤖";
-            document.getElementById('poolIndicators').innerText = "❓❓";
-            
-            // Switch panels back
+            document.getElementById('poolIndicators').innerText = "--";
+            document.getElementById('hintText').innerText = "Build pool";
             document.getElementById('throwPanel').classList.remove('active');
             document.getElementById('poolPanel').classList.add('active');
         }
