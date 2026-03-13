@@ -5,256 +5,181 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>RPS Ultra</title>
     <style>
-        :root {
-            --bg: #000000;
-            --text: #ffffff;
-            --accent: #bb86fc;
-            --subtle: #333333;
-            --dim: #666666;
-            --flash: rgba(255, 255, 255, 0.2);
-        }
-
+        :root { --bg: #000; --txt: #fff; --acc: #bb86fc; --dim: #555; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+        
         body {
-            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-            transition: background-color 0.1s ease;
+            margin: 0; background: var(--bg); color: var(--txt);
+            font-family: system-ui, -apple-system, sans-serif;
+            height: 100vh; display: flex; flex-direction: column; overflow: hidden;
         }
 
-        /* Flash Animation for Super Wins */
-        .perfect-flash { background-color: var(--text) !important; }
+        /* High-Efficiency Header */
+        #header { text-align: center; padding: 20px 0 10px; flex-shrink: 0; }
+        #mainScore { font-size: 5rem; font-weight: 900; line-height: 1; display: block; }
+        .stats { font-size: 0.8rem; color: var(--dim); letter-spacing: 2px; margin-top: 5px; }
 
-        #header {
-            display: flex;
-            justify-content: space-between;
-            padding: 20px 30px;
-            font-size: 1.2rem;
-            font-weight: 300;
-            border-bottom: 1px solid var(--subtle);
-            z-index: 5;
+        #hint { text-align: center; color: var(--acc); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; height: 1rem; }
+
+        /* Battlefield Layout */
+        #stage {
+            display: flex; justify-content: space-around; align-items: center;
+            flex-grow: 1; position: relative; padding: 0 10px;
         }
 
-        .stat-label { color: var(--dim); font-size: 0.7rem; margin-right: 5px; text-transform: uppercase; }
+        .char { display: flex; flex-direction: column; align-items: center; width: 40%; }
+        .stick { width: 80px; height: 120px; stroke: #fff; stroke-width: 4; fill: none; }
+        .cpu-s { stroke: var(--acc); }
+        .hand { font-size: 4rem; height: 5rem; display: flex; align-items: center; justify-content: center; }
 
-        #hintText {
-            text-align: center;
-            padding: 15px 0;
-            font-size: 0.8rem;
-            color: var(--accent);
-            text-transform: uppercase;
-            letter-spacing: 2px;
+        #pool { font-size: 1.5rem; color: var(--acc); position: absolute; bottom: 20%; }
+
+        /* Hardware Accelerated Overlays */
+        #msg {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 2rem; font-weight: 900; text-align: center;
+            opacity: 0; pointer-events: none; will-change: transform, opacity;
+            background: rgba(0,0,0,0.9); padding: 10px 20px; border-radius: 8px; z-index: 10;
         }
 
-        #battlefield {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            flex-grow: 1;
-            gap: 20px;
-        }
-
-        .hand-icon {
-            font-size: 8rem;
-            line-height: 1;
-            display: block;
-            transition: transform 0.1s ease;
-        }
-
-        #cpuHand { transform: scaleX(-1); }
-
-        #poolIndicators {
-            font-size: 2rem;
-            color: var(--accent);
-            letter-spacing: 10px;
-            height: 1.2em;
-        }
-
-        /* Result Overlay with Pop effect */
-        #resultOverlay {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(0.5);
-            font-size: 3rem;
-            font-weight: 900;
-            text-align: center;
-            pointer-events: none;
-            opacity: 0;
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 10;
-            white-space: nowrap;
-        }
-
-        .show-result { opacity: 1 !important; transform: translate(-50%, -50%) scale(1.1) !important; }
-
-        #controls {
-            padding: 20px 30px 50px 30px;
-            border-top: 1px solid var(--subtle);
-            background: var(--bg);
-        }
-
-        #tutorial {
-            font-size: 0.65rem;
-            color: var(--dim);
-            text-align: center;
-            margin-bottom: 10px;
-            transition: opacity 0.5s ease;
-        }
-
-        .panel { display: none; justify-content: center; gap: 15px; }
+        /* Controls: Optimized for Thumb & Mouse */
+        #ctrls { padding: 20px; border-top: 1px solid #222; background: var(--bg); flex-shrink: 0; }
+        .pane { display: none; gap: 10px; justify-content: center; }
         .active { display: flex; }
 
         button {
-            background: none;
-            border: 1px solid var(--dim);
-            color: var(--text);
-            font-size: 3rem;
-            padding: 15px;
-            border-radius: 15px;
-            flex: 1;
-            max-width: 100px;
+            flex: 1; max-width: 110px; height: 80px;
+            background: none; border: 2px solid var(--dim); color: #fff;
+            font-size: 2.5rem; border-radius: 12px; cursor: pointer;
+            transition: transform 0.05s;
+        }
+        button:active { transform: scale(0.95); background: #222; border-color: #fff; }
+        .btn-t { border-color: var(--acc); color: var(--acc); }
+
+        /* Level Banner */
+        #lvlUp {
+            position: absolute; top: 0; width: 100%; background: var(--acc);
+            color: #000; text-align: center; padding: 10px 0; font-weight: 900;
+            transform: translateY(-100%); transition: transform 0.4s cubic-bezier(.18,.89,.32,1.28);
         }
 
-        button:active { background: var(--text); color: var(--bg); }
-        .btn-throw { border-color: var(--accent); color: var(--accent); }
-
-        /* Screen Shake */
-        @keyframes shake {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            20% { transform: translate(-3px, 0px) rotate(1deg); }
-            40% { transform: translate(3px, 2px) rotate(0deg); }
-            60% { transform: translate(-3px, 1px) rotate(-1deg); }
-            80% { transform: translate(3px, 1px) rotate(0deg); }
-            100% { transform: translate(1px, -2px) rotate(-1deg); }
-        }
-        .shake { animation: shake 0.3s; }
+        /* Fast Animations */
+        .show { opacity: 1 !important; transform: translate(-50%, -50%) scale(1.1) !important; }
+        .flash { animation: f 0.15s ease-out; }
+        @keyframes f { 0% { background: #fff; } 100% { background: #000; } }
     </style>
 </head>
-<body>
+<body id="body">
 
-    <div id="header">
-        <div class="stat-group">
-            <span><span class="stat-label">Hi</span><span id="highScore">0</span></span>
-        </div>
-        <div class="stat-group">
-            <span><span class="stat-label">Lv</span><span id="level">1</span></span>
-            <span><span class="stat-label">Sc</span><span id="score">0</span></span>
-        </div>
+<div id="lvlUp">LEVEL UP</div>
+
+<div id="header">
+    <span id="mainScore">0</span>
+    <div class="stats">LEVEL <span id="lv">1</span> • BEST <span id="hi">0</span></div>
+</div>
+
+<div id="hint">Pick your hands</div>
+
+<div id="stage">
+    <div class="char">
+        <div id="pHand" class="hand">👤</div>
+        <svg class="stick"><circle cx="40" cy="25" r="12"/><path d="M40 37v40m0-30H20m20 0h20m-20 30L25 110m15-33 15 33"/></svg>
     </div>
+    
+    <div id="pool">--</div>
 
-    <div id="hintText">Build pool</div>
-    <div id="resultOverlay"></div>
-
-    <div id="battlefield">
-        <div class="hand-display"><span class="hand-icon" id="cpuHand">🤖</span></div>
-        <div id="poolIndicators">--</div>
-        <div class="hand-display"><span class="hand-icon" id="playerHand">👤</span></div>
+    <div class="char">
+        <div id="cHand" class="hand">🤖</div>
+        <svg class="stick cpu-s"><rect x="28" y="13" width="24" height="24" rx="2"/><path d="M40 37v40m0-30H20m20 0h20m-20 30L25 110m15-33 15 33"/></svg>
     </div>
+    <div id="msg"></div>
+</div>
 
-    <div id="controls">
-        <div id="tutorial">
-            SAME PAIR: WIN +2 | DRAW +1<br>
-            MIXED PAIR: WIN +1 | DRAW 0
-        </div>
-
-        <div id="poolPanel" class="panel active">
-            <button onclick="pickPool(0)">🪨</button>
-            <button onclick="pickPool(1)">📄</button>
-            <button onclick="pickPool(2)">✂️</button>
-        </div>
-
-        <div id="throwPanel" class="panel">
-            <button id="throwBtn1" class="btn-throw" onclick="resolveRound(0)"></button>
-            <button id="throwBtn2" class="btn-throw" onclick="resolveRound(1)"></button>
-        </div>
+<div id="ctrls">
+    <div id="pPool" class="pane active">
+        <button data-v="0">🪨</button>
+        <button data-v="1">📄</button>
+        <button data-v="2">✂️</button>
     </div>
+    <div id="pThrow" class="pane">
+        <button id="t0" class="btn-t"></button>
+        <button id="t1" class="btn-t"></button>
+    </div>
+</div>
 
-    <script>
-        const icons = ["🪨", "📄", "✂️"];
-        let gameState = { score: 0, highScore: localStorage.getItem('rps_v3_hi') || 0, level: 1, playerPool: [], cpuPool: [] };
-        document.getElementById('highScore').innerText = gameState.highScore;
+<script>
+    const icons = ["🪨", "📄", "✂️"], wins = {0:2, 1:0, 2:1};
+    let state = { sc: 0, hi: localStorage.getItem('rps_v9') || 0, lv: 1, pP: [], cP: [] };
 
-        function pickPool(idx) {
-            gameState.playerPool.push(idx);
-            const p = gameState.playerPool;
-            document.getElementById('poolIndicators').innerText = `${icons[p[0]] || '-'} ${icons[p[1]] || '-'}`;
-            if (p.length === 1) document.getElementById('hintText').innerText = "Finish pool";
-            if (p.length === 2) startThrow();
-        }
+    const $ = id => document.getElementById(id);
+    $('hi').textContent = state.hi;
 
-        function startThrow() {
-            gameState.cpuPool = [Math.floor(Math.random() * 3), Math.floor(Math.random() * 3)];
-            document.getElementById('cpuHand').innerText = icons[gameState.cpuPool[0]] + icons[gameState.cpuPool[1]];
-            document.getElementById('hintText').innerText = "Select Throw";
-            document.getElementById('throwBtn1').innerText = icons[gameState.playerPool[0]];
-            document.getElementById('throwBtn2').innerText = icons[gameState.playerPool[1]];
-            document.getElementById('poolPanel').classList.remove('active');
-            document.getElementById('throwPanel').classList.add('active');
-        }
-
-        function resolveRound(idx) {
-            const pT = gameState.playerPool[idx];
-            const cT = gameState.cpuPool[Math.floor(Math.random() * 2)];
-            const isSuper = gameState.playerPool[0] === gameState.playerPool[1];
-            
-            document.getElementById('playerHand').innerText = icons[pT];
-            document.getElementById('cpuHand').innerText = icons[cT];
-            document.getElementById('poolIndicators').innerText = "";
-
-            let pts = 0; let msg = "LOSE";
-            if (pT === cT) {
-                if (isSuper) { msg = "SUPER DRAW +1"; pts = 1; } 
-                else { msg = "DRAW"; }
-            } else if ((pT === 0 && cT === 2) || (pT === 1 && cT === 0) || (pT === 2 && cT === 1)) {
-                if (isSuper) { msg = "SUPER WIN +2"; pts = 2; triggerPerfect(); } 
-                else { msg = "WIN +1"; pts = 1; }
+    // Use Pointer Events for unified Mobile/PC control
+    window.addEventListener('pointerdown', e => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        
+        if (btn.parentNode.id === 'pPool') {
+            const v = parseInt(btn.dataset.v);
+            state.pP.push(v);
+            $('pool').textContent = state.pP.map(i => icons[i]).join(' ') || '--';
+            if (state.pP.length === 2) {
+                state.cP = [Math.random()*3|0, Math.random()*3|0];
+                $('cHand').textContent = "❓❓";
+                $('t0').textContent = icons[state.pP[0]];
+                $('t1').textContent = icons[state.pP[1]];
+                $('pPool').classList.remove('active');
+                $('pThrow').classList.add('active');
+                $('hint').textContent = "Final move";
+            } else {
+                $('hint').textContent = "Pick another";
             }
-
-            const res = document.getElementById('resultOverlay');
-            res.innerText = msg;
-            res.classList.add('show-result');
-            updateScore(pts);
-            setTimeout(reset, 1500);
+        } 
+        else if (btn.parentNode.id === 'pThrow') {
+            resolve(state.pP[btn.id === 't0' ? 0 : 1]);
         }
+    });
 
-        function triggerPerfect() {
-            document.body.classList.add('perfect-flash');
-            document.getElementById('battlefield').classList.add('shake');
-            setTimeout(() => {
-                document.body.classList.remove('perfect-flash');
-                document.getElementById('battlefield').classList.remove('shake');
-            }, 150);
-        }
+    function resolve(pt) {
+        const isS = state.pP[0] === state.pP[1], ca = state.cP[0], cb = state.cP[1];
+        let ct = (isS && (wins[ca]===pt || ca===pt)) ? ca : (wins[ca]===pt ? ca : (wins[cb]===pt ? cb : (Math.random()>.5?ca:cb)));
+        
+        $('pHand').textContent = icons[pt];
+        $('cHand').textContent = icons[ct];
+        $('pool').textContent = "";
+        
+        let p = 0, m = "LOSE";
+        if (pt === ct) { if(isS){ m="MIRROR +1"; p=1; } else m="DRAW"; }
+        else if (wins[pt] === ct) { if(isS){ m="SUPER WIN +2"; p=2; flash(); } else { m="WIN +1"; p=1; } }
 
-        function updateScore(p) {
-            if (p > 0) document.getElementById('tutorial').style.opacity = "0";
-            gameState.score += p;
-            document.getElementById('score').innerText = gameState.score;
-            if (gameState.score > gameState.highScore) {
-                gameState.highScore = gameState.score;
-                localStorage.setItem('rps_v3_hi', gameState.highScore);
-                document.getElementById('highScore').innerText = gameState.highScore;
-            }
-            gameState.level = Math.floor(gameState.score / 5) + 1;
-            document.getElementById('level').innerText = gameState.level;
-        }
+        const r = $('msg');
+        r.textContent = m; r.classList.add('show');
+        
+        update(p);
+        setTimeout(reset, 1200);
+    }
 
-        function reset() {
-            gameState.playerPool = [];
-            document.getElementById('resultOverlay').classList.remove('show-result');
-            document.getElementById('playerHand').innerText = "👤";
-            document.getElementById('cpuHand').innerText = "🤖";
-            document.getElementById('poolIndicators').innerText = "--";
-            document.getElementById('hintText').innerText = "Build pool";
-            document.getElementById('throwPanel').classList.remove('active');
-            document.getElementById('poolPanel').classList.add('active');
-        }
-    </script>
+    function update(p) {
+        state.sc += p;
+        $('mainScore').textContent = state.sc;
+        if (state.sc > state.hi) { state.hi = state.sc; localStorage.setItem('rps_v9', state.hi); $('hi').textContent = state.hi; }
+        let nl = (state.sc / 5 | 0) + 1;
+        if (nl > state.lv) { state.lv = nl; $('lv').textContent = state.lv; banner(); }
+    }
+
+    function flash() { $('body').classList.add('flash'); setTimeout(() => $('body').classList.remove('flash'), 150); }
+    function banner() { $('lvlUp').style.transform = "translateY(0)"; setTimeout(() => $('lvlUp').style.transform = "translateY(-100%)", 1500); }
+
+    function reset() {
+        state.pP = [];
+        $('msg').classList.remove('show');
+        $('pHand').textContent = "👤";
+        $('cHand').textContent = "🤖";
+        $('pool').textContent = "--";
+        $('hint').textContent = "Pick your hands";
+        $('pThrow').classList.remove('active');
+        $('pPool').classList.add('active');
+    }
+</script>
 </body>
 </html>
