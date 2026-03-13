@@ -1,0 +1,256 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title></title>
+  <meta name="Generator" content="Cocoa HTML Writer">
+  <meta name="CocoaVersion" content="2685.4">
+  <style type="text/css">
+    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; -webkit-text-stroke: #000000}
+    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; -webkit-text-stroke: #000000; min-height: 14.0px}
+    span.s1 {font-kerning: none}
+  </style>
+</head>
+<body>
+<p class="p1"><span class="s1">&lt;!DOCTYPE html&gt;</span></p>
+<p class="p1"><span class="s1">&lt;html lang="en"&gt;</span></p>
+<p class="p1"><span class="s1">&lt;head&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;meta charset="UTF-8"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;title&gt;Classic Snake&lt;/title&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;style&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>body {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>display: flex;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>justify-content: center;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>align-items: center;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>height: 100vh;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>margin: 0;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>background-color: #1a1a1a;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>color: #ececec;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>overflow: hidden;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.game-container {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>position: relative;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>display: flex;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>flex-direction: column;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>align-items: center;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.header {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>width: 400px;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>display: flex;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>justify-content: space-between;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>align-items: flex-end;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>margin-bottom: 12px;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.score-box {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>display: flex;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>flex-direction: column;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.score-label {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>font-size: 10px;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>color: #888;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>text-transform: uppercase;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>letter-spacing: 1px;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#score, #highScore {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>font-size: 24px;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>font-weight: bold;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>color: #4CAF50;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#highScore {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>color: #FFD700; /* Gold color for high score */</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>canvas {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>background-color: #242424;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>border-radius: 8px;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#overlay {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>position: absolute;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>top: 56px;<span class="Apple-converted-space"> </span></span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>left: 0;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>width: 400px;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>height: 400px;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>background: rgba(26, 26, 26, 0.9);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>border-radius: 8px;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>display: flex;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>flex-direction: column;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>justify-content: center;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>align-items: center;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>text-align: center;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>z-index: 10;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#overlay h2 { margin: 0 0 10px 0; font-size: 28px; color: #fff; }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>#overlay p { margin: 0; font-size: 16px; color: #aaa; line-height: 1.5; }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>.hidden { display: none !important; }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/style&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/head&gt;</span></p>
+<p class="p1"><span class="s1">&lt;body&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div class="game-container"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div class="header"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="score-box"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;span class="score-label"&gt;Current&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div id="score"&gt;0&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div class="score-box" style="text-align: right;"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;span class="score-label"&gt;Best&lt;/span&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div id="highScore"&gt;0&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
+<p class="p2"><span class="s1"><span class="Apple-converted-space">        </span></span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;canvas id="gameCanvas" width="400" height="400"&gt;&lt;/canvas&gt;</span></p>
+<p class="p2"><span class="s1"><span class="Apple-converted-space">        </span></span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div id="overlay"&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;h2 id="overlay-title"&gt;SNAKE&lt;/h2&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;p&gt;Press &lt;strong&gt;Arrows&lt;/strong&gt; or &lt;strong&gt;WASD&lt;/strong&gt;&lt;br&gt;to Start&lt;/p&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;script&gt;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const canvas = document.getElementById('gameCanvas');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const ctx = canvas.getContext('2d');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const scoreElement = document.getElementById('score');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const highScoreElement = document.getElementById('highScore');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const overlay = document.getElementById('overlay');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const overlayTitle = document.getElementById('overlay-title');</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// Audio Engine</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const AudioContext = window.AudioContext || window.webkitAudioContext;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let audioCtx;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function playSound(type) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (!audioCtx) audioCtx = new AudioContext();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (audioCtx.state === 'suspended') audioCtx.resume();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const osc = audioCtx.createOscillator();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const gain = audioCtx.createGain();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>osc.connect(gain);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>gain.connect(audioCtx.destination);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (type === 'eat') {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>osc.type = 'square';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>osc.frequency.setValueAtTime(450, audioCtx.currentTime);<span class="Apple-converted-space"> </span></span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.08);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>gain.gain.setValueAtTime(0.1, audioCtx.currentTime);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>osc.start(); osc.stop(audioCtx.currentTime + 0.08);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>} else if (type === 'die') {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>osc.type = 'sawtooth';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>osc.frequency.setValueAtTime(220, audioCtx.currentTime);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.4);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>gain.gain.setValueAtTime(0.1, audioCtx.currentTime);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>osc.start(); osc.stop(audioCtx.currentTime + 0.4);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// Game State</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const grid = 20;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let fps = 10;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let score = 0;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let highScore = localStorage.getItem('snakeHighScore') || 0;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>highScoreElement.innerText = highScore;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let isPlaying = false;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let gameLoopTimeout;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let snake = { x: 160, y: 160, dx: grid, dy: 0, cells: [], maxCells: 4 };</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let food = { x: 320, y: 320 };</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function getRandomInt(min, max) { return Math.floor(Math.random() * (max - min)) + min; }</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function resetGame() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>snake.x = 160; snake.y = 160; snake.cells = []; snake.maxCells = 4;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>snake.dx = grid; snake.dy = 0; score = 0;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>scoreElement.innerText = score;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>placeFood();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function placeFood() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>food.x = getRandomInt(0, 20) * grid;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>food.y = getRandomInt(0, 20) * grid;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>snake.cells.forEach(cell =&gt; { if (cell.x === food.x &amp;&amp; cell.y === food.y) placeFood(); });</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function loop() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (!isPlaying) return;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>gameLoopTimeout = setTimeout(() =&gt; { requestAnimationFrame(loop); }, 1000 / fps);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ctx.clearRect(0, 0, canvas.width, canvas.height);</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>snake.x += snake.dx; snake.y += snake.dy;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (snake.x &lt; 0) snake.x = canvas.width - grid;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>else if (snake.x &gt;= canvas.width) snake.x = 0;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (snake.y &lt; 0) snake.y = canvas.height - grid;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>else if (snake.y &gt;= canvas.height) snake.y = 0;</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>snake.cells.unshift({ x: snake.x, y: snake.y });</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (snake.cells.length &gt; snake.maxCells) snake.cells.pop();</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ctx.fillStyle = '#ff4757';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ctx.beginPath();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ctx.arc(food.x + grid / 2, food.y + grid / 2, grid / 2 - 2, 0, Math.PI * 2);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>ctx.fill();</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>snake.cells.forEach(function (cell, index) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>ctx.fillStyle = (index === 0) ? '#45a049' : '#4CAF50';</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>ctx.fillRect(cell.x + 1, cell.y + 1, grid - 2, grid - 2);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>for (let i = index + 1; i &lt; snake.cells.length; i++) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>if (cell.x === snake.cells[i].x &amp;&amp; cell.y === snake.cells[i].y) gameOver();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>});</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (snake.x === food.x &amp;&amp; snake.y === food.y) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>snake.maxCells++;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>score += 10;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>scoreElement.innerText = score;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>playSound('eat');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>if (score &gt; highScore) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>highScore = score;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>highScoreElement.innerText = highScore;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>localStorage.setItem('snakeHighScore', highScore);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>placeFood();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function startGame() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (!isPlaying) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>overlay.classList.add('hidden');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>isPlaying = true;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>resetGame();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>requestAnimationFrame(loop);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>}</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>function gameOver() {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (isPlaying) playSound('die');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>isPlaying = false;</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>clearTimeout(gameLoopTimeout);</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>overlayTitle.innerText = "GAME OVER";</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>overlay.classList.remove('hidden');</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
+<p class="p2"><span class="s1"></span><br></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>document.addEventListener('keydown', function (e) {</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].indexOf(e.key) &gt; -1) e.preventDefault();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const key = e.key.toLowerCase();</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if ((key === 'arrowleft' || key === 'a') &amp;&amp; snake.dx === 0) { snake.dx = -grid; snake.dy = 0; startGame(); }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>else if ((key === 'arrowup' || key === 'w') &amp;&amp; snake.dy === 0) { snake.dy = -grid; snake.dx = 0; startGame(); }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>else if ((key === 'arrowright' || key === 'd') &amp;&amp; snake.dx === 0) { snake.dx = grid; snake.dy = 0; startGame(); }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>else if ((key === 'arrowdown' || key === 's') &amp;&amp; snake.dy === 0) { snake.dy = grid; snake.dx = 0; startGame(); }</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>});</span></p>
+<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/script&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/body&gt;</span></p>
+<p class="p1"><span class="s1">&lt;/html&gt;</span></p>
+</body>
+</html>
