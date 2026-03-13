@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#000000">
-    <title>Snake: Drag & Swipe Edition</title>
+    <title>Snake: Joystick Edition</title>
     <style>
         :root { --glow: #00ff41; --gold: #ffcc00; }
         body {
@@ -21,12 +21,21 @@
         #score, #highScore { font-size: 20px; font-weight: bold; color: var(--glow); transition: transform 0.2s; }
         #highScore { color: var(--gold); }
         
-        .pulse { animation: pulse 0.4s ease-out; text-shadow: 0 0 10px var(--gold); }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.4); } 100% { transform: scale(1); } }
-
         canvas { 
             background: #000; border: 2px solid #111; border-radius: 4px; 
             max-width: 95vw; max-height: 95vw; cursor: crosshair; display: block;
+        }
+
+        /* Joystick Visuals */
+        #joy-base {
+            position: absolute; width: 80px; height: 80px; background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.2); border-radius: 50%;
+            pointer-events: none; display: none; z-index: 20;
+        }
+        #joy-stick {
+            position: absolute; width: 40px; height: 40px; background: var(--glow);
+            border-radius: 50%; opacity: 0.6; pointer-events: none;
+            box-shadow: 0 0 15px var(--glow);
         }
 
         #overlay {
@@ -46,10 +55,14 @@
             <div class="stat"><span class="label">Score</span><div id="score">0</div></div>
             <div class="stat" style="text-align:right"><span class="label">Best</span><div id="highScore">0</div></div>
         </div>
+        
         <canvas id="gameCanvas" width="400" height="400"></canvas>
+        
+        <div id="joy-base"><div id="joy-stick"></div></div>
+
         <div id="overlay">
             <h2 id="overlay-title">SNAKE</h2>
-            <p><strong>WASD / ARROWS</strong><br>OR<br><strong>SWIPE / DRAG</strong> ANYWHERE</p>
+            <p><strong>WASD / ARROWS</strong><br>OR<br><strong>DRAG</strong> FOR JOYSTICK</p>
         </div>
     </div>
 
@@ -59,15 +72,17 @@
     const scoreEl = document.getElementById('score');
     const highEl = document.getElementById('highScore');
     const overlay = document.getElementById('overlay');
-    const overlayTitle = document.getElementById('overlay-title');
+    const joyBase = document.getElementById('joy-base');
+    const joyStick = document.getElementById('joy-stick');
 
     const grid = 20;
-    let score, highScore, snake, food, fx, isPlaying, fps, lastTime, isNewRecord;
+    let score, highScore, snake, food, fx, isPlaying, fps, lastTime;
 
-    // Swipe tracking variables
-    let touchStartX = 0;
-    let touchStartY = 0;
-    const minSwipeDistance = 30; 
+    // Joystick Logic
+    let joyActive = false;
+    let startX, startY;
+    const joyLimit = 40; // Max movement radius
+    const threshold = 15; // Minimum movement to trigger turn
 
     highScore = parseInt(localStorage.getItem('snakeHigh')) || 0;
     highEl.innerText = highScore;
@@ -75,8 +90,7 @@
     function init() {
         snake = { x: 160, y: 160, dx: grid, dy: 0, cells: [], maxCells: 4 };
         food = { x: 300, y: 300 };
-        fx = [];
-        score = 0; fps = 10; isNewRecord = false;
+        fx = []; score = 0; fps = 10;
         scoreEl.innerText = score;
         isPlaying = false;
         overlay.classList.remove('hidden');
@@ -91,23 +105,15 @@
         ctx.fillRect(snake.x+1, snake.y+1, grid-2, grid-2);
     }
 
-    function createExplosion(x, y, color, count, speed, size) {
+    function burst(x, y, color, count, speed, size) {
         for(let i=0; i<count; i++) {
-            fx.push({
-                x, y,
-                vx: (Math.random() - 0.5) * speed,
-                vy: (Math.random() - 0.5) * speed,
-                life: 1.0,
-                color,
-                size: Math.random() * size + 2
-            });
+            fx.push({ x, y, vx: (Math.random() - 0.5) * speed, vy: (Math.random() - 0.5) * speed, life: 1.0, color, size: Math.random() * size + 2 });
         }
     }
 
     function update(t) {
         if(!isPlaying) return;
         requestAnimationFrame(update);
-
         const delta = t - lastTime;
         if (delta < 1000 / fps) return;
         lastTime = t;
@@ -130,25 +136,21 @@
 
         // Snake
         snake.cells.forEach((cell, i) => {
-            ctx.shadowBlur = i === 0 ? 15 : 0;
-            ctx.shadowColor = '#00ff41';
+            ctx.shadowBlur = i === 0 ? 15 : 0; ctx.shadowColor = '#00ff41';
             ctx.fillStyle = i === 0 ? '#00ff41' : '#008f11';
             ctx.fillRect(cell.x+1, cell.y+1, grid-2, grid-2);
             if (i > 0 && cell.x === snake.x && cell.y === snake.y) end();
         });
 
-        // Eat
+        // Scoring
         if (snake.x === food.x && snake.y === food.y) {
             snake.maxCells++; score += 10;
             scoreEl.innerText = score; fps += 0.2;
-            createExplosion(food.x + 10, food.y + 10, '#00ff41', 8, 4, 2);
+            burst(food.x+10, food.y+10, '#00ff41', 8, 4, 2);
             if (score > highScore) {
-                isNewRecord = true; highScore = score;
-                highEl.innerText = highScore;
+                highScore = score; highEl.innerText = highScore;
                 localStorage.setItem('snakeHigh', highScore);
-                createExplosion(food.x + 10, food.y + 10, `hsl(${Math.random()*360}, 100%, 50%)`, 25, 12, 5);
-                highEl.classList.add('pulse');
-                setTimeout(()=>highEl.classList.remove('pulse'), 400);
+                burst(food.x+10, food.y+10, `hsl(${Math.random()*360}, 100%, 50%)`, 20, 10, 4);
             }
             food.x = Math.floor(Math.random()*20)*grid;
             food.y = Math.floor(Math.random()*20)*grid;
@@ -156,35 +158,25 @@
 
         ctx.shadowBlur = 0;
         for(let i = fx.length-1; i >= 0; i--) {
-            const p = fx[i];
-            p.x += p.vx; p.y += p.vy; p.life -= 0.02;
+            const p = fx[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.02;
             if(p.life <= 0) { fx.splice(i, 1); continue; }
-            ctx.globalAlpha = p.life;
-            ctx.fillStyle = p.color;
+            ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
             ctx.fillRect(p.x, p.y, p.size, p.size);
         }
         ctx.globalAlpha = 1;
     }
 
-    function start() {
-        if(isPlaying) return;
-        isPlaying = true; overlay.classList.add('hidden');
-        lastTime = performance.now(); requestAnimationFrame(update);
-    }
-
-    function end() {
-        isPlaying = false; overlayTitle.innerText = "GAME OVER"; init();
-    }
-
     function handleInput(dir) {
-        if (!isPlaying) start();
+        if (!isPlaying) { isPlaying = true; overlay.classList.add('hidden'); lastTime = performance.now(); requestAnimationFrame(update); }
         if (dir === 'l' && snake.dx === 0) { snake.dx = -grid; snake.dy = 0; }
         else if (dir === 'u' && snake.dy === 0) { snake.dy = -grid; snake.dx = 0; }
         else if (dir === 'r' && snake.dx === 0) { snake.dx = grid; snake.dy = 0; }
         else if (dir === 'd' && snake.dy === 0) { snake.dy = grid; snake.dx = 0; }
     }
 
-    // Keyboard Controls
+    function end() { isPlaying = false; init(); }
+
+    // Desktop Keys
     window.addEventListener('keydown', e => {
         const k = e.key.toLowerCase();
         if (k === 'arrowleft' || k === 'a') handleInput('l');
@@ -194,50 +186,48 @@
         if(k.includes('arrow')) e.preventDefault();
     });
 
-    // Touch Controls (Drag/Swipe)
-    canvas.addEventListener('touchstart', e => {
-        touchStartX = e.touches[0].clientX;
-        touchStartY = e.touches[0].clientY;
-        // Allows starting the game on first touch
-        if(!isPlaying) start();
+    // Joystick Event Listeners
+    window.addEventListener('touchstart', e => {
+        joyActive = true;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        joyBase.style.display = 'block';
+        joyBase.style.left = `${startX - 40}px`;
+        joyBase.style.top = `${startY - 40}px`;
+        joyStick.style.left = '20px';
+        joyStick.style.top = '20px';
     }, {passive: false});
 
-    canvas.addEventListener('touchmove', e => {
-        e.preventDefault(); // Stop scrolling while playing
-        if (!touchStartX || !touchStartY) return;
+    window.addEventListener('touchmove', e => {
+        if (!joyActive) return;
+        e.preventDefault();
+        const touchX = e.touches[0].clientX;
+        const touchY = e.touches[0].clientY;
+        let deltaX = touchX - startX;
+        let deltaY = touchY - startY;
 
-        let touchEndX = e.touches[0].clientX;
-        let touchEndY = e.touches[0].clientY;
+        // Clamp stick movement
+        const dist = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
+        if (dist > joyLimit) {
+            deltaX = (deltaX / dist) * joyLimit;
+            deltaY = (deltaY / dist) * joyLimit;
+        }
 
-        let dx = touchStartX - touchEndX;
-        let dy = touchStartY - touchEndY;
+        joyStick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
 
-        // Check if movement is large enough to be a deliberate swipe
-        if (Math.abs(dx) > minSwipeDistance || Math.abs(dy) > minSwipeDistance) {
-            if (Math.abs(dx) > Math.abs(dy)) {
-                handleInput(dx > 0 ? 'l' : 'r');
+        // Trigger Direction
+        if (Math.abs(deltaX) > threshold || Math.abs(deltaY) > threshold) {
+            if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                handleInput(deltaX > 0 ? 'r' : 'l');
             } else {
-                handleInput(dy > 0 ? 'u' : 'd');
+                handleInput(deltaY > 0 ? 'd' : 'u');
             }
-            // Reset start positions so one long drag can trigger multiple turns
-            touchStartX = touchEndX;
-            touchStartY = touchEndY;
         }
     }, {passive: false});
 
-    canvas.addEventListener('touchend', () => {
-        touchStartX = 0;
-        touchStartY = 0;
-    });
-
-    // Mouse click still works for desktop testing
-    canvas.addEventListener('mousedown', e => {
-        const r = canvas.getBoundingClientRect();
-        const x = e.clientX - r.left, y = e.clientY - r.top, s = r.width;
-        if (y < x && y < (s - x)) handleInput('u');
-        else if (y > x && y > (s - x)) handleInput('d');
-        else if (x < y && x < (s - y)) handleInput('l');
-        else if (x > y && x > (s - y)) handleInput('r');
+    window.addEventListener('touchend', () => {
+        joyActive = false;
+        joyBase.style.display = 'none';
     });
 
     init();
