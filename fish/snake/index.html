@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#000000">
-    <title>Snake: Pro Balance</title>
+    <title>Snake: Smooth FX</title>
     <style>
         :root { --glow: #00ff41; }
         body {
@@ -19,7 +19,7 @@
         .header { width: 90%; display: flex; justify-content: space-between; margin-bottom: 10px; z-index: 5; color: var(--glow); font-weight: bold; }
         canvas { 
             background: #000; border: 1px solid #222; border-radius: 4px; 
-            max-width: 95vw; max-height: 95vw; display: block; image-rendering: pixelated;
+            max-width: 95vw; max-height: 95vw; display: block;
         }
         #joy-base {
             position: fixed; width: 60px; height: 60px; 
@@ -60,12 +60,13 @@
     const overlay = document.getElementById('overlay'), joyBase = document.getElementById('joy-base'), joyStick = document.getElementById('joy-stick');
 
     const grid = 20;
-    const START_FPS = 7;   // Slower starting speed
-    const MAX_FPS = 18;    // Challenging but fair cap
-    const SPEED_INC = 0.4; // How much to speed up per fruit
+    const START_FPS = 7;
+    const MAX_FPS = 18;
+    const SPEED_INC = 0.4;
 
-    let score, highScore, snake, food, isPlaying, fps, lastTime;
+    let score, highScore, snake, food, isPlaying, fps, lastGameUpdate;
 
+    // Optimized FX
     const MAX_PARTICLES = 12;
     const particles = Array.from({ length: MAX_PARTICLES }, () => ({ x: 0, y: 0, vx: 0, vy: 0, life: 0, color: '' }));
 
@@ -78,9 +79,7 @@
     function init() {
         snake = { x: 160, y: 160, dx: grid, dy: 0, cells: [], maxCells: 4 };
         food = { x: 300, y: 300 };
-        score = 0; 
-        fps = START_FPS; 
-        isPlaying = false;
+        score = 0; fps = START_FPS; isPlaying = false;
         scoreEl.innerText = score;
         overlay.style.display = 'flex';
         renderStatic();
@@ -97,32 +96,66 @@
         for (let p of particles) {
             if (p.life <= 0) {
                 p.x = x; p.y = y;
-                p.vx = (Math.random() - 0.5) * 6;
-                p.vy = (Math.random() - 0.5) * 6;
+                p.vx = (Math.random() - 0.5) * 8; // Faster burst
+                p.vy = (Math.random() - 0.5) * 8;
                 p.life = 1.0; p.color = color;
                 if (++spawned >= count) break;
             }
         }
     }
 
-    function update(t) {
+    function mainLoop(t) {
         if(!isPlaying) return;
-        requestAnimationFrame(update);
-        const delta = t - lastTime;
-        if (delta < 1000 / fps) return;
-        lastTime = t;
+        requestAnimationFrame(mainLoop);
 
-        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 400, 400);
+        // 1. HIGH-SPEED PARTICLE UPDATE (Runs every frame)
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, 400, 400);
 
-        snake.x += snake.dx; snake.y += snake.dy;
-        if (snake.x < 0) snake.x = 380; else if (snake.x >= 400) snake.x = 0;
-        if (snake.y < 0) snake.y = 380; else if (snake.y >= 400) snake.y = 0;
+        for (let p of particles) {
+            if (p.life > 0) {
+                p.x += p.vx; p.y += p.vy; 
+                p.life -= 0.08; // Ends much quicker (approx 12 frames)
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x|0, p.y|0, 3, 3);
+            }
+        }
+        ctx.globalAlpha = 1;
 
-        snake.cells.unshift({x: snake.x, y: snake.y});
-        if (snake.cells.length > snake.maxCells) snake.cells.pop();
+        // 2. FPS-CAPPED GAME LOGIC
+        const delta = t - lastGameUpdate;
+        if (delta >= 1000 / fps) {
+            lastGameUpdate = t;
 
-        ctx.fillStyle = '#ff3333'; ctx.fillRect(food.x+4, food.y+4, 12, 12);
+            snake.x += snake.dx; snake.y += snake.dy;
+            if (snake.x < 0) snake.x = 380; else if (snake.x >= 400) snake.x = 0;
+            if (snake.y < 0) snake.y = 380; else if (snake.y >= 400) snake.y = 0;
 
+            snake.cells.unshift({x: snake.x, y: snake.y});
+            if (snake.cells.length > snake.maxCells) snake.cells.pop();
+
+            if (snake.x === food.x && snake.y === food.y) {
+                snake.maxCells++; score += 10; scoreEl.innerText = score;
+                if (fps < MAX_FPS) fps += SPEED_INC;
+                spawnBurst(food.x+10, food.y+10, score > highScore ? '#ffcc00' : '#00ff41', 5);
+                if (score > highScore) {
+                    highScore = score; highEl.innerText = highScore;
+                    localStorage.setItem('snakeHigh', highScore);
+                }
+                food.x = ((Math.random() * 20) | 0) * grid;
+                food.y = ((Math.random() * 20) | 0) * grid;
+            }
+
+            // Check Collision
+            for (let i = 1; i < snake.cells.length; i++) {
+                if (snake.cells[i].x === snake.x && snake.cells[i].y === snake.y) end();
+            }
+        }
+
+        // Always render food and snake (outside the FPS cap for smooth visual persistence)
+        ctx.fillStyle = '#ff3333';
+        ctx.fillRect(food.x+4, food.y+4, 12, 12);
         snake.cells.forEach((cell, i) => {
             if (i === 0) {
                 ctx.fillStyle = 'rgba(0, 255, 65, 0.2)';
@@ -130,36 +163,11 @@
             }
             ctx.fillStyle = i === 0 ? '#00ff41' : '#008f11';
             ctx.fillRect(cell.x+1, cell.y+1, 18, 18);
-            if (i > 0 && cell.x === snake.x && cell.y === snake.y) end();
         });
-
-        if (snake.x === food.x && snake.y === food.y) {
-            snake.maxCells++; score += 10; scoreEl.innerText = score;
-            
-            // Speed curve logic
-            if (fps < MAX_FPS) fps += SPEED_INC;
-            
-            spawnBurst(food.x+10, food.y+10, score > highScore ? '#ffcc00' : '#00ff41', 4);
-            if (score > highScore) {
-                highScore = score; highEl.innerText = highScore;
-                localStorage.setItem('snakeHigh', highScore);
-            }
-            food.x = ((Math.random() * 20) | 0) * grid;
-            food.y = ((Math.random() * 20) | 0) * grid;
-        }
-
-        for (let p of particles) {
-            if (p.life > 0) {
-                p.x += p.vx; p.y += p.vy; p.life -= 0.05;
-                ctx.fillStyle = p.color; ctx.globalAlpha = p.life;
-                ctx.fillRect(p.x|0, p.y|0, 3, 3);
-            }
-        }
-        ctx.globalAlpha = 1;
     }
 
     function handleInput(dir) {
-        if (!isPlaying) { isPlaying = true; overlay.style.display = 'none'; lastTime = performance.now(); requestAnimationFrame(update); }
+        if (!isPlaying) { isPlaying = true; overlay.style.display = 'none'; lastGameUpdate = performance.now(); requestAnimationFrame(mainLoop); }
         if (dir === 'l' && snake.dx === 0) { snake.dx = -grid; snake.dy = 0; }
         else if (dir === 'u' && snake.dy === 0) { snake.dy = -grid; snake.dx = 0; }
         else if (dir === 'r' && snake.dx === 0) { snake.dx = grid; snake.dy = 0; }
