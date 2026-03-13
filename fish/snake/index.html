@@ -6,19 +6,20 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#000000">
-    <title>Snake: Joystick Edition</title>
+    <title>Snake: Universal Controls</title>
     <style>
         :root { --glow: #00ff41; --gold: #ffcc00; }
         body {
             display: flex; justify-content: center; align-items: center;
             height: 100vh; margin: 0; background: #000;
             font-family: 'Courier New', Courier, monospace; overflow: hidden; touch-action: none;
+            user-select: none; /* Prevents text selection while dragging */
         }
         .game-container { position: relative; width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; }
         .header { width: 90%; display: flex; justify-content: space-between; margin-bottom: 10px; z-index: 5; }
         .stat { display: flex; flex-direction: column; }
         .label { font-size: 10px; color: #444; text-transform: uppercase; }
-        #score, #highScore { font-size: 20px; font-weight: bold; color: var(--glow); transition: transform 0.2s; }
+        #score, #highScore { font-size: 20px; font-weight: bold; color: var(--glow); }
         #highScore { color: var(--gold); }
         
         canvas { 
@@ -26,16 +27,16 @@
             max-width: 95vw; max-height: 95vw; cursor: crosshair; display: block;
         }
 
-        /* Joystick Visuals */
+        /* Joystick UI - Now supports Mouse and Touch */
         #joy-base {
-            position: absolute; width: 80px; height: 80px; background: rgba(255,255,255,0.1);
-            border: 2px solid rgba(255,255,255,0.2); border-radius: 50%;
-            pointer-events: none; display: none; z-index: 20;
+            position: fixed; width: 80px; height: 80px; background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(255,255,255,0.15); border-radius: 50%;
+            pointer-events: none; display: none; z-index: 100;
         }
         #joy-stick {
             position: absolute; width: 40px; height: 40px; background: var(--glow);
-            border-radius: 50%; opacity: 0.6; pointer-events: none;
-            box-shadow: 0 0 15px var(--glow);
+            border-radius: 50%; opacity: 0.5; left: 20px; top: 20px;
+            box-shadow: 0 0 15px var(--glow); pointer-events: none;
         }
 
         #overlay {
@@ -62,7 +63,7 @@
 
         <div id="overlay">
             <h2 id="overlay-title">SNAKE</h2>
-            <p><strong>WASD / ARROWS</strong><br>OR<br><strong>DRAG</strong> FOR JOYSTICK</p>
+            <p><strong>KEYS</strong> OR <strong>DRAG/SWIPE</strong><br>ANYWHERE TO PLAY</p>
         </div>
     </div>
 
@@ -78,11 +79,11 @@
     const grid = 20;
     let score, highScore, snake, food, fx, isPlaying, fps, lastTime;
 
-    // Joystick Logic
-    let joyActive = false;
+    // Universal Controller Logic
+    let active = false;
     let startX, startY;
-    const joyLimit = 40; // Max movement radius
-    const threshold = 15; // Minimum movement to trigger turn
+    const joyLimit = 35; 
+    const threshold = 12; 
 
     highScore = parseInt(localStorage.getItem('snakeHigh')) || 0;
     highEl.innerText = highScore;
@@ -176,7 +177,7 @@
 
     function end() { isPlaying = false; init(); }
 
-    // Desktop Keys
+    // Keyboard
     window.addEventListener('keydown', e => {
         const k = e.key.toLowerCase();
         if (k === 'arrowleft' || k === 'a') handleInput('l');
@@ -186,49 +187,55 @@
         if(k.includes('arrow')) e.preventDefault();
     });
 
-    // Joystick Event Listeners
-    window.addEventListener('touchstart', e => {
-        joyActive = true;
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
+    // Universal Pointer logic (Mouse + Touch)
+    function onStart(e) {
+        active = true;
+        const pageX = e.pageX || e.touches[0].pageX;
+        const pageY = e.pageY || e.touches[0].pageY;
+        startX = pageX;
+        startY = pageY;
         joyBase.style.display = 'block';
         joyBase.style.left = `${startX - 40}px`;
         joyBase.style.top = `${startY - 40}px`;
-        joyStick.style.left = '20px';
-        joyStick.style.top = '20px';
-    }, {passive: false});
+        joyStick.style.transform = `translate(0px, 0px)`;
+    }
 
-    window.addEventListener('touchmove', e => {
-        if (!joyActive) return;
-        e.preventDefault();
-        const touchX = e.touches[0].clientX;
-        const touchY = e.touches[0].clientY;
-        let deltaX = touchX - startX;
-        let deltaY = touchY - startY;
+    function onMove(e) {
+        if (!active) return;
+        if (e.touches) e.preventDefault();
+        const pageX = e.pageX || e.touches[0].pageX;
+        const pageY = e.pageY || e.touches[0].pageY;
+        let dx = pageX - startX;
+        let dy = pageY - startY;
 
-        // Clamp stick movement
-        const dist = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
+        const dist = Math.sqrt(dx*dx + dy*dy);
         if (dist > joyLimit) {
-            deltaX = (deltaX / dist) * joyLimit;
-            deltaY = (deltaY / dist) * joyLimit;
+            dx = (dx / dist) * joyLimit;
+            dy = (dy / dist) * joyLimit;
         }
 
-        joyStick.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+        joyStick.style.transform = `translate(${dx}px, ${dy}px)`;
 
-        // Trigger Direction
-        if (Math.abs(deltaX) > threshold || Math.abs(deltaY) > threshold) {
-            if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                handleInput(deltaX > 0 ? 'r' : 'l');
-            } else {
-                handleInput(deltaY > 0 ? 'd' : 'u');
-            }
+        if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
+            if (Math.abs(dx) > Math.abs(dy)) handleInput(dx > 0 ? 'r' : 'l');
+            else handleInput(dy > 0 ? 'd' : 'u');
         }
-    }, {passive: false});
+    }
 
-    window.addEventListener('touchend', () => {
-        joyActive = false;
+    function onEnd() {
+        active = false;
         joyBase.style.display = 'none';
-    });
+    }
+
+    // Mouse Listeners
+    window.addEventListener('mousedown', onStart);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onEnd);
+
+    // Touch Listeners
+    window.addEventListener('touchstart', onStart, {passive: false});
+    window.addEventListener('touchmove', onMove, {passive: false});
+    window.addEventListener('touchend', onEnd);
 
     init();
 </script>
