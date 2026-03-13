@@ -104,16 +104,26 @@
 </div>
 
 <script>
-    const suits = ['♠', '♥', '♦', '♣'];
-    // Custom order as requested: Ace, 2-10, J, Q, K
+    // Suit Order: Spade, Heart, Club, Diamond
+    const suitOrderPriority = ['♠', '♥', '♣', '♦'];
     const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+    
     let deck = [], discardPile = [], playerHand = [], cpuHand = [], centerCard = null;
     let penaltyStack = 0, currentSuit = '', mustCover = false, isPlayerTurn = true;
     let pCardsJustDrawn = 0, cCardsJustDrawn = 0, triggerCenterAnim = false;
 
     function initGame() {
         deck = []; discardPile = [];
-        for (let s of suits) for (let r of ranks) deck.push({ suit: s, rank: r, color: (s === '♥' || s === '♦') ? 'red' : 'black' });
+        // Generate deck
+        for (let s of suitOrderPriority) {
+            for (let r of ranks) {
+                deck.push({ 
+                    suit: s, 
+                    rank: r, 
+                    color: (s === '♥' || s === '♦') ? 'red' : 'black' 
+                });
+            }
+        }
         deck.sort(() => Math.random() - 0.5);
         playerHand = deck.splice(0, 7);
         cpuHand = deck.splice(0, 7);
@@ -128,8 +138,10 @@
 
     function sortPlayerHand() {
         playerHand.sort((a, b) => {
-            const suitOrder = suits.indexOf(a.suit) - suits.indexOf(b.suit);
-            if (suitOrder !== 0) return suitOrder;
+            const sA = suitOrderPriority.indexOf(a.suit);
+            const sB = suitOrderPriority.indexOf(b.suit);
+            if (sA !== sB) return sA - sB;
+            
             return ranks.indexOf(a.rank) - ranks.indexOf(b.rank);
         });
     }
@@ -264,7 +276,7 @@
             if (card.rank === 'Q') { mustCover = true; log("CPU played Queen! COVER IT"); render(); setTimeout(cpuTurn, 1000); }
             else if (card.rank === 'K') { mustCover = false; log("CPU King! THEY GO AGAIN"); render(); setTimeout(cpuTurn, 1000); }
             else if (card.rank === '8') { mustCover = false; isPlayerTurn = false; log("CPU played 8! YOU MISS A GO"); render(); setTimeout(cpuTurn, 1000); }
-            else if (card.rank === 'A') { mustCover = false; currentSuit = suits[Math.floor(Math.random() * 4)]; isPlayerTurn = true; log(`CPU changed suit to ${currentSuit}`); render(); }
+            else if (card.rank === 'A') { mustCover = false; currentSuit = suitOrderPriority[Math.floor(Math.random() * 4)]; isPlayerTurn = true; log(`CPU changed suit to ${currentSuit}`); render(); }
             else { mustCover = false; isPlayerTurn = true; log("YOUR TURN"); render(); }
         } else {
             if (deck.length === 0 && !reshuffle()) { alert("DRAW GAME!"); initGame(); return; }
