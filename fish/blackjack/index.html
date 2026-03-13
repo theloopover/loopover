@@ -57,7 +57,6 @@
             100% { transform: translate(0,0); }
         }
         .shuffling { animation: shuffleAnim 0.6s ease-in-out; }
-
         @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         @keyframes slideDown { 0% { transform: translateY(-50px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
         .anim-pop { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
@@ -104,7 +103,6 @@
 </div>
 
 <script>
-    // Suit Order: Spade, Heart, Club, Diamond
     const suitOrderPriority = ['♠', '♥', '♣', '♦'];
     const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
     
@@ -114,14 +112,9 @@
 
     function initGame() {
         deck = []; discardPile = [];
-        // Generate deck
         for (let s of suitOrderPriority) {
             for (let r of ranks) {
-                deck.push({ 
-                    suit: s, 
-                    rank: r, 
-                    color: (s === '♥' || s === '♦') ? 'red' : 'black' 
-                });
+                deck.push({ suit: s, rank: r, color: (s === '♥' || s === '♦') ? 'red' : 'black' });
             }
         }
         deck.sort(() => Math.random() - 0.5);
@@ -132,7 +125,6 @@
         penaltyStack = 0; mustCover = false; isPlayerTurn = true;
         pCardsJustDrawn = 7; cCardsJustDrawn = 7; triggerCenterAnim = true;
         log("GAME START");
-        sortPlayerHand();
         render();
     }
 
@@ -141,7 +133,6 @@
             const sA = suitOrderPriority.indexOf(a.suit);
             const sB = suitOrderPriority.indexOf(b.suit);
             if (sA !== sB) return sA - sB;
-            
             return ranks.indexOf(a.rank) - ranks.indexOf(b.rank);
         });
     }
@@ -159,6 +150,9 @@
     }
 
     function render() {
+        // Safety sort: ensure hand is ordered before every visual update
+        sortPlayerHand();
+
         const pHandDiv = document.getElementById('player-hand');
         pHandDiv.innerHTML = '';
         playerHand.forEach((card, i) => {
@@ -169,6 +163,7 @@
             pHandDiv.appendChild(el);
         });
         pCardsJustDrawn = 0; 
+
         const cpuHandDiv = document.getElementById('cpu-hand');
         cpuHandDiv.innerHTML = '';
         cpuHand.forEach((_, i) => {
@@ -177,11 +172,14 @@
             cpuHandDiv.appendChild(el);
         });
         cCardsJustDrawn = 0; 
+
         const centerDiv = document.getElementById('current-card-display');
         centerDiv.innerHTML = centerCard.rank + currentSuit;
         const isRed = (currentSuit === '♥' || currentSuit === '♦');
         centerDiv.className = `active-card ${isRed ? 'red' : ''}`;
+        
         if (triggerCenterAnim) { void centerDiv.offsetWidth; centerDiv.classList.add('anim-pop'); triggerCenterAnim = false; }
+        
         document.getElementById('cpu-count').innerText = cpuHand.length;
         document.getElementById('p-count').innerText = playerHand.length;
         document.getElementById('penalty-count').innerText = penaltyStack;
@@ -206,20 +204,26 @@
         if (!isPlayerTurn) return;
         const card = playerHand[index];
         const bj = isBlackJack(card), rj = isRedJack(card);
+
         if (mustCover && card.suit !== currentSuit && card.rank !== 'Q') return log("COVER THE QUEEN!");
         if (penaltyStack > 0 && !(card.rank === '2' || bj || rj)) return log(`DRAW ${penaltyStack} CARDS!`);
+
         const isMatch = card.rank === centerCard.rank || card.suit === currentSuit || card.rank === 'A' || (penaltyStack > 0 && (rj || bj || card.rank === '2'));
         if (!isMatch) return log("INVALID MOVE!");
+
         discardPile.push(centerCard);
         centerCard = playerHand.splice(index, 1)[0];
         currentSuit = centerCard.suit;
         triggerCenterAnim = true;
         isPlayerTurn = false;
+
         if (rj && penaltyStack > 0) { penaltyStack = 0; log("RED JACK CANCELLED PENALTY!"); }
         else if (centerCard.rank === '2') { penaltyStack += 2; log("+2 PENALTY!"); }
         else if (bj) { penaltyStack += 5; log("+5 BLACK JACK!"); }
+
         if (playerHand.length === 1) log("LAST CARD!");
         if (checkWin()) return;
+
         if (centerCard.rank === 'Q') { mustCover = true; isPlayerTurn = true; log("QUEEN! COVER IT!"); render(); }
         else if (centerCard.rank === 'K') { mustCover = false; isPlayerTurn = true; log("KING! GO AGAIN!"); render(); }
         else if (centerCard.rank === '8') { mustCover = false; isPlayerTurn = true; log("8! CPU MISS A GO!"); render(); }
@@ -241,13 +245,13 @@
             if (!hasValidMove(playerHand)) { alert("DRAW GAME!"); initGame(); return; }
             else return log("DECK EMPTY! PLAY A CARD.");
         }
+
         const c = mustCover ? 1 : (penaltyStack || 1);
         for(let i=0; i<c; i++) {
             if (deck.length === 0 && !reshuffle()) break;
             playerHand.push(deck.pop()); pCardsJustDrawn++;
         }
         penaltyStack = 0; mustCover = false;
-        sortPlayerHand();
         isPlayerTurn = false; render(); log("YOU DREW - CPU'S TURN"); setTimeout(cpuTurn, 800);
     }
 
@@ -259,20 +263,25 @@
             if (penaltyStack > 0) return rj || bj || c.rank === '2';
             return c.rank === centerCard.rank || c.suit === currentSuit || c.rank === 'A';
         });
+
         if (idx !== -1) {
             const card = cpuHand.splice(idx, 1)[0];
             discardPile.push(centerCard);
             centerCard = card; currentSuit = card.suit; triggerCenterAnim = true;
             const bj = isBlackJack(card), rj = isRedJack(card);
+            
             if (rj && penaltyStack > 0) { penaltyStack = 0; log("CPU RED JACK CANCELLED!"); }
             else if (card.rank === '2') { penaltyStack += 2; log("CPU: +2!"); }
             else if (bj) { penaltyStack += 5; log("CPU: +5 BLACK JACK!"); }
+            
             if (cpuHand.length === 1) log("CPU: LAST CARD!");
             render();
+
             if (cpuHand.length === 0) {
                 setTimeout(() => { alert("CPU WINS!"); initGame(); }, 600);
                 return;
             }
+
             if (card.rank === 'Q') { mustCover = true; log("CPU played Queen! COVER IT"); render(); setTimeout(cpuTurn, 1000); }
             else if (card.rank === 'K') { mustCover = false; log("CPU King! THEY GO AGAIN"); render(); setTimeout(cpuTurn, 1000); }
             else if (card.rank === '8') { mustCover = false; isPlayerTurn = false; log("CPU played 8! YOU MISS A GO"); render(); setTimeout(cpuTurn, 1000); }
