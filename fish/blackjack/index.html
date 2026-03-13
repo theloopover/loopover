@@ -36,6 +36,7 @@
         .card.back { background: radial-gradient(#4361ee, #3f37c9); border: 2px solid white; color: transparent; cursor: pointer; }
         .card.hidden { visibility: hidden; pointer-events: none; }
         #center-area { display: flex; justify-content: center; align-items: center; gap: 30px; margin: 20px 0; }
+        .deck-info { display: flex; flex-direction: column; align-items: center; gap: 5px; font-weight: bold; color: #ADBC9F; }
         .active-card { 
             width: 110px; height: 160px; background: white; color: black; border-radius: 12px; 
             display: flex; align-items: center; justify-content: center; font-size: 2.5rem; 
@@ -67,10 +68,15 @@
     <div id="status-bar">GAME START</div>
     <div>CPU Cards: <span id="cpu-count">7</span></div>
     <div class="hand" id="cpu-hand"></div>
+    
     <div id="center-area">
-        <div id="deck-visual" class="card back" onclick="playerDraw()">Deck</div>
+        <div class="deck-info">
+            <div id="deck-visual" class="card back" onclick="playerDraw()">Deck</div>
+            <span>DECK: <span id="deck-count">0</span></span>
+        </div>
         <div id="current-card-display" class="active-card">?</div>
     </div>
+
     <div id="player-hand-container">
         <div>Your Hand (<span id="p-count">0</span>) | <strong style="color:#f6b93b">Penalty: <span id="penalty-count">0</span></strong></div>
         <div class="hand" id="player-hand"></div>
@@ -91,12 +97,12 @@
 <script>
     const suits = ['♠', '♥', '♦', '♣'];
     const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-    let deck = [], playerHand = [], cpuHand = [], centerCard = null;
+    let deck = [], discardPile = [], playerHand = [], cpuHand = [], centerCard = null;
     let penaltyStack = 0, currentSuit = '', mustCover = false, isPlayerTurn = true;
     let pCardsJustDrawn = 0, cCardsJustDrawn = 0, triggerCenterAnim = false;
 
     function initGame() {
-        deck = [];
+        deck = []; discardPile = [];
         for (let s of suits) for (let r of ranks) deck.push({ suit: s, rank: r, color: (s === '♥' || s === '♦') ? 'red' : 'black' });
         deck.sort(() => Math.random() - 0.5);
         playerHand = deck.splice(0, 7);
@@ -105,7 +111,17 @@
         currentSuit = centerCard.suit;
         penaltyStack = 0; mustCover = false; isPlayerTurn = true;
         pCardsJustDrawn = 7; cCardsJustDrawn = 7; triggerCenterAnim = true;
+        log("GAME START");
         render();
+    }
+
+    function reshuffle() {
+        if (discardPile.length === 0) return false;
+        log("RESHUFFLING DECK...");
+        deck = [...discardPile];
+        discardPile = [];
+        deck.sort(() => Math.random() - 0.5);
+        return true;
     }
 
     function render() {
@@ -139,13 +155,22 @@
         document.getElementById('cpu-count').innerText = cpuHand.length;
         document.getElementById('p-count').innerText = playerHand.length;
         document.getElementById('penalty-count').innerText = penaltyStack;
-        document.getElementById('deck-visual').className = deck.length > 0 ? "card back" : "card hidden";
+        document.getElementById('deck-count').innerText = deck.length;
+        document.getElementById('deck-visual').className = (deck.length > 0 || discardPile.length > 0) ? "card back" : "card hidden";
     }
 
     function log(m) { document.getElementById('status-bar').innerText = m; }
-
     function isBlackJack(card) { return card.rank === 'J' && (card.suit === '♠' || card.suit === '♣'); }
     function isRedJack(card) { return card.rank === 'J' && (card.suit === '♥' || card.suit === '♦'); }
+
+    function hasValidMove(hand) {
+        return hand.some(card => {
+            const bj = isBlackJack(card), rj = isRedJack(card);
+            if (mustCover) return card.suit === currentSuit || card.rank === 'Q';
+            if (penaltyStack > 0) return rj || bj || card.rank === '2';
+            return card.rank === centerCard.rank || card.suit === currentSuit || card.rank === 'A';
+        });
+    }
 
     function playCard(index) {
         if (!isPlayerTurn) return;
@@ -158,6 +183,7 @@
         const isMatch = card.rank === centerCard.rank || card.suit === currentSuit || card.rank === 'A' || (penaltyStack > 0 && (rj || bj || card.rank === '2'));
         if (!isMatch) return log("INVALID MOVE!");
 
+        discardPile.push(centerCard);
         centerCard = playerHand.splice(index, 1)[0];
         currentSuit = centerCard.suit;
         triggerCenterAnim = true;
@@ -187,9 +213,17 @@
 
     function playerDraw() {
         if (!isPlayerTurn) return;
+        if (deck.length === 0 && !reshuffle()) {
+            if (!hasValidMove(playerHand)) { alert("DRAW GAME!"); initGame(); return; }
+            else return log("DECK EMPTY! PLAY A CARD.");
+        }
+
         if (penaltyStack > 5) document.body.classList.add('shake');
         const c = mustCover ? 1 : (penaltyStack || 1);
-        for(let i=0; i<c; i++) if(deck.length > 0) { playerHand.push(deck.pop()); pCardsJustDrawn++; }
+        for(let i=0; i<c; i++) {
+            if (deck.length === 0 && !reshuffle()) break;
+            playerHand.push(deck.pop()); pCardsJustDrawn++;
+        }
         penaltyStack = 0; mustCover = false;
         setTimeout(() => document.body.classList.remove('shake'), 500);
         isPlayerTurn = false; render(); log("YOU DREW - CPU'S TURN"); setTimeout(cpuTurn, 800);
@@ -206,6 +240,7 @@
 
         if (idx !== -1) {
             const card = cpuHand.splice(idx, 1)[0];
+            discardPile.push(centerCard);
             centerCard = card; currentSuit = card.suit; triggerCenterAnim = true;
             const bj = isBlackJack(card), rj = isRedJack(card);
             
@@ -219,16 +254,16 @@
             if (card.rank === 'Q') { mustCover = true; log("CPU played Queen! COVER IT"); render(); setTimeout(cpuTurn, 1000); }
             else if (card.rank === 'K') { mustCover = false; log("CPU King! THEY GO AGAIN"); render(); setTimeout(cpuTurn, 1000); }
             else if (card.rank === '8') { mustCover = false; isPlayerTurn = false; log("CPU played 8! YOU MISS A GO"); render(); setTimeout(cpuTurn, 1000); }
-            else if (card.rank === 'A') { 
-                mustCover = false;
-                currentSuit = suits[Math.floor(Math.random() * 4)]; 
-                isPlayerTurn = true; log(`CPU changed suit to ${currentSuit}`); render(); 
-            }
+            else if (card.rank === 'A') { mustCover = false; currentSuit = suits[Math.floor(Math.random() * 4)]; isPlayerTurn = true; log(`CPU changed suit to ${currentSuit}`); render(); }
             else { mustCover = false; isPlayerTurn = true; log("YOUR TURN"); render(); }
         } else {
+            if (deck.length === 0 && !reshuffle()) { alert("DRAW GAME!"); initGame(); return; }
             if (penaltyStack > 5) document.body.classList.add('shake');
             const c = mustCover ? 1 : (penaltyStack || 1);
-            for(let i=0; i<c; i++) if(deck.length > 0) { cpuHand.push(deck.pop()); cCardsJustDrawn++; }
+            for(let i=0; i<c; i++) {
+                if (deck.length === 0 && !reshuffle()) break;
+                cpuHand.push(deck.pop()); cCardsJustDrawn++;
+            }
             penaltyStack = 0; mustCover = false;
             setTimeout(() => document.body.classList.remove('shake'), 500);
             isPlayerTurn = true; log("CPU DREW - YOUR TURN"); render();
