@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blackjack Switch - Final Card</title>
+    <title>Blackjack Switch</title>
     <style>
         :root { --card-width: 80px; --card-height: 120px; }
         body { 
@@ -19,11 +19,8 @@
         }
         .hand { 
             display: flex; gap: 10px; overflow-x: auto; padding: 20px 10px; min-height: var(--card-height);
-            -webkit-overflow-scrolling: touch; scrollbar-width: none; align-items: center; transition: all 0.3s;
+            -webkit-overflow-scrolling: touch; scrollbar-width: none; align-items: center;
         }
-        /* Glow for Last Card */
-        .last-card-glow { box-shadow: 0 0 20px #f6b93b; background: rgba(246, 185, 59, 0.1); border-radius: 15px; }
-
         .hand::-webkit-scrollbar { display: none; }
         @media (min-width: 768px) {
             .hand { flex-wrap: wrap; justify-content: center; overflow-x: visible; }
@@ -50,15 +47,12 @@
             border-radius: 30px; font-size: 1.1rem; font-weight: bold; width: 100%; max-width: 300px;
             margin: 10px auto; display: block; box-shadow: 0 4px #436850; cursor: pointer;
         }
-        
         @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         @keyframes slideDown { 0% { transform: translateY(-50px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
         @keyframes shake { 0%, 100% { transform: translate(0,0); } 25% { transform: translate(5px, 5px); } 50% { transform: translate(-5px, -5px); } 75% { transform: translate(5px, -5px); } }
-        
         .anim-pop { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         .anim-draw { animation: slideDown 0.3s ease-out forwards; }
         .shake { animation: shake 0.2s ease-in-out 2; }
-
         #suit-picker { 
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(5px);
@@ -70,7 +64,7 @@
 <body>
 
 <div id="game-container">
-    <div id="status-bar">GET RID OF ALL CARDS!</div>
+    <div id="status-bar">GAME START</div>
     <div>CPU Cards: <span id="cpu-count">7</span></div>
     <div class="hand" id="cpu-hand"></div>
     <div id="center-area">
@@ -125,9 +119,6 @@
             pHandDiv.appendChild(el);
         });
         pCardsJustDrawn = 0; 
-        
-        // Add glow if player is on last card
-        pHandDiv.classList.toggle('last-card-glow', playerHand.length === 1);
 
         const cpuHandDiv = document.getElementById('cpu-hand');
         cpuHandDiv.innerHTML = '';
@@ -137,7 +128,6 @@
             cpuHandDiv.appendChild(el);
         });
         cCardsJustDrawn = 0; 
-        cpuHandDiv.classList.toggle('last-card-glow', cpuHand.length === 1);
 
         const centerDiv = document.getElementById('current-card-display');
         centerDiv.innerHTML = centerCard.rank + currentSuit;
@@ -152,11 +142,7 @@
         document.getElementById('deck-visual').className = deck.length > 0 ? "card back" : "card hidden";
     }
 
-    function log(m, isUrgent = false) { 
-        const sb = document.getElementById('status-bar');
-        sb.innerText = m; 
-        sb.style.color = isUrgent ? "#f6b93b" : "#ADBC9F";
-    }
+    function log(m) { document.getElementById('status-bar').innerText = m; }
 
     function isBlackJack(card) { return card.rank === 'J' && (card.suit === '♠' || card.suit === '♣'); }
     function isRedJack(card) { return card.rank === 'J' && (card.suit === '♥' || card.suit === '♦'); }
@@ -177,23 +163,25 @@
         triggerCenterAnim = true;
         isPlayerTurn = false;
 
-        if (rj && penaltyStack > 0) { penaltyStack = 0; log("RED JACK CANCEL!"); }
-        else if (centerCard.rank === '2') { penaltyStack += 2; }
-        else if (bj) { penaltyStack += 5; }
+        if (rj && penaltyStack > 0) { penaltyStack = 0; log("RED JACK CANCELLED PENALTY!"); }
+        else if (centerCard.rank === '2') { penaltyStack += 2; log("+2 PENALTY!"); }
+        else if (bj) { penaltyStack += 5; log("+5 BLACK JACK!"); }
 
-        if (playerHand.length === 1) log("LAST CARD!", true);
+        if (playerHand.length === 1) log("LAST CARD!");
         if (checkWin()) return;
 
-        if (centerCard.rank === 'Q') { mustCover = true; isPlayerTurn = true; render(); }
-        else if (centerCard.rank === 'K' || centerCard.rank === '8') { mustCover = false; isPlayerTurn = true; render(); }
+        if (centerCard.rank === 'Q') { mustCover = true; isPlayerTurn = true; log("QUEEN! COVER IT!"); render(); }
+        else if (centerCard.rank === 'K') { mustCover = false; isPlayerTurn = true; log("KING! GO AGAIN!"); render(); }
+        else if (centerCard.rank === '8') { mustCover = false; isPlayerTurn = true; log("8! CPU MISS A GO!"); render(); }
         else if (centerCard.rank === 'A') { mustCover = false; document.getElementById('suit-picker').style.display = 'flex'; render(); }
-        else { mustCover = false; render(); setTimeout(cpuTurn, 1000); }
+        else { mustCover = false; log("CPU'S TURN..."); render(); setTimeout(cpuTurn, 1000); }
     }
 
     function selectSuit(s) {
         currentSuit = s;
         document.getElementById('suit-picker').style.display = 'none';
         triggerCenterAnim = true; isPlayerTurn = false; render();
+        log(`SUIT CHANGED TO ${s}`);
         setTimeout(cpuTurn, 1000);
     }
 
@@ -204,7 +192,7 @@
         for(let i=0; i<c; i++) if(deck.length > 0) { playerHand.push(deck.pop()); pCardsJustDrawn++; }
         penaltyStack = 0; mustCover = false;
         setTimeout(() => document.body.classList.remove('shake'), 500);
-        isPlayerTurn = false; render(); log("YOUR TURN ENDED"); setTimeout(cpuTurn, 800);
+        isPlayerTurn = false; render(); log("YOU DREW - CPU'S TURN"); setTimeout(cpuTurn, 800);
     }
 
     function cpuTurn() {
@@ -220,16 +208,23 @@
             const card = cpuHand.splice(idx, 1)[0];
             centerCard = card; currentSuit = card.suit; triggerCenterAnim = true;
             const bj = isBlackJack(card), rj = isRedJack(card);
-            if (rj && penaltyStack > 0) penaltyStack = 0;
-            else if (card.rank === '2') penaltyStack += 2;
-            else if (bj) penaltyStack += 5;
             
-            if (cpuHand.length === 1) log("CPU: LAST CARD!", true);
+            if (rj && penaltyStack > 0) { penaltyStack = 0; log("CPU RED JACK CANCELLED!"); }
+            else if (card.rank === '2') { penaltyStack += 2; log("CPU: +2!"); }
+            else if (bj) { penaltyStack += 5; log("CPU: +5 BLACK JACK!"); }
+            
+            if (cpuHand.length === 1) log("CPU: LAST CARD!");
             if (checkWin()) return;
 
-            if (card.rank === 'Q' || card.rank === 'K' || card.rank === '8') { mustCover = (card.rank === 'Q'); render(); setTimeout(cpuTurn, 1000); }
-            else if (card.rank === 'A') { currentSuit = suits[Math.floor(Math.random() * 4)]; isPlayerTurn = true; log(`CPU CHANGED SUIT TO ${currentSuit}`); render(); }
-            else { isPlayerTurn = true; log("YOUR TURN"); render(); }
+            if (card.rank === 'Q') { mustCover = true; log("CPU played Queen! COVER IT"); render(); setTimeout(cpuTurn, 1000); }
+            else if (card.rank === 'K') { mustCover = false; log("CPU King! THEY GO AGAIN"); render(); setTimeout(cpuTurn, 1000); }
+            else if (card.rank === '8') { mustCover = false; isPlayerTurn = false; log("CPU played 8! YOU MISS A GO"); render(); setTimeout(cpuTurn, 1000); }
+            else if (card.rank === 'A') { 
+                mustCover = false;
+                currentSuit = suits[Math.floor(Math.random() * 4)]; 
+                isPlayerTurn = true; log(`CPU changed suit to ${currentSuit}`); render(); 
+            }
+            else { mustCover = false; isPlayerTurn = true; log("YOUR TURN"); render(); }
         } else {
             if (penaltyStack > 5) document.body.classList.add('shake');
             const c = mustCover ? 1 : (penaltyStack || 1);
@@ -241,8 +236,8 @@
     }
 
     function checkWin() {
-        if (playerHand.length === 0) { alert("🎉 YOU WIN!"); initGame(); return true; }
-        if (cpuHand.length === 0) { alert("💀 CPU WINS!"); initGame(); return true; }
+        if (playerHand.length === 0) { alert("YOU WIN!"); initGame(); return true; }
+        if (cpuHand.length === 0) { alert("CPU WINS!"); initGame(); return true; }
         return false;
     }
     initGame();
