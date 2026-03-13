@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Classic Snake</title>
     <style>
         body {
@@ -15,6 +15,7 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: #ececec;
             overflow: hidden;
+            touch-action: none; /* Prevents zooming/scrolling while playing */
         }
 
         .game-container {
@@ -22,50 +23,38 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            width: 100%;
+            max-width: 400px;
         }
 
         .header {
-            width: 400px;
+            width: 90%;
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
             margin-bottom: 12px;
         }
 
-        .score-box {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .score-label {
-            font-size: 10px;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        #score, #highScore {
-            font-size: 24px;
-            font-weight: bold;
-            color: #4CAF50;
-        }
-
-        #highScore {
-            color: #FFD700; /* Gold color for high score */
-        }
+        .score-box { display: flex; flex-direction: column; }
+        .score-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        #score, #highScore { font-size: 24px; font-weight: bold; color: #4CAF50; }
+        #highScore { color: #FFD700; }
 
         canvas {
             background-color: #242424;
             border-radius: 8px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            max-width: 90vw; /* Responsive sizing */
+            max-height: 90vw;
+            cursor: pointer;
         }
 
         #overlay {
             position: absolute;
             top: 56px; 
-            left: 0;
-            width: 400px;
-            height: 400px;
+            left: 5%;
+            width: 90%;
+            height: calc(100% - 56px);
             background: rgba(26, 26, 26, 0.9);
             border-radius: 8px;
             display: flex;
@@ -74,10 +63,11 @@
             align-items: center;
             text-align: center;
             z-index: 10;
+            pointer-events: none; /* Allows clicks to pass through to canvas */
         }
 
         #overlay h2 { margin: 0 0 10px 0; font-size: 28px; color: #fff; }
-        #overlay p { margin: 0; font-size: 16px; color: #aaa; line-height: 1.5; }
+        #overlay p { margin: 0; font-size: 16px; color: #aaa; line-height: 1.5; padding: 0 20px; }
         .hidden { display: none !important; }
     </style>
 </head>
@@ -86,7 +76,7 @@
     <div class="game-container">
         <div class="header">
             <div class="score-box">
-                <span class="score-label">Current</span>
+                <span class="score-label">Score</span>
                 <div id="score">0</div>
             </div>
             <div class="score-box" style="text-align: right;">
@@ -99,7 +89,7 @@
         
         <div id="overlay">
             <h2 id="overlay-title">SNAKE</h2>
-            <p>Press <strong>Arrows</strong> or <strong>WASD</strong><br>to Start</p>
+            <p><strong>WASD / Arrows</strong><br>or<br><strong>Tap / Click</strong> sides to move</p>
         </div>
     </div>
 
@@ -139,7 +129,6 @@
             }
         }
 
-        // Game State
         const grid = 20;
         let fps = 10;
         let score = 0;
@@ -226,14 +215,47 @@
             overlay.classList.remove('hidden');
         }
 
+        // Input Logic (Keyboard)
         document.addEventListener('keydown', function (e) {
             if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].indexOf(e.key) > -1) e.preventDefault();
             const key = e.key.toLowerCase();
-            if ((key === 'arrowleft' || key === 'a') && snake.dx === 0) { snake.dx = -grid; snake.dy = 0; startGame(); }
-            else if ((key === 'arrowup' || key === 'w') && snake.dy === 0) { snake.dy = -grid; snake.dx = 0; startGame(); }
-            else if ((key === 'arrowright' || key === 'd') && snake.dx === 0) { snake.dx = grid; snake.dy = 0; startGame(); }
-            else if ((key === 'arrowdown' || key === 's') && snake.dy === 0) { snake.dy = grid; snake.dx = 0; startGame(); }
+            handleInput(key);
         });
+
+        // Input Logic (Mouse & Touch)
+        function handlePointer(e) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX || e.touches[0].clientX) - rect.left;
+            const y = (e.clientY || e.touches[0].clientY) - rect.top;
+            const w = rect.width;
+            const h = rect.height;
+
+            // Logic: Compare X and Y to determine quadrant
+            if (y < x && y < (w - x)) handleInput('arrowup');
+            else if (y > x && y > (w - x)) handleInput('arrowdown');
+            else if (x < y && x < (h - y)) handleInput('arrowleft');
+            else if (x > y && x > (h - y)) handleInput('arrowright');
+        }
+
+        canvas.addEventListener('mousedown', handlePointer);
+        canvas.addEventListener('touchstart', handlePointer, {passive: false});
+
+        function handleInput(key) {
+            if (!isPlaying && (key.includes('arrow') || ['w','a','s','d'].includes(key))) {
+                startGame();
+            }
+
+            if ((key === 'arrowleft' || key === 'a') && snake.dx === 0) {
+                snake.dx = -grid; snake.dy = 0;
+            } else if ((key === 'arrowup' || key === 'w') && snake.dy === 0) {
+                snake.dy = -grid; snake.dx = 0;
+            } else if ((key === 'arrowright' || key === 'd') && snake.dx === 0) {
+                snake.dx = grid; snake.dy = 0;
+            } else if ((key === 'arrowdown' || key === 's') && snake.dy === 0) {
+                snake.dy = grid; snake.dx = 0;
+            }
+        }
     </script>
 </body>
 </html>
