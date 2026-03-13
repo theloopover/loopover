@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Classic Snake</title>
+    <title>Classic Snake Glow</title>
     <style>
         body {
             display: flex;
@@ -11,11 +11,11 @@
             align-items: center;
             height: 100vh;
             margin: 0;
-            background-color: #1a1a1a;
+            background-color: #000000; /* Pure Black Background */
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: #ececec;
             overflow: hidden;
-            touch-action: none; /* Prevents zooming/scrolling while playing */
+            touch-action: none;
         }
 
         .game-container {
@@ -32,19 +32,21 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
-            margin-bottom: 12px;
+            margin-bottom: 15px;
         }
 
         .score-box { display: flex; flex-direction: column; }
-        .score-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
-        #score, #highScore { font-size: 24px; font-weight: bold; color: #4CAF50; }
-        #highScore { color: #FFD700; }
+        .score-label { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+        #score, #highScore { font-size: 24px; font-weight: bold; color: #008f11; } /* Muted Matrix Green for Base */
+        #highScore { color: #ccac00; } /* Muted Gold for Base */
 
         canvas {
-            background-color: #242424;
-            border-radius: 8px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            max-width: 90vw; /* Responsive sizing */
+            background-color: #000000;
+            border: 1px solid #1a1a1a;
+            border-radius: 4px;
+            /* subtle background shadow just for the box */
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.05);
+            max-width: 90vw;
             max-height: 90vw;
             cursor: pointer;
         }
@@ -55,19 +57,19 @@
             left: 5%;
             width: 90%;
             height: calc(100% - 56px);
-            background: rgba(26, 26, 26, 0.9);
-            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.95);
+            border-radius: 4px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             text-align: center;
             z-index: 10;
-            pointer-events: none; /* Allows clicks to pass through to canvas */
+            pointer-events: none;
         }
 
-        #overlay h2 { margin: 0 0 10px 0; font-size: 28px; color: #fff; }
-        #overlay p { margin: 0; font-size: 16px; color: #aaa; line-height: 1.5; padding: 0 20px; }
+        #overlay h2 { margin: 0 0 10px 0; font-size: 28px; color: #fff; letter-spacing: 4px; text-shadow: 0 0 10px rgba(255, 255, 255, 0.5); }
+        #overlay p { margin: 0; font-size: 14px; color: #888; line-height: 1.6; padding: 0 20px; }
         .hidden { display: none !important; }
     </style>
 </head>
@@ -101,7 +103,6 @@
         const overlay = document.getElementById('overlay');
         const overlayTitle = document.getElementById('overlay-title');
 
-        // Audio Engine
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         let audioCtx;
 
@@ -114,18 +115,18 @@
             gain.connect(audioCtx.destination);
             if (type === 'eat') {
                 osc.type = 'square';
-                osc.frequency.setValueAtTime(450, audioCtx.currentTime); 
-                osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.08);
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+                osc.frequency.setValueAtTime(500, audioCtx.currentTime); 
+                osc.frequency.exponentialRampToValueAtTime(850, audioCtx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.005, audioCtx.currentTime + 0.08);
                 osc.start(); osc.stop(audioCtx.currentTime + 0.08);
             } else if (type === 'die') {
                 osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(220, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.4);
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.5);
+                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.005, audioCtx.currentTime + 0.5);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.5);
             }
         }
 
@@ -156,6 +157,27 @@
             snake.cells.forEach(cell => { if (cell.x === food.x && cell.y === food.y) placeFood(); });
         }
 
+        // Helper to draw with glow
+        function drawGlowRect(x, y, w, h, baseColor, glowColor, glowBlur) {
+            ctx.shadowColor = glowColor;
+            ctx.shadowBlur = glowBlur;
+            ctx.fillStyle = baseColor;
+            ctx.fillRect(x, y, w, h);
+            // Reset shadows right after
+            ctx.shadowBlur = 0;
+        }
+
+        function drawGlowCircle(x, y, r, baseColor, glowColor, glowBlur) {
+            ctx.shadowColor = glowColor;
+            ctx.shadowBlur = glowBlur;
+            ctx.fillStyle = baseColor;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fill();
+            // Reset shadows right after
+            ctx.shadowBlur = 0;
+        }
+
         function loop() {
             if (!isPlaying) return;
             gameLoopTimeout = setTimeout(() => { requestAnimationFrame(loop); }, 1000 / fps);
@@ -171,14 +193,18 @@
             snake.cells.unshift({ x: snake.x, y: snake.y });
             if (snake.cells.length > snake.maxCells) snake.cells.pop();
 
-            ctx.fillStyle = '#ff4757';
-            ctx.beginPath();
-            ctx.arc(food.x + grid / 2, food.y + grid / 2, grid / 2 - 2, 0, Math.PI * 2);
-            ctx.fill();
+            // Food with Neon Red Glow
+            drawGlowCircle(food.x + grid / 2, food.y + grid / 2, grid / 2 - 4, '#ff1a1a', 'rgba(255, 0, 0, 0.9)', 15);
 
+            // Snake
             snake.cells.forEach(function (cell, index) {
-                ctx.fillStyle = (index === 0) ? '#45a049' : '#4CAF50';
-                ctx.fillRect(cell.x + 1, cell.y + 1, grid - 2, grid - 2);
+                // Muted base colors, allowing the glow bloom to do the work
+                const baseColor = (index === 0) ? '#00e600' : '#008f11';
+                const glowColor = (index === 0) ? 'rgba(0, 255, 65, 0.9)' : 'rgba(0, 255, 65, 0.5)';
+                const blurAmount = (index === 0) ? 15 : 10;
+                
+                drawGlowRect(cell.x + 1, cell.y + 1, grid - 2, grid - 2, baseColor, glowColor, blurAmount);
+
                 for (let i = index + 1; i < snake.cells.length; i++) {
                     if (cell.x === snake.cells[i].x && cell.y === snake.cells[i].y) gameOver();
                 }
@@ -215,27 +241,25 @@
             overlay.classList.remove('hidden');
         }
 
-        // Input Logic (Keyboard)
         document.addEventListener('keydown', function (e) {
             if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].indexOf(e.key) > -1) e.preventDefault();
-            const key = e.key.toLowerCase();
-            handleInput(key);
+            handleInput(e.key.toLowerCase());
         });
 
-        // Input Logic (Mouse & Touch)
         function handlePointer(e) {
             e.preventDefault();
             const rect = canvas.getBoundingClientRect();
-            const x = (e.clientX || e.touches[0].clientX) - rect.left;
-            const y = (e.clientY || e.touches[0].clientY) - rect.top;
+            const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+            const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+            
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
             const w = rect.width;
-            const h = rect.height;
 
-            // Logic: Compare X and Y to determine quadrant
             if (y < x && y < (w - x)) handleInput('arrowup');
             else if (y > x && y > (w - x)) handleInput('arrowdown');
-            else if (x < y && x < (h - y)) handleInput('arrowleft');
-            else if (x > y && x > (h - y)) handleInput('arrowright');
+            else if (x < y && x < (w - y)) handleInput('arrowleft');
+            else if (x > y && x > (w - y)) handleInput('arrowright');
         }
 
         canvas.addEventListener('mousedown', handlePointer);
@@ -245,16 +269,10 @@
             if (!isPlaying && (key.includes('arrow') || ['w','a','s','d'].includes(key))) {
                 startGame();
             }
-
-            if ((key === 'arrowleft' || key === 'a') && snake.dx === 0) {
-                snake.dx = -grid; snake.dy = 0;
-            } else if ((key === 'arrowup' || key === 'w') && snake.dy === 0) {
-                snake.dy = -grid; snake.dx = 0;
-            } else if ((key === 'arrowright' || key === 'd') && snake.dx === 0) {
-                snake.dx = grid; snake.dy = 0;
-            } else if ((key === 'arrowdown' || key === 's') && snake.dy === 0) {
-                snake.dy = grid; snake.dx = 0;
-            }
+            if ((key === 'arrowleft' || key === 'a') && snake.dx === 0) { snake.dx = -grid; snake.dy = 0; }
+            else if ((key === 'arrowup' || key === 'w') && snake.dy === 0) { snake.dy = -grid; snake.dx = 0; }
+            else if ((key === 'arrowright' || key === 'd') && snake.dx === 0) { snake.dx = grid; snake.dy = 0; }
+            else if ((key === 'arrowdown' || key === 's') && snake.dy === 0) { snake.dy = grid; snake.dx = 0; }
         }
     </script>
 </body>
