@@ -3,29 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bowman: High Score Edition</title>
+    <title>Bowman: Ghost Trajectory</title>
     <style>
         :root { --red: #ff3b30; --green: #8bc34a; }
         body { margin: 0; padding: 0; background: #fff; font-family: 'Arial Black', sans-serif; overflow: hidden; touch-action: none; user-select: none; }
         canvas { display: block; width: 100vw; height: 100vh; }
         
+        /* Lowered Scoreboard */
         #top-bar {
-            position: absolute; top: 15px; left: 20px; right: 20px;
+            position: absolute; top: 60px; left: 30px; right: 30px;
             display: flex; justify-content: space-between; pointer-events: none; z-index: 10;
         }
         .score-box { text-align: left; }
         .score-box.right { text-align: right; }
-        .score-label { font-size: 10px; color: #888; letter-spacing: 1px; }
-        .score-val { font-size: 20px; color: #000; }
+        .score-label { font-size: 10px; color: #bbb; letter-spacing: 1px; }
+        .score-val { font-size: 22px; color: #000; }
         
         #ui-center { 
-            position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); 
+            position: absolute; top: 32%; left: 50%; transform: translate(-50%, -50%); 
             text-align: center; pointer-events: none; width: 100%; z-index: 10;
         }
         .level-text { font-size: 40px; color: #000; margin: 0; }
         .sub-text { font-size: 12px; color: #888; letter-spacing: 2px; }
         #wind-display { font-size: 18px; color: var(--red); margin-top: 5px; }
-        #tutorial-msg { font-size: 10px; color: #aaa; margin-top: 10px; letter-spacing: 1px; }
         
         #power-container { 
             position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); 
@@ -52,7 +52,6 @@
     <div class="sub-text">STAGE</div>
     <div class="level-text" id="level-num">1</div>
     <div id="wind-display">WIND: 0</div>
-    <div id="tutorial-msg">HOLD TO SEE TRAJECTORY (LEVEL 1 ONLY)</div>
 </div>
 
 <div id="power-container"><div id="power-bar"></div></div>
@@ -70,7 +69,9 @@ let W, H, level = 1, wind = 0, arrows = [], particles = [], popups = [], terrain
 let turn = 'player', isCharging = false, power = 0, powerDir = 1, currentAngle = 45;
 let cameraX = 0, shake = 0, WORLD_WIDTH = 3500;
 
-// Score System
+// Trajectory Storage
+let lastPlayerShot = null; 
+
 let score = 0;
 let highScore = localStorage.getItem('bowman_best_score') || 0;
 highScoreEl.innerText = highScore;
@@ -131,23 +132,16 @@ class Char {
         this.health = 100;
         this.x = this.isPlayer ? 150 : 1200 + (Math.random() * (WORLD_WIDTH - 1500));
         this.y = getTerrainY(this.x) - 45;
-        // 35% chance for the CPU to spawn with an Apple
-        this.hasApple = (!this.isPlayer && Math.random() < 0.35);
+        this.hasApple = (!this.isPlayer && Math.random() < 0.4);
     }
     draw() {
         ctx.fillStyle = this.getColor();
-        // Head
         ctx.beginPath(); ctx.arc(this.x + 10 - cameraX, this.y - 8, 8, 0, Math.PI*2); ctx.fill();
-        // Body & Legs
         ctx.fillRect(this.x - cameraX, this.y, 20, 30);
         ctx.fillRect(this.x + 2 - cameraX, this.y + 30, 6, 15); ctx.fillRect(this.x + 12 - cameraX, this.y + 30, 6, 15);
-        
-        // Draw Apple
         if (this.hasApple) {
-            ctx.fillStyle = '#8bc34a';
-            ctx.beginPath(); ctx.arc(this.x + 10 - cameraX, this.y - 22, 5, 0, Math.PI*2); ctx.fill();
-            ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 1;
-            ctx.beginPath(); ctx.moveTo(this.x + 10 - cameraX, this.y - 27); ctx.lineTo(this.x + 12 - cameraX, this.y - 30); ctx.stroke();
+            ctx.fillStyle = '#ff3b30'; ctx.beginPath(); ctx.arc(this.x + 10 - cameraX, this.y - 22, 5, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#8bc34a'; ctx.fillRect(this.x + 9 - cameraX, this.y - 28, 2, 3);
         }
     }
     getColor() {
@@ -158,44 +152,34 @@ class Char {
 }
 
 class Arrow {
-    constructor(x, y, ang, pwr, owner) {
+    constructor(x, y, ang, pwr, owner, windVal) {
         this.x = x; this.y = y;
         let r = ang * Math.PI / 180;
         this.vx = Math.cos(r) * (pwr / 5); this.vy = -Math.sin(r) * (pwr / 5);
-        this.owner = owner; this.active = true;
+        this.owner = owner; this.active = true; this.windAtShot = windVal;
     }
     update() {
-        this.vx += wind * 0.007; this.vy += 0.15; this.x += this.vx; this.y += this.vy;
+        this.vx += this.windAtShot * 0.007; this.vy += 0.15; this.x += this.vx; this.y += this.vy;
         let target = (this.owner === 'player') ? cpu : p1;
-        
-        // Apple Collision (Does not stop arrow!)
         if (target.hasApple && this.x > target.x && this.x < target.x + 20 && this.y > target.y - 32 && this.y < target.y - 15) {
-            target.hasApple = false;
-            addScore(500);
+            target.hasApple = false; addScore(500);
             popups.push(new Popup("APPLE! +500", target.x + 10, target.y - 50, '#8bc34a'));
             for(let i=0; i<8; i++) particles.push(new Particle(this.x, this.y, '#8bc34a'));
         }
-
-        // Character Collision
         if (this.x > target.x && this.x < target.x + 20 && this.y > target.y - 16 && this.y < target.y + 45) {
             let isHead = (this.y < target.y);
             if (isHead && Math.random() < 0.10) { 
-                target.health = 0; shake = 20; 
-                if (this.owner === 'player') addScore(1000);
+                target.health = 0; shake = 20; if (this.owner === 'player') addScore(1000);
                 popups.push(new Popup("CRITICAL! +1000", target.x + 10, target.y - 30, '#ff3b30'));
             } else { 
-                target.health -= isHead ? 60 : 25; 
-                if (this.owner === 'player') addScore(isHead ? 300 : 100);
+                target.health -= isHead ? 60 : 25; if (this.owner === 'player') addScore(isHead ? 300 : 100);
                 popups.push(new Popup(isHead ? "HEADSHOT +300" : "HIT +100", target.x + 10, target.y - 30, '#000'));
             }
             for(let i=0; i<15; i++) particles.push(new Particle(this.x, this.y));
             this.active = false; checkMatch();
         }
-        
-        // Environment Collision
         if (this.y > getTerrainY(this.x) || this.x < 0 || this.x > WORLD_WIDTH) {
-            this.active = false;
-            for(let i=0; i<5; i++) particles.push(new Particle(this.x, this.y, '#888')); 
+            this.active = false; for(let i=0; i<5; i++) particles.push(new Particle(this.x, this.y, '#888')); 
         }
     }
     draw() {
@@ -213,48 +197,34 @@ function setup() {
     generateTerrain();
     arrows = []; particles = []; popups = [];
     if (!p1) { p1 = new Char(true); cpu = new Char(false); } else { p1.reset(); cpu.reset(); }
-    
     wind = (Math.random() * 6 - 3);
     document.getElementById('wind-display').innerText = (wind > 0 ? "WIND: → " : "WIND: ← ") + Math.abs(wind).toFixed(1);
     document.getElementById('level-num').innerText = level;
-    document.getElementById('tutorial-msg').style.display = (level === 1) ? 'block' : 'none';
-    
-    turn = 'player'; cameraX = 0;
+    turn = 'player'; cameraX = 0; lastPlayerShot = null;
 }
 
 function checkMatch() {
-    if (cpu.health <= 0) { 
-        turn = 'resolve'; 
-        level++; 
-        addScore(500); // Level clear bonus
-        setTimeout(setup, 1500); 
-    }
-    else if (p1.health <= 0) { 
-        turn = 'resolve'; 
-        setTimeout(() => {
-            alert(`STAGE FAILED\nFinal Score: ${score}`); 
-            level = 1; score = 0; scoreEl.innerText = score; setup(); 
-        }, 500);
-    }
+    if (cpu.health <= 0) { turn = 'resolve'; level++; addScore(500); setTimeout(setup, 1500); }
+    else if (p1.health <= 0) { turn = 'resolve'; setTimeout(() => { alert(`GAME OVER\nScore: ${score}`); level = 1; score = 0; scoreEl.innerText = score; setup(); }, 500); }
 }
 
 function doCpuTurn() {
     if (turn !== 'cpu') return;
     let dist = cpu.x - p1.x; let heightDiff = cpu.y - p1.y;
     let idealPower = (dist / 4.45) - (wind * 5.2) + (heightDiff * 0.04);
-    let variance = Math.max(0.5, 12 - level); 
-    let finalPwr = Math.min(100, Math.max(10, idealPower + (Math.random() * variance - variance/2)));
-    arrows.push(new Arrow(cpu.x, cpu.y + 5, 155, finalPwr, 'cpu')); turn = 'flying';
+    let finalPwr = Math.min(100, Math.max(10, idealPower + (Math.random() * 4 - 2)));
+    arrows.push(new Arrow(cpu.x, cpu.y + 5, 155, finalPwr, 'cpu', wind)); turn = 'flying';
 }
 
-function drawTrajectory() {
-    if (level !== 1 || !isCharging) return;
-    ctx.beginPath(); ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
-    let sx = p1.x + 10, sy = p1.y + 10;
-    let svx = Math.cos(currentAngle * Math.PI / 180) * (power / 5); let svy = -Math.sin(currentAngle * Math.PI / 180) * (power / 5);
+function drawPath(params, color, dash) {
+    if (!params) return;
+    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash(dash);
+    let sx = params.x, sy = params.y;
+    let svx = Math.cos(params.ang * Math.PI / 180) * (params.pwr / 5);
+    let svy = -Math.sin(params.ang * Math.PI / 180) * (params.pwr / 5);
     ctx.moveTo(sx - cameraX, sy);
-    for(let t = 0; t < 70; t++) {
-        svx += wind * 0.007; svy += 0.15; sx += svx; sy += svy;
+    for(let t = 0; t < 120; t++) {
+        svx += params.wind * 0.007; svy += 0.15; sx += svx; sy += svy;
         ctx.lineTo(sx - cameraX, sy); if (sy > getTerrainY(sx)) break;
     }
     ctx.stroke(); ctx.setLineDash([]);
@@ -263,14 +233,11 @@ function drawTrajectory() {
 function update() {
     if (isCharging) {
         power += 2 * powerDir;
-        if (power >= 100) { power = 100; powerDir = -1; }
-        if (power <= 0) { power = 0; powerDir = 1; }
+        if (power >= 100 || power <= 0) powerDir *= -1;
         powerBar.style.width = power + '%';
     }
-    
     let tx = (turn === 'flying' && arrows.length > 0) ? arrows[0].x - W/2 : (turn === 'cpu' ? cpu.x - W/2 : p1.x - 150);
     cameraX += (Math.max(0, Math.min(WORLD_WIDTH - W, tx)) - cameraX) * 0.1;
-
     arrows.forEach((a, i) => {
         a.update();
         if (!a.active) {
@@ -281,7 +248,6 @@ function update() {
             }
         }
     });
-    
     particles.forEach((p, i) => { p.update(); if (p.life <= 0) particles.splice(i, 1); });
     popups.forEach((p, i) => { p.update(); if (p.life <= 0) popups.splice(i, 1); });
     if (shake > 0) shake *= 0.85;
@@ -291,41 +257,40 @@ function draw() {
     ctx.save();
     if (shake > 1) ctx.translate(Math.random() * shake - shake/2, Math.random() * shake - shake/2);
     ctx.clearRect(0, 0, W, H);
-    
-    ctx.beginPath(); ctx.fillStyle = '#f9f9f9'; ctx.strokeStyle = '#222'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.fillStyle = '#fcfcfc'; ctx.strokeStyle = '#333'; ctx.lineWidth = 3;
     ctx.moveTo(0, H); ctx.lineTo(terrain[0].x - cameraX, terrain[0].y);
     for(let i=1; i < terrain.length; i++) ctx.lineTo(terrain[i].x - cameraX, terrain[i].y);
     ctx.lineTo(W, H); ctx.fill(); ctx.stroke();
     
-    p1.draw(); cpu.draw(); drawTrajectory();
-    
-    if (turn === 'player' && !isCharging) {
-        ctx.setLineDash([2, 5]); ctx.strokeStyle = '#ccc'; ctx.beginPath();
-        ctx.moveTo(p1.x + 10 - cameraX, p1.y + 10);
-        ctx.lineTo((p1.x + 10 + Math.cos(currentAngle * Math.PI/180) * 60) - cameraX, p1.y + 10 - Math.sin(currentAngle * Math.PI/180) * 60);
-        ctx.stroke(); ctx.setLineDash([]);
-    }
-    
-    arrows.forEach(a => a.draw()); particles.forEach(p => p.draw()); popups.forEach(p => p.draw());
+    // Ghost of last shot (Faint gray)
+    drawPath(lastPlayerShot, 'rgba(0,0,0,0.08)', [5, 5]);
+    // Current charging preview (Active stage 1 only or for all for visual feedback)
+    if (isCharging && level === 1) drawPath({x: p1.x+10, y: p1.y+10, ang: currentAngle, pwr: power, wind: wind}, 'rgba(0,0,0,0.15)', [2, 2]);
+
+    p1.draw(); cpu.draw();
+    arrows.forEach(a => a.draw());
+    particles.forEach(p => p.draw());
+    popups.forEach(p => p.draw());
     ctx.restore(); update(); requestAnimationFrame(draw);
 }
 
-const handleDown = (e) => { if (turn !== 'player') return; isCharging = true; power = 0; powerDir = 1; powerContainer.style.display = 'block'; handleMove(e); };
-const handleMove = (e) => {
+window.addEventListener('pointerdown', (e) => { 
+    if (turn !== 'player') return; 
+    isCharging = true; power = 0; powerDir = 1; 
+    powerContainer.style.display = 'block'; 
+});
+window.addEventListener('pointermove', (e) => {
     if (turn !== 'player') return;
     let dx = (e.clientX + cameraX) - (p1.x + 10); let dy = (p1.y + 10) - e.clientY;
     currentAngle = Math.atan2(dy, dx) * 180 / Math.PI;
-};
-const handleUp = () => {
+});
+window.addEventListener('pointerup', () => {
     if (!isCharging) return;
     isCharging = false; powerContainer.style.display = 'none';
-    arrows.push(new Arrow(p1.x + 10, p1.y + 10, currentAngle, power, 'player')); turn = 'flying';
-};
-
-window.addEventListener('pointerdown', handleDown);
-window.addEventListener('pointermove', handleMove);
-window.addEventListener('pointerup', handleUp);
-window.addEventListener('touchstart', (e) => { e.preventDefault(); }, {passive: false});
+    lastPlayerShot = { x: p1.x+10, y: p1.y+10, ang: currentAngle, pwr: power, wind: wind };
+    arrows.push(new Arrow(p1.x + 10, p1.y + 10, currentAngle, power, 'player', wind));
+    turn = 'flying';
+});
 
 setup(); draw();
 window.onresize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
