@@ -3,27 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bowman Pro</title>
+    <title>Bowman: Critical Edition</title>
     <style>
-        body { margin: 0; padding: 0; background: #fff; font-family: 'Courier New', Courier, monospace; overflow: hidden; touch-action: none; }
-        canvas { display: block; }
-        #ui { position: absolute; top: 15px; left: 15px; pointer-events: none; }
-        .stat { font-weight: bold; margin-bottom: 8px; text-transform: uppercase; font-size: 14px; }
-        #wind-indicator { margin-top: 10px; font-size: 18px; color: #555; }
-        #power-bar-container { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 200px; height: 12px; border: 2px solid #000; display: none; }
-        #power-bar { width: 0%; height: 100%; background: #000; }
+        :root { --red: #ff3b30; }
+        body { margin: 0; padding: 0; background: #fff; font-family: 'Arial Black', sans-serif; overflow: hidden; touch-action: none; user-select: none; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        
+        #ui-center { 
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%); 
+            text-align: center; pointer-events: none; width: 100%; z-index: 10;
+        }
+        .level-text { font-size: 42px; line-height: 1; color: #000; margin: 0; }
+        .sub-text { font-size: 12px; color: #888; letter-spacing: 2px; text-transform: uppercase; }
+        #wind-display { font-size: 16px; color: var(--red); margin-top: 5px; }
+        
+        #power-container { 
+            position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%); 
+            width: 250px; height: 15px; border: 4px solid #000; background: #fff; display: none; 
+        }
+        #power-bar { height: 100%; width: 0%; background: #000; }
     </style>
 </head>
 <body>
 
-<div id="ui">
-    <div class="stat">Level: <span id="level">1</span></div>
-    <div class="stat">High Score: <span id="highscore">0</span></div>
-    <div id="wind-indicator">Wind: 0</div>
-    <div id="msg" style="font-size: 10px; margin-top: 10px;">Drag to aim • Hold to charge</div>
+<div id="ui-center">
+    <div class="sub-text">STAGE</div>
+    <div class="level-text" id="level-num">1</div>
+    <div id="wind-display">WIND: 0</div>
 </div>
 
-<div id="power-bar-container">
+<div id="power-container">
     <div id="power-bar"></div>
 </div>
 
@@ -32,244 +41,179 @@
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const levelEl = document.getElementById('level');
-const highscoreEl = document.getElementById('highscore');
-const windEl = document.getElementById('wind-indicator');
-const powerContainer = document.getElementById('power-bar-container');
+const powerContainer = document.getElementById('power-container');
 const powerBar = document.getElementById('power-bar');
 
-// Game Settings
-let width, height;
-let level = 1;
-let score = 0;
-let wind = 0;
-let highscore = localStorage.getItem('bowman_highscore_v2') || 0;
-highscoreEl.innerText = highscore;
+let W, H, level = 1, wind = 0, arrows = [], particles = [], popups = [], turn = 'player';
+let isCharging = false, power = 0, powerDir = 1, currentAngle = 45, lastShot = null;
+let shake = 0;
 
-let player, cpu, arrows = [];
-let isCharging = false;
-let power = 0;
-let powerDir = 1;
-let currentAngle = 45;
-let lastShot = null;
-let turn = 'player';
-let gameActive = true;
+function getHealthColor(isPlayer, health) {
+    let pct = Math.max(0, health / 100);
+    let r = Math.floor(255 * (1 - pct));
+    if (isPlayer) return `rgb(${r},0,0)`;
+    let g = Math.floor(123 * pct);
+    let b = Math.floor(255 * pct);
+    return `rgb(${r},${g},${b})`;
+}
 
-class Character {
-    constructor(x, color, label) {
-        this.x = x;
-        this.y = 0; 
+class Particle {
+    constructor(x, y, color = 'red') {
+        this.x = x; this.y = y;
+        this.vx = (Math.random() - 0.5) * 8;
+        this.vy = (Math.random() - 2) * 6;
+        this.life = 1.0;
         this.color = color;
-        this.label = label;
-        this.health = 100;
     }
+    update() { this.x += this.vx; this.y += this.vy; this.vy += 0.25; this.life -= 0.02; }
+    draw() { ctx.fillStyle = this.color; ctx.globalAlpha = this.life; ctx.fillRect(this.x, this.y, 3, 3); ctx.globalAlpha = 1; }
+}
 
-    draw() {
-        this.y = height - 70;
-        ctx.fillStyle = this.color;
-        // Fade character based on health
-        ctx.globalAlpha = Math.max(0.1, this.health / 100);
-        
-        // Sprite: Head, Body, Legs
-        ctx.beginPath();
-        ctx.arc(this.x + 10, this.y - 10, 8, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillRect(this.x, this.y, 20, 35);
-        ctx.fillRect(this.x + 2, this.y + 35, 5, 15);
-        ctx.fillRect(this.x + 13, this.y + 35, 5, 15);
-        
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = '#000';
-        ctx.font = '10px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(this.label, this.x + 10, this.y - 25);
-        
-        // Simple health bar (underneath)
-        ctx.fillStyle = '#f0f0f0';
-        ctx.fillRect(this.x, this.y + 55, 20, 2);
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y + 55, (this.health / 100) * 20, 2);
+class Popup {
+    constructor(text, x, y, color = '#000') {
+        this.text = text; this.x = x; this.y = y; this.life = 1.0; this.color = color;
     }
+    update() { this.y -= 1; this.life -= 0.015; }
+    draw() {
+        ctx.fillStyle = this.color;
+        ctx.font = 'bold 20px Arial Black';
+        ctx.globalAlpha = this.life;
+        ctx.textAlign = 'center';
+        ctx.fillText(this.text, this.x, this.y);
+        ctx.globalAlpha = 1;
+    }
+}
+
+class Char {
+    constructor(isPlayer) { this.isPlayer = isPlayer; this.reset(); }
+    reset() { this.health = 100; this.y = H - 65; if (this.isPlayer) this.x = 60; else this.x = W * 0.5 + Math.random() * (W * 0.35); }
+    draw() {
+        ctx.fillStyle = getHealthColor(this.isPlayer, this.health);
+        ctx.beginPath(); ctx.arc(this.x + 10, this.y - 8, 8, 0, Math.PI*2); ctx.fill();
+        ctx.fillRect(this.x, this.y, 20, 30);
+        ctx.fillRect(this.x + 2, this.y + 30, 6, 15); ctx.fillRect(this.x + 12, this.y + 30, 6, 15);
+        ctx.fillStyle = '#aaa'; ctx.font = '10px Arial Black'; ctx.textAlign = 'center';
+        ctx.fillText(this.isPlayer ? 'YOU' : 'CPU', this.x + 10, this.y - 25);
+    }
+}
+
+let p1, cpu;
+
+function setup() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    if (!p1) { p1 = new Char(true); cpu = new Char(false); } else { p1.reset(); cpu.reset(); }
+    wind = (Math.random() * 8 - 4);
+    document.getElementById('wind-display').innerText = (wind > 0 ? "WIND: → " : "WIND: ← ") + Math.abs(wind).toFixed(1);
+    document.getElementById('level-num').innerText = level;
+    popups = [];
 }
 
 class Arrow {
-    constructor(x, y, angle, power, owner) {
-        this.x = x;
-        this.y = y;
-        this.vx = Math.cos(angle * Math.PI / 180) * (power / 5);
-        this.vy = -Math.sin(angle * Math.PI / 180) * (power / 5);
-        this.owner = owner;
-        this.active = true;
+    constructor(x, y, ang, pwr, owner) {
+        this.x = x; this.y = y;
+        let r = ang * Math.PI / 180;
+        this.vx = Math.cos(r) * (pwr / 5); this.vy = -Math.sin(r) * (pwr / 5);
+        this.owner = owner; this.active = true;
     }
-
     update() {
-        this.vx += wind * 0.005; // Wind effect
-        this.vy += 0.15; // Gravity
-        this.x += this.vx;
-        this.y += this.vy;
-
-        let target = (this.owner === 'player') ? cpu : player;
-        
-        // Collision
-        if (this.x > target.x && this.x < target.x + 20 && this.y > target.y - 20 && this.y < target.y + 50) {
+        this.vx += wind * 0.007; this.vy += 0.15; this.x += this.vx; this.y += this.vy;
+        let target = (this.owner === 'player') ? cpu : p1;
+        if (this.x > target.x && this.x < target.x + 20 && this.y > target.y - 20 && this.y < target.y + 45) {
+            let isHead = (this.y < target.y);
+            if (isHead) {
+                if (Math.random() < 0.10) { // 10% Chance for 1-hit KO
+                    target.health = 0;
+                    popups.push(new Popup("CRITICAL! 1-HIT KO", target.x + 10, target.y - 50, 'red'));
+                    shake = 20;
+                    for(let i=0; i<30; i++) particles.push(new Particle(this.x, this.y, 'red'));
+                } else {
+                    target.health -= 60;
+                    popups.push(new Popup("HEADSHOT", target.x + 10, target.y - 40));
+                    for(let i=0; i<15; i++) particles.push(new Particle(this.x, this.y));
+                }
+            } else {
+                target.health -= 25;
+                for(let i=0; i<8; i++) particles.push(new Particle(this.x, this.y));
+            }
             this.active = false;
-            let damage = (this.y < target.y) ? 65 : 25; // Headshot vs Body
-            target.health -= damage;
-            checkWin();
+            checkMatch();
         }
-
-        if (this.y > height - 20 || this.x < 0 || this.x > width) this.active = false;
+        if (this.y > H - 20 || this.x < 0 || this.x > W) this.active = false;
     }
-
     draw() {
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 1.5;
-        let angle = Math.atan2(this.vy, this.vx);
-        ctx.beginPath();
-        ctx.moveTo(this.x, this.y);
-        ctx.lineTo(this.x - Math.cos(angle) * 12, this.y - Math.sin(angle) * 12);
-        ctx.stroke();
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+        let a = Math.atan2(this.vy, this.vx);
+        ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(this.x - Math.cos(a)*12, this.y - Math.sin(a)*12); ctx.stroke();
     }
 }
 
-function init() {
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
-    player = new Character(50, '#000', 'PLAYER');
-    cpu = new Character(width - 100, '#007bff', 'CPU');
-    newLevel();
+function checkMatch() {
+    if (cpu.health <= 0) { level++; setTimeout(setup, 1200); }
+    else if (p1.health <= 0) { alert("TERMINATED AT LEVEL " + level); level = 1; setup(); }
 }
 
-function newLevel() {
-    // Randomize CPU distance
-    cpu.x = 300 + Math.random() * (width - 350);
-    // Randomize Wind
-    wind = (Math.random() * 4 - 2).toFixed(2);
-    windEl.innerText = (wind > 0 ? "→ " : "← ") + Math.abs(wind);
-    player.health = 100;
-    cpu.health = 100;
-    turn = 'player';
-}
-
-function cpuTurn() {
-    if (player.health <= 0) return;
-
-    let dist = cpu.x - player.x;
-    
-    // CPU Logic: Adjusts for distance and slightly for wind
-    // As Level increases, 'variance' decreases (CPU gets smarter)
-    let variance = Math.max(2, 20 - (level * 1.5)); 
-    let baseAngle = 35 + (Math.random() * 10);
-    let idealPower = (dist / 4.4) - (wind * 5); // Rough wind compensation
-    
-    // Add inaccuracy based on current difficulty
-    let finalPower = idealPower + (Math.random() * variance - (variance/2));
-    
-    arrows.push(new Arrow(cpu.x, cpu.y + 10, 180 - baseAngle, finalPower, 'cpu'));
-    turn = 'player';
-}
-
-function checkWin() {
-    if (cpu.health <= 0) {
-        level++;
-        score += 100;
-        levelEl.innerText = level;
-        if (score > highscore) {
-            highscore = score;
-            localStorage.setItem('bowman_highscore_v2', highscore);
-            highscoreEl.innerText = highscore;
-        }
-        setTimeout(newLevel, 500);
-    } else if (player.health <= 0) {
-        alert("Defeated! Level reached: " + level);
-        level = 1;
-        score = 0;
-        levelEl.innerText = level;
-        newLevel();
-    }
+function doCpuTurn() {
+    if (turn !== 'cpu' || cpu.health <= 0) return;
+    let dx = cpu.x - p1.x;
+    let diff = Math.max(0.2, 10 - level); 
+    let basePwr = (dx / 4.4) - (wind * 5);
+    let finalPwr = basePwr + (Math.random() * diff - diff/2);
+    arrows.push(new Arrow(cpu.x, cpu.y + 10, 145, finalPwr, 'cpu'));
+    turn = 'flying';
 }
 
 function update() {
-    if (isCharging) {
-        power += 2 * powerDir;
-        if (power >= 100 || power <= 0) powerDir *= -1;
-        powerBar.style.width = power + '%';
-    }
-
-    for (let i = arrows.length - 1; i >= 0; i--) {
-        arrows[i].update();
-        if (!arrows[i].active) {
-            arrows.splice(i, 1);
-            if (turn === 'waiting') {
-                turn = 'cpu_thinking';
-                setTimeout(cpuTurn, 1000);
-            }
-        }
-    }
+    if (isCharging) { power += 2.5 * powerDir; if (power >= 100 || power <= 0) powerDir *= -1; powerBar.style.width = power + '%'; }
+    arrows.forEach((a, i) => { a.update(); if (!a.active) { arrows.splice(i, 1); if (turn === 'flying') { turn = 'cpu'; setTimeout(doCpuTurn, 800); } } });
+    particles.forEach((p, i) => { p.update(); if (p.life <= 0) particles.splice(i, 1); });
+    popups.forEach((p, i) => { p.update(); if (p.life <= 0) popups.splice(i, 1); });
+    if (shake > 0) shake *= 0.9;
 }
 
 function draw() {
-    ctx.clearRect(0, 0, width, height);
-    
-    // Ground
-    ctx.strokeStyle = '#eee';
-    ctx.beginPath(); ctx.moveTo(0, height-20); ctx.lineTo(width, height-20); ctx.stroke();
-
-    player.draw();
-    cpu.draw();
+    ctx.save();
+    if (shake > 1) ctx.translate(Math.random() * shake - shake/2, Math.random() * shake - shake/2);
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = '#eee'; ctx.beginPath(); ctx.moveTo(0, H - 20); ctx.lineTo(W, H - 20); ctx.stroke();
+    p1.draw(); cpu.draw();
     arrows.forEach(a => a.draw());
+    particles.forEach(p => p.draw());
+    popups.forEach(p => p.draw());
 
-    // Aim Assist Line
-    if (turn === 'player' && !isCharging) {
-        ctx.setLineDash([2, 4]);
-        ctx.beginPath();
-        ctx.moveTo(player.x + 10, player.y + 10);
-        ctx.lineTo((player.x + 10) + Math.cos(currentAngle * Math.PI / 180) * 40, (player.y + 10) - Math.sin(currentAngle * Math.PI / 180) * 40);
-        ctx.stroke();
-        ctx.setLineDash([]);
+    if (turn === 'player') {
+        ctx.setLineDash([2, 5]); ctx.strokeStyle = '#ccc'; ctx.beginPath();
+        ctx.moveTo(p1.x + 10, p1.y + 10);
+        ctx.lineTo(p1.x + 10 + Math.cos(currentAngle * Math.PI/180) * 60, p1.y + 10 - Math.sin(currentAngle * Math.PI/180) * 60);
+        ctx.stroke(); ctx.setLineDash([]);
     }
 
-    // Shot Marker
     if (lastShot) {
-        ctx.fillStyle = '#ddd';
-        ctx.beginPath();
-        let lx = (player.x + 10) + Math.cos(lastShot.angle * Math.PI / 180) * (lastShot.power / 2);
-        let ly = (player.y + 10) - Math.sin(lastShot.angle * Math.PI / 180) * (lastShot.power / 2);
-        ctx.arc(lx, ly, 2, 0, Math.PI*2);
-        ctx.fill();
+        ctx.fillStyle = 'rgba(0,0,0,0.05)';
+        let lx = (p1.x + 10) + Math.cos(lastShot.ang * Math.PI/180) * (lastShot.pwr / 2);
+        let ly = (p1.y + 10) - Math.sin(lastShot.ang * Math.PI/180) * (lastShot.pwr / 2);
+        ctx.beginPath(); ctx.arc(lx, ly, 4, 0, Math.PI*2); ctx.fill();
     }
-
+    ctx.restore();
     update();
     requestAnimationFrame(draw);
 }
 
-// Input Handling
-const handleStart = () => { if (turn === 'player') { isCharging = true; power = 0; powerContainer.style.display = 'block'; } };
-const handleMove = (x, y) => {
-    if (turn !== 'player' || isCharging) return;
-    let dx = x - (player.x + 10);
-    let dy = (player.y + 10) - y;
+window.addEventListener('pointerdown', () => { if (turn === 'player') { isCharging = true; power = 0; powerContainer.style.display = 'block'; } });
+window.addEventListener('pointermove', (e) => {
+    if (turn !== 'player') return;
+    let dx = e.clientX - (p1.x + 10); let dy = (p1.y + 10) - e.clientY;
     currentAngle = Math.atan2(dy, dx) * 180 / Math.PI;
-};
-const handleEnd = () => {
+});
+window.addEventListener('pointerup', () => {
     if (!isCharging) return;
-    isCharging = false;
-    powerContainer.style.display = 'none';
-    arrows.push(new Arrow(player.x + 10, player.y + 10, currentAngle, power, 'player'));
-    lastShot = { angle: currentAngle, power: power };
-    turn = 'waiting';
-};
+    isCharging = false; powerContainer.style.display = 'none';
+    arrows.push(new Arrow(p1.x + 10, p1.y + 10, currentAngle, power, 'player'));
+    lastShot = { ang: currentAngle, pwr: power }; turn = 'flying';
+});
 
-window.addEventListener('mousedown', handleStart);
-window.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
-window.addEventListener('mouseup', handleEnd);
-window.addEventListener('touchstart', (e) => { handleStart(); e.preventDefault(); }, {passive: false});
-window.addEventListener('touchmove', (e) => handleMove(e.touches[0].clientX, e.touches[0].clientY));
-window.addEventListener('touchend', handleEnd);
-
-init();
-draw();
-window.onresize = init;
+setup(); draw();
+window.onresize = setup;
 </script>
 </body>
 </html>
