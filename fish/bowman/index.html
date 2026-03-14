@@ -3,23 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bowman: Critical Edition</title>
+    <title>Bowman: World Edition</title>
     <style>
         :root { --red: #ff3b30; }
         body { margin: 0; padding: 0; background: #fff; font-family: 'Arial Black', sans-serif; overflow: hidden; touch-action: none; user-select: none; }
         canvas { display: block; width: 100vw; height: 100vh; }
         
+        /* Text moved just above the middle of the screen */
         #ui-center { 
-            position: absolute; top: 20px; left: 50%; transform: translateX(-50%); 
+            position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); 
             text-align: center; pointer-events: none; width: 100%; z-index: 10;
         }
-        .level-text { font-size: 42px; line-height: 1; color: #000; margin: 0; }
-        .sub-text { font-size: 12px; color: #888; letter-spacing: 2px; text-transform: uppercase; }
-        #wind-display { font-size: 16px; color: var(--red); margin-top: 5px; }
+        .level-text { font-size: 48px; line-height: 1; color: #000; margin: 0; opacity: 0.8; }
+        .sub-text { font-size: 14px; color: #888; letter-spacing: 2px; text-transform: uppercase; }
+        #wind-display { font-size: 18px; color: var(--red); margin-top: 5px; font-weight: 900; }
         
         #power-container { 
-            position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%); 
-            width: 250px; height: 15px; border: 4px solid #000; background: #fff; display: none; 
+            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); 
+            width: 250px; height: 12px; border: 4px solid #000; background: #fff; display: none; 
         }
         #power-bar { height: 100%; width: 0%; background: #000; }
     </style>
@@ -44,9 +45,30 @@ const ctx = canvas.getContext('2d');
 const powerContainer = document.getElementById('power-container');
 const powerBar = document.getElementById('power-bar');
 
-let W, H, level = 1, wind = 0, arrows = [], particles = [], popups = [], turn = 'player';
+// Game constants & State
+let W, H, level = 1, wind = 0, arrows = [], particles = [], popups = [], terrain = [];
+let turn = 'player'; // States: player, flying, cpu, resolve
 let isCharging = false, power = 0, powerDir = 1, currentAngle = 45, lastShot = null;
-let shake = 0;
+let shake = 0, cameraX = 0;
+let WORLD_WIDTH = 3000;
+
+// Terrain Gen
+function generateTerrain() {
+    terrain = [];
+    let h = H * 0.8;
+    for (let x = 0; x <= WORLD_WIDTH; x += 10) {
+        h += (Math.random() - 0.5) * 40;
+        h = Math.max(H * 0.5, Math.min(H * 0.9, h));
+        terrain.push({x, y: h});
+    }
+}
+
+function getTerrainY(x) {
+    if (x < 0) return terrain[0].y;
+    if (x >= WORLD_WIDTH) return terrain[terrain.length-1].y;
+    let index = Math.floor(x / 10);
+    return terrain[index].y;
+}
 
 function getHealthColor(isPlayer, health) {
     let pct = Math.max(0, health / 100);
@@ -60,13 +82,11 @@ function getHealthColor(isPlayer, health) {
 class Particle {
     constructor(x, y, color = 'red') {
         this.x = x; this.y = y;
-        this.vx = (Math.random() - 0.5) * 8;
-        this.vy = (Math.random() - 2) * 6;
-        this.life = 1.0;
-        this.color = color;
+        this.vx = (Math.random() - 0.5) * 8; this.vy = (Math.random() - 2) * 6;
+        this.life = 1.0; this.color = color;
     }
     update() { this.x += this.vx; this.y += this.vy; this.vy += 0.25; this.life -= 0.02; }
-    draw() { ctx.fillStyle = this.color; ctx.globalAlpha = this.life; ctx.fillRect(this.x, this.y, 3, 3); ctx.globalAlpha = 1; }
+    draw() { ctx.fillStyle = this.color; ctx.globalAlpha = this.life; ctx.fillRect(this.x - cameraX, this.y, 3, 3); ctx.globalAlpha = 1; }
 }
 
 class Popup {
@@ -75,25 +95,27 @@ class Popup {
     }
     update() { this.y -= 1; this.life -= 0.015; }
     draw() {
-        ctx.fillStyle = this.color;
-        ctx.font = 'bold 20px Arial Black';
-        ctx.globalAlpha = this.life;
-        ctx.textAlign = 'center';
-        ctx.fillText(this.text, this.x, this.y);
-        ctx.globalAlpha = 1;
+        ctx.fillStyle = this.color; ctx.font = 'bold 24px Arial Black'; ctx.globalAlpha = this.life;
+        ctx.textAlign = 'center'; ctx.fillText(this.text, this.x - cameraX, this.y); ctx.globalAlpha = 1;
     }
 }
 
 class Char {
     constructor(isPlayer) { this.isPlayer = isPlayer; this.reset(); }
-    reset() { this.health = 100; this.y = H - 65; if (this.isPlayer) this.x = 60; else this.x = W * 0.5 + Math.random() * (W * 0.35); }
+    reset() {
+        this.health = 100;
+        if (this.isPlayer) this.x = 100;
+        else this.x = 800 + (Math.random() * (WORLD_WIDTH - 1000));
+        this.y = getTerrainY(this.x) - 45;
+    }
     draw() {
+        this.y = getTerrainY(this.x) - 45; // Keep grounded
         ctx.fillStyle = getHealthColor(this.isPlayer, this.health);
-        ctx.beginPath(); ctx.arc(this.x + 10, this.y - 8, 8, 0, Math.PI*2); ctx.fill();
-        ctx.fillRect(this.x, this.y, 20, 30);
-        ctx.fillRect(this.x + 2, this.y + 30, 6, 15); ctx.fillRect(this.x + 12, this.y + 30, 6, 15);
+        ctx.beginPath(); ctx.arc(this.x + 10 - cameraX, this.y - 8, 8, 0, Math.PI*2); ctx.fill();
+        ctx.fillRect(this.x - cameraX, this.y, 20, 30);
+        ctx.fillRect(this.x + 2 - cameraX, this.y + 30, 6, 15); ctx.fillRect(this.x + 12 - cameraX, this.y + 30, 6, 15);
         ctx.fillStyle = '#aaa'; ctx.font = '10px Arial Black'; ctx.textAlign = 'center';
-        ctx.fillText(this.isPlayer ? 'YOU' : 'CPU', this.x + 10, this.y - 25);
+        ctx.fillText(this.isPlayer ? 'YOU' : 'CPU', this.x + 10 - cameraX, this.y - 25);
     }
 }
 
@@ -102,11 +124,13 @@ let p1, cpu;
 function setup() {
     W = canvas.width = window.innerWidth;
     H = canvas.height = window.innerHeight;
+    generateTerrain();
     if (!p1) { p1 = new Char(true); cpu = new Char(false); } else { p1.reset(); cpu.reset(); }
-    wind = (Math.random() * 8 - 4);
+    wind = (Math.random() * 6 - 3);
     document.getElementById('wind-display').innerText = (wind > 0 ? "WIND: → " : "WIND: ← ") + Math.abs(wind).toFixed(1);
     document.getElementById('level-num').innerText = level;
-    popups = [];
+    turn = 'player';
+    cameraX = 0;
 }
 
 class Arrow {
@@ -119,53 +143,76 @@ class Arrow {
     update() {
         this.vx += wind * 0.007; this.vy += 0.15; this.x += this.vx; this.y += this.vy;
         let target = (this.owner === 'player') ? cpu : p1;
+        
+        // Hit detection
         if (this.x > target.x && this.x < target.x + 20 && this.y > target.y - 20 && this.y < target.y + 45) {
             let isHead = (this.y < target.y);
-            if (isHead) {
-                if (Math.random() < 0.10) { // 10% Chance for 1-hit KO
-                    target.health = 0;
-                    popups.push(new Popup("CRITICAL! 1-HIT KO", target.x + 10, target.y - 50, 'red'));
-                    shake = 20;
-                    for(let i=0; i<30; i++) particles.push(new Particle(this.x, this.y, 'red'));
-                } else {
-                    target.health -= 60;
-                    popups.push(new Popup("HEADSHOT", target.x + 10, target.y - 40));
-                    for(let i=0; i<15; i++) particles.push(new Particle(this.x, this.y));
-                }
+            if (isHead && Math.random() < 0.10) { 
+                target.health = 0; popups.push(new Popup("CRITICAL! 1-HIT KO", target.x + 10, target.y - 50, 'red')); shake = 20;
             } else {
-                target.health -= 25;
-                for(let i=0; i<8; i++) particles.push(new Particle(this.x, this.y));
+                target.health -= isHead ? 60 : 25;
+                popups.push(new Popup(isHead ? "HEADSHOT" : "HIT", target.x + 10, target.y - 40));
             }
+            for(let i=0; i<15; i++) particles.push(new Particle(this.x, this.y));
             this.active = false;
             checkMatch();
         }
-        if (this.y > H - 20 || this.x < 0 || this.x > W) this.active = false;
+        // Terrain collision
+        if (this.y > getTerrainY(this.x)) this.active = false;
+        if (this.x < 0 || this.x > WORLD_WIDTH) this.active = false;
     }
     draw() {
         ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
         let a = Math.atan2(this.vy, this.vx);
-        ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(this.x - Math.cos(a)*12, this.y - Math.sin(a)*12); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(this.x - cameraX, this.y); 
+        ctx.lineTo((this.x - Math.cos(a)*15) - cameraX, this.y - Math.sin(a)*15); ctx.stroke();
     }
 }
 
 function checkMatch() {
-    if (cpu.health <= 0) { level++; setTimeout(setup, 1200); }
-    else if (p1.health <= 0) { alert("TERMINATED AT LEVEL " + level); level = 1; setup(); }
+    if (cpu.health <= 0) { level++; turn = 'resolve'; setTimeout(setup, 1500); }
+    else if (p1.health <= 0) { turn = 'resolve'; alert("TERMINATED AT LEVEL " + level); level = 1; setup(); }
 }
 
 function doCpuTurn() {
-    if (turn !== 'cpu' || cpu.health <= 0) return;
+    if (turn !== 'cpu') return;
     let dx = cpu.x - p1.x;
-    let diff = Math.max(0.2, 10 - level); 
-    let basePwr = (dx / 4.4) - (wind * 5);
+    let dy = cpu.y - p1.y;
+    let diff = Math.max(0.2, 12 - level); 
+    // CPU adjusted for height and wind
+    let basePwr = (dx / 4.4) - (wind * 5) + (dy * 0.05);
     let finalPwr = basePwr + (Math.random() * diff - diff/2);
-    arrows.push(new Arrow(cpu.x, cpu.y + 10, 145, finalPwr, 'cpu'));
+    arrows.push(new Arrow(cpu.x, cpu.y + 10, 150, finalPwr, 'cpu'));
     turn = 'flying';
 }
 
 function update() {
     if (isCharging) { power += 2.5 * powerDir; if (power >= 100 || power <= 0) powerDir *= -1; powerBar.style.width = power + '%'; }
-    arrows.forEach((a, i) => { a.update(); if (!a.active) { arrows.splice(i, 1); if (turn === 'flying') { turn = 'cpu'; setTimeout(doCpuTurn, 800); } } });
+    
+    // Camera Logic
+    let targetCamX = 0;
+    if (turn === 'flying' && arrows.length > 0) {
+        targetCamX = arrows[0].x - W/2;
+    } else if (turn === 'cpu') {
+        targetCamX = cpu.x - W/2;
+    } else {
+        targetCamX = p1.x - 100;
+    }
+    // Constraints
+    targetCamX = Math.max(0, Math.min(WORLD_WIDTH - W, targetCamX));
+    cameraX += (targetCamX - cameraX) * 0.08;
+
+    arrows.forEach((a, i) => { 
+        a.update(); 
+        if (!a.active) { 
+            arrows.splice(i, 1); 
+            if (turn === 'flying') {
+                let nextTurn = (a.owner === 'player') ? 'cpu' : 'player';
+                turn = nextTurn;
+                if (turn === 'cpu') setTimeout(doCpuTurn, 1000);
+            }
+        } 
+    });
     particles.forEach((p, i) => { p.update(); if (p.life <= 0) particles.splice(i, 1); });
     popups.forEach((p, i) => { p.update(); if (p.life <= 0) popups.splice(i, 1); });
     if (shake > 0) shake *= 0.9;
@@ -175,7 +222,14 @@ function draw() {
     ctx.save();
     if (shake > 1) ctx.translate(Math.random() * shake - shake/2, Math.random() * shake - shake/2);
     ctx.clearRect(0, 0, W, H);
-    ctx.strokeStyle = '#eee'; ctx.beginPath(); ctx.moveTo(0, H - 20); ctx.lineTo(W, H - 20); ctx.stroke();
+    
+    // Draw Terrain
+    ctx.beginPath();
+    ctx.strokeStyle = '#eee'; ctx.lineWidth = 4;
+    ctx.moveTo(terrain[0].x - cameraX, terrain[0].y);
+    for(let i=1; i < terrain.length; i++) ctx.lineTo(terrain[i].x - cameraX, terrain[i].y);
+    ctx.stroke();
+
     p1.draw(); cpu.draw();
     arrows.forEach(a => a.draw());
     particles.forEach(p => p.draw());
@@ -183,26 +237,23 @@ function draw() {
 
     if (turn === 'player') {
         ctx.setLineDash([2, 5]); ctx.strokeStyle = '#ccc'; ctx.beginPath();
-        ctx.moveTo(p1.x + 10, p1.y + 10);
-        ctx.lineTo(p1.x + 10 + Math.cos(currentAngle * Math.PI/180) * 60, p1.y + 10 - Math.sin(currentAngle * Math.PI/180) * 60);
+        ctx.moveTo(p1.x + 10 - cameraX, p1.y + 10);
+        ctx.lineTo((p1.x + 10 + Math.cos(currentAngle * Math.PI/180) * 60) - cameraX, p1.y + 10 - Math.sin(currentAngle * Math.PI/180) * 60);
         ctx.stroke(); ctx.setLineDash([]);
-    }
-
-    if (lastShot) {
-        ctx.fillStyle = 'rgba(0,0,0,0.05)';
-        let lx = (p1.x + 10) + Math.cos(lastShot.ang * Math.PI/180) * (lastShot.pwr / 2);
-        let ly = (p1.y + 10) - Math.sin(lastShot.ang * Math.PI/180) * (lastShot.pwr / 2);
-        ctx.beginPath(); ctx.arc(lx, ly, 4, 0, Math.PI*2); ctx.fill();
     }
     ctx.restore();
     update();
     requestAnimationFrame(draw);
 }
 
-window.addEventListener('pointerdown', () => { if (turn === 'player') { isCharging = true; power = 0; powerContainer.style.display = 'block'; } });
+// Fixed Control Logic
+window.addEventListener('pointerdown', (e) => { 
+    if (turn === 'player') { isCharging = true; power = 0; powerContainer.style.display = 'block'; } 
+});
 window.addEventListener('pointermove', (e) => {
     if (turn !== 'player') return;
-    let dx = e.clientX - (p1.x + 10); let dy = (p1.y + 10) - e.clientY;
+    let dx = (e.clientX + cameraX) - (p1.x + 10);
+    let dy = (p1.y + 10) - e.clientY;
     currentAngle = Math.atan2(dy, dx) * 180 / Math.PI;
 });
 window.addEventListener('pointerup', () => {
