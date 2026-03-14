@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bowman Pro</title>
+    <style>
+        body { margin: 0; padding: 0; background: #fff; font-family: 'Courier New', Courier, monospace; overflow: hidden; touch-action: none; }
+        canvas { display: block; }
+        #ui { position: absolute; top: 15px; left: 15px; pointer-events: none; }
+        .stat { font-weight: bold; margin-bottom: 8px; text-transform: uppercase; font-size: 14px; }
+        #wind-indicator { margin-top: 10px; font-size: 18px; color: #555; }
+        #power-bar-container { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 200px; height: 12px; border: 2px solid #000; display: none; }
+        #power-bar { width: 0%; height: 100%; background: #000; }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <div class="stat">Level: <span id="level">1</span></div>
+    <div class="stat">High Score: <span id="highscore">0</span></div>
+    <div id="wind-indicator">Wind: 0</div>
+    <div id="msg" style="font-size: 10px; margin-top: 10px;">Drag to aim • Hold to charge</div>
+</div>
+
+<div id="power-bar-container">
+    <div id="power-bar"></div>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const levelEl = document.getElementById('level');
+const highscoreEl = document.getElementById('highscore');
+const windEl = document.getElementById('wind-indicator');
+const powerContainer = document.getElementById('power-bar-container');
+const powerBar = document.getElementById('power-bar');
+
+// Game Settings
+let width, height;
+let level = 1;
+let score = 0;
+let wind = 0;
+let highscore = localStorage.getItem('bowman_highscore_v2') || 0;
+highscoreEl.innerText = highscore;
+
+let player, cpu, arrows = [];
+let isCharging = false;
+let power = 0;
+let powerDir = 1;
+let currentAngle = 45;
+let lastShot = null;
+let turn = 'player';
+let gameActive = true;
+
+class Character {
+    constructor(x, color, label) {
+        this.x = x;
+        this.y = 0; 
+        this.color = color;
+        this.label = label;
+        this.health = 100;
+    }
+
+    draw() {
+        this.y = height - 70;
+        ctx.fillStyle = this.color;
+        // Fade character based on health
+        ctx.globalAlpha = Math.max(0.1, this.health / 100);
+        
+        // Sprite: Head, Body, Legs
+        ctx.beginPath();
+        ctx.arc(this.x + 10, this.y - 10, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(this.x, this.y, 20, 35);
+        ctx.fillRect(this.x + 2, this.y + 35, 5, 15);
+        ctx.fillRect(this.x + 13, this.y + 35, 5, 15);
+        
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#000';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.label, this.x + 10, this.y - 25);
+        
+        // Simple health bar (underneath)
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(this.x, this.y + 55, 20, 2);
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y + 55, (this.health / 100) * 20, 2);
+    }
+}
+
+class Arrow {
+    constructor(x, y, angle, power, owner) {
+        this.x = x;
+        this.y = y;
+        this.vx = Math.cos(angle * Math.PI / 180) * (power / 5);
+        this.vy = -Math.sin(angle * Math.PI / 180) * (power / 5);
+        this.owner = owner;
+        this.active = true;
+    }
+
+    update() {
+        this.vx += wind * 0.005; // Wind effect
+        this.vy += 0.15; // Gravity
+        this.x += this.vx;
+        this.y += this.vy;
+
+        let target = (this.owner === 'player') ? cpu : player;
+        
+        // Collision
+        if (this.x > target.x && this.x < target.x + 20 && this.y > target.y - 20 && this.y < target.y + 50) {
+            this.active = false;
+            let damage = (this.y < target.y) ? 65 : 25; // Headshot vs Body
+            target.health -= damage;
+            checkWin();
+        }
+
+        if (this.y > height - 20 || this.x < 0 || this.x > width) this.active = false;
+    }
+
+    draw() {
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1.5;
+        let angle = Math.atan2(this.vy, this.vx);
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.x - Math.cos(angle) * 12, this.y - Math.sin(angle) * 12);
+        ctx.stroke();
+    }
+}
+
+function init() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+    player = new Character(50, '#000', 'PLAYER');
+    cpu = new Character(width - 100, '#007bff', 'CPU');
+    newLevel();
+}
+
+function newLevel() {
+    // Randomize CPU distance
+    cpu.x = 300 + Math.random() * (width - 350);
+    // Randomize Wind
+    wind = (Math.random() * 4 - 2).toFixed(2);
+    windEl.innerText = (wind > 0 ? "→ " : "← ") + Math.abs(wind);
+    player.health = 100;
+    cpu.health = 100;
+    turn = 'player';
+}
+
+function cpuTurn() {
+    if (player.health <= 0) return;
+
+    let dist = cpu.x - player.x;
+    
+    // CPU Logic: Adjusts for distance and slightly for wind
+    // As Level increases, 'variance' decreases (CPU gets smarter)
+    let variance = Math.max(2, 20 - (level * 1.5)); 
+    let baseAngle = 35 + (Math.random() * 10);
+    let idealPower = (dist / 4.4) - (wind * 5); // Rough wind compensation
+    
+    // Add inaccuracy based on current difficulty
+    let finalPower = idealPower + (Math.random() * variance - (variance/2));
+    
+    arrows.push(new Arrow(cpu.x, cpu.y + 10, 180 - baseAngle, finalPower, 'cpu'));
+    turn = 'player';
+}
+
+function checkWin() {
+    if (cpu.health <= 0) {
+        level++;
+        score += 100;
+        levelEl.innerText = level;
+        if (score > highscore) {
+            highscore = score;
+            localStorage.setItem('bowman_highscore_v2', highscore);
+            highscoreEl.innerText = highscore;
+        }
+        setTimeout(newLevel, 500);
+    } else if (player.health <= 0) {
+        alert("Defeated! Level reached: " + level);
+        level = 1;
+        score = 0;
+        levelEl.innerText = level;
+        newLevel();
+    }
+}
+
+function update() {
+    if (isCharging) {
+        power += 2 * powerDir;
+        if (power >= 100 || power <= 0) powerDir *= -1;
+        powerBar.style.width = power + '%';
+    }
+
+    for (let i = arrows.length - 1; i >= 0; i--) {
+        arrows[i].update();
+        if (!arrows[i].active) {
+            arrows.splice(i, 1);
+            if (turn === 'waiting') {
+                turn = 'cpu_thinking';
+                setTimeout(cpuTurn, 1000);
+            }
+        }
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, width, height);
+    
+    // Ground
+    ctx.strokeStyle = '#eee';
+    ctx.beginPath(); ctx.moveTo(0, height-20); ctx.lineTo(width, height-20); ctx.stroke();
+
+    player.draw();
+    cpu.draw();
+    arrows.forEach(a => a.draw());
+
+    // Aim Assist Line
+    if (turn === 'player' && !isCharging) {
+        ctx.setLineDash([2, 4]);
+        ctx.beginPath();
+        ctx.moveTo(player.x + 10, player.y + 10);
+        ctx.lineTo((player.x + 10) + Math.cos(currentAngle * Math.PI / 180) * 40, (player.y + 10) - Math.sin(currentAngle * Math.PI / 180) * 40);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    // Shot Marker
+    if (lastShot) {
+        ctx.fillStyle = '#ddd';
+        ctx.beginPath();
+        let lx = (player.x + 10) + Math.cos(lastShot.angle * Math.PI / 180) * (lastShot.power / 2);
+        let ly = (player.y + 10) - Math.sin(lastShot.angle * Math.PI / 180) * (lastShot.power / 2);
+        ctx.arc(lx, ly, 2, 0, Math.PI*2);
+        ctx.fill();
+    }
+
+    update();
+    requestAnimationFrame(draw);
+}
+
+// Input Handling
+const handleStart = () => { if (turn === 'player') { isCharging = true; power = 0; powerContainer.style.display = 'block'; } };
+const handleMove = (x, y) => {
+    if (turn !== 'player' || isCharging) return;
+    let dx = x - (player.x + 10);
+    let dy = (player.y + 10) - y;
+    currentAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+};
+const handleEnd = () => {
+    if (!isCharging) return;
+    isCharging = false;
+    powerContainer.style.display = 'none';
+    arrows.push(new Arrow(player.x + 10, player.y + 10, currentAngle, power, 'player'));
+    lastShot = { angle: currentAngle, power: power };
+    turn = 'waiting';
+};
+
+window.addEventListener('mousedown', handleStart);
+window.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
+window.addEventListener('mouseup', handleEnd);
+window.addEventListener('touchstart', (e) => { handleStart(); e.preventDefault(); }, {passive: false});
+window.addEventListener('touchmove', (e) => handleMove(e.touches[0].clientX, e.touches[0].clientY));
+window.addEventListener('touchend', handleEnd);
+
+init();
+draw();
+window.onresize = init;
+</script>
+</body>
+</html>
