@@ -3,29 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bowman</title>
+    <title>Bowman: Ghost Trajectory</title>
     <style>
-        :root { --red: #ff3b30; }
+        :root { --red: #ff3b30; --green: #8bc34a; }
         body { margin: 0; padding: 0; background: #fff; font-family: 'Arial Black', sans-serif; overflow: hidden; touch-action: none; user-select: none; }
         canvas { display: block; width: 100vw; height: 100vh; }
-        #top-bar { position: absolute; top: 60px; left: 30px; right: 30px; display: flex; justify-content: space-between; pointer-events: none; z-index: 10; }
-        .score-val { font-size: 22px; color: #000; }
+        
+        /* Lowered Scoreboard */
+        #top-bar {
+            position: absolute; top: 60px; left: 30px; right: 30px;
+            display: flex; justify-content: space-between; pointer-events: none; z-index: 10;
+        }
+        .score-box { text-align: left; }
+        .score-box.right { text-align: right; }
         .score-label { font-size: 10px; color: #bbb; letter-spacing: 1px; }
-        #ui-center { position: absolute; top: 32%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; width: 100%; z-index: 10; }
+        .score-val { font-size: 22px; color: #000; }
+        
+        #ui-center { 
+            position: absolute; top: 32%; left: 50%; transform: translate(-50%, -50%); 
+            text-align: center; pointer-events: none; width: 100%; z-index: 10;
+        }
         .level-text { font-size: 40px; color: #000; margin: 0; }
+        .sub-text { font-size: 12px; color: #888; letter-spacing: 2px; }
         #wind-display { font-size: 18px; color: var(--red); margin-top: 5px; }
-        #power-container { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); width: 250px; height: 12px; border: 4px solid #000; background: #fff; display: none; border-radius: 4px; overflow: hidden; }
+        
+        #power-container { 
+            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); 
+            width: 250px; height: 12px; border: 4px solid #000; background: #fff; display: none; 
+            border-radius: 4px; overflow: hidden;
+        }
         #power-bar { height: 100%; width: 0%; background: #000; }
     </style>
 </head>
 <body>
 
 <div id="top-bar">
-    <div><div class="score-label">SCORE</div><div class="score-val" id="score-display">0</div></div>
-    <div style="text-align:right"><div class="score-label">BEST</div><div class="score-val" id="highscore-display">0</div></div>
+    <div class="score-box">
+        <div class="score-label">SCORE</div>
+        <div class="score-val" id="score-display">0</div>
+    </div>
+    <div class="score-box right">
+        <div class="score-label">BEST</div>
+        <div class="score-val" id="highscore-display">0</div>
+    </div>
 </div>
 
 <div id="ui-center">
+    <div class="sub-text">STAGE</div>
     <div class="level-text" id="level-num">1</div>
     <div id="wind-display">WIND: 0</div>
 </div>
@@ -36,85 +60,133 @@
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+const powerContainer = document.getElementById('power-container');
 const powerBar = document.getElementById('power-bar');
 const scoreEl = document.getElementById('score-display');
 const highScoreEl = document.getElementById('highscore-display');
 
 let W, H, level = 1, wind = 0, arrows = [], particles = [], popups = [], terrain = [];
 let turn = 'player', isCharging = false, power = 0, powerDir = 1, currentAngle = 45;
-let cameraX = 0, shake = 0, WORLD_WIDTH = 2200;
-let lastPlayerShot = null, score = 0, highScore = localStorage.getItem('bowman_best_score') || 0;
+let cameraX = 0, shake = 0, WORLD_WIDTH = 3500;
 
+// Trajectory Storage
+let lastPlayerShot = null; 
+
+let score = 0;
+let highScore = localStorage.getItem('bowman_best_score') || 0;
 highScoreEl.innerText = highScore;
 
+function addScore(points) {
+    score += points;
+    scoreEl.innerText = score;
+    if (score > highScore) {
+        highScore = score;
+        highScoreEl.innerText = highScore;
+        localStorage.setItem('bowman_best_score', highScore);
+    }
+}
+
 function generateTerrain() {
-    terrain = []; let h = H * 0.8;
+    terrain = [];
+    let h = H * 0.8;
     for (let x = 0; x <= WORLD_WIDTH; x += 10) {
-        h += (Math.random() - 0.5) * 40;
+        h += (Math.random() - 0.5) * 35;
         h = Math.max(H * 0.5, Math.min(H * 0.9, h));
         terrain.push({x, y: h});
     }
 }
 
 function getTerrainY(x) {
-    let idx = Math.floor(Math.max(0, Math.min(WORLD_WIDTH - 1, x)) / 10);
+    let idx = Math.floor(Math.max(0, Math.min(WORLD_WIDTH, x)) / 10);
     return terrain[idx] ? terrain[idx].y : H * 0.8;
 }
 
 class Particle {
-    constructor(x, y, color = '#ff3b30') { this.x = x; this.y = y; this.vx = (Math.random()-0.5)*8; this.vy = (Math.random()-2)*6; this.life = 1.0; this.color = color; }
+    constructor(x, y, color = '#ff3b30') {
+        this.x = x; this.y = y;
+        this.vx = (Math.random() - 0.5) * 8; this.vy = (Math.random() - 2) * 6;
+        this.life = 1.0; this.color = color;
+    }
     update() { this.x += this.vx; this.y += this.vy; this.vy += 0.25; this.life -= 0.02; }
-    draw() { ctx.fillStyle = this.color; ctx.globalAlpha = Math.max(0, this.life); ctx.fillRect(this.x-cameraX, this.y, 4, 4); ctx.globalAlpha = 1; }
+    draw() { 
+        ctx.fillStyle = this.color; ctx.globalAlpha = Math.max(0, this.life); 
+        ctx.fillRect(this.x - cameraX, this.y, 4, 4); ctx.globalAlpha = 1; 
+    }
 }
 
 class Popup {
-    constructor(text, x, y, color = '#000') { this.text = text; this.x = x; this.y = y; this.life = 1.0; this.color = color; }
+    constructor(text, x, y, color = '#000') {
+        this.text = text; this.x = x; this.y = y; this.life = 1.0; this.color = color;
+    }
     update() { this.y -= 1; this.life -= 0.015; }
-    draw() { ctx.fillStyle = this.color; ctx.font = 'bold 18px Arial Black'; ctx.globalAlpha = Math.max(0, this.life); ctx.textAlign = 'center'; ctx.fillText(this.text, this.x-cameraX, this.y); ctx.globalAlpha = 1; }
+    draw() {
+        ctx.fillStyle = this.color; ctx.font = 'bold 18px Arial Black'; 
+        ctx.globalAlpha = Math.max(0, this.life); ctx.textAlign = 'center'; 
+        ctx.fillText(this.text, this.x - cameraX, this.y); ctx.globalAlpha = 1;
+    }
 }
 
 class Char {
     constructor(isPlayer) { this.isPlayer = isPlayer; this.reset(); }
     reset() {
         this.health = 100;
-        this.x = this.isPlayer ? 100 : 800 + (Math.random() * 900);
+        this.x = this.isPlayer ? 150 : 1200 + (Math.random() * (WORLD_WIDTH - 1500));
         this.y = getTerrainY(this.x) - 45;
         this.hasApple = (!this.isPlayer && Math.random() < 0.4);
     }
     draw() {
-        ctx.fillStyle = this.isPlayer ? "#000" : "#555";
-        ctx.beginPath(); ctx.arc(this.x+10-cameraX, this.y-8, 8, 0, Math.PI*2); ctx.fill();
-        ctx.fillRect(this.x-cameraX, this.y, 20, 30);
-        ctx.fillRect(this.x+2-cameraX, this.y+30, 6, 15); ctx.fillRect(this.x+12-cameraX, this.y+30, 6, 15);
+        ctx.fillStyle = this.getColor();
+        ctx.beginPath(); ctx.arc(this.x + 10 - cameraX, this.y - 8, 8, 0, Math.PI*2); ctx.fill();
+        ctx.fillRect(this.x - cameraX, this.y, 20, 30);
+        ctx.fillRect(this.x + 2 - cameraX, this.y + 30, 6, 15); ctx.fillRect(this.x + 12 - cameraX, this.y + 30, 6, 15);
         if (this.hasApple) {
-            ctx.fillStyle = '#ff3b30'; ctx.beginPath(); ctx.arc(this.x+10-cameraX, this.y-22, 5, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#ff3b30'; ctx.beginPath(); ctx.arc(this.x + 10 - cameraX, this.y - 22, 5, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#8bc34a'; ctx.fillRect(this.x + 9 - cameraX, this.y - 28, 2, 3);
         }
+    }
+    getColor() {
+        let p = Math.max(0, this.health / 100);
+        let r = Math.floor(255 * (1 - p));
+        return this.isPlayer ? `rgb(${r},0,0)` : `rgb(${r},${Math.floor(123*p)},${Math.floor(255*p)})`;
     }
 }
 
 class Arrow {
-    constructor(x, y, ang, pwr, owner, w) {
-        this.x = x; this.y = y; let r = ang * Math.PI / 180;
-        this.vx = Math.cos(r)*(pwr/5); this.vy = -Math.sin(r)*(pwr/5);
-        this.owner = owner; this.active = true; this.w = w;
+    constructor(x, y, ang, pwr, owner, windVal) {
+        this.x = x; this.y = y;
+        let r = ang * Math.PI / 180;
+        this.vx = Math.cos(r) * (pwr / 5); this.vy = -Math.sin(r) * (pwr / 5);
+        this.owner = owner; this.active = true; this.windAtShot = windVal;
     }
     update() {
-        this.vx += this.w * 0.007; this.vy += 0.15; this.x += this.vx; this.y += this.vy;
-        let t = (this.owner === 'player') ? cpu : p1;
-        if (t.hasApple && this.x > t.x && this.x < t.x+20 && this.y > t.y-32 && this.y < t.y-15) {
-            t.hasApple = false; score += 500; popups.push(new Popup("APPLE! +500", t.x+10, t.y-50, '#8bc34a'));
+        this.vx += this.windAtShot * 0.007; this.vy += 0.15; this.x += this.vx; this.y += this.vy;
+        let target = (this.owner === 'player') ? cpu : p1;
+        if (target.hasApple && this.x > target.x && this.x < target.x + 20 && this.y > target.y - 32 && this.y < target.y - 15) {
+            target.hasApple = false; addScore(500);
+            popups.push(new Popup("APPLE! +500", target.x + 10, target.y - 50, '#8bc34a'));
+            for(let i=0; i<8; i++) particles.push(new Particle(this.x, this.y, '#8bc34a'));
         }
-        if (this.x > t.x && this.x < t.x+20 && this.y > t.y-16 && this.y < t.y+45) {
-            t.health -= 50; this.active = false; 
-            if (this.owner === 'player') { score += 100; scoreEl.innerText = score; if(score > highScore) { highScore = score; localStorage.setItem('bowman_best_score', highScore); highScoreEl.innerText = highScore; }}
-            checkMatch();
+        if (this.x > target.x && this.x < target.x + 20 && this.y > target.y - 16 && this.y < target.y + 45) {
+            let isHead = (this.y < target.y);
+            if (isHead && Math.random() < 0.10) { 
+                target.health = 0; shake = 20; if (this.owner === 'player') addScore(1000);
+                popups.push(new Popup("CRITICAL! +1000", target.x + 10, target.y - 30, '#ff3b30'));
+            } else { 
+                target.health -= isHead ? 60 : 25; if (this.owner === 'player') addScore(isHead ? 300 : 100);
+                popups.push(new Popup(isHead ? "HEADSHOT +300" : "HIT +100", target.x + 10, target.y - 30, '#000'));
+            }
+            for(let i=0; i<15; i++) particles.push(new Particle(this.x, this.y));
+            this.active = false; checkMatch();
         }
-        if (this.y > getTerrainY(this.x) || this.x < 0 || this.x > WORLD_WIDTH) this.active = false;
+        if (this.y > getTerrainY(this.x) || this.x < 0 || this.x > WORLD_WIDTH) {
+            this.active = false; for(let i=0; i<5; i++) particles.push(new Particle(this.x, this.y, '#888')); 
+        }
     }
     draw() {
-        ctx.strokeStyle = '#000'; ctx.lineWidth = 2; let a = Math.atan2(this.vy, this.vx);
-        ctx.beginPath(); ctx.moveTo(this.x-cameraX, this.y);
-        ctx.lineTo((this.x-Math.cos(a)*15)-cameraX, this.y-Math.sin(a)*15); ctx.stroke();
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+        let a = Math.atan2(this.vy, this.vx);
+        ctx.beginPath(); ctx.moveTo(this.x - cameraX, this.y);
+        ctx.lineTo((this.x - Math.cos(a)*15) - cameraX, this.y - Math.sin(a)*15); ctx.stroke();
     }
 }
 
@@ -122,60 +194,106 @@ let p1, cpu;
 
 function setup() {
     W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
-    generateTerrain(); arrows = []; particles = []; popups = [];
+    generateTerrain();
+    arrows = []; particles = []; popups = [];
     if (!p1) { p1 = new Char(true); cpu = new Char(false); } else { p1.reset(); cpu.reset(); }
-    wind = (Math.random()*6-3);
-    document.getElementById('wind-display').innerText = (wind > 0 ? "→ " : "← ") + Math.abs(wind).toFixed(1);
+    wind = (Math.random() * 6 - 3);
+    document.getElementById('wind-display').innerText = (wind > 0 ? "WIND: → " : "WIND: ← ") + Math.abs(wind).toFixed(1);
     document.getElementById('level-num').innerText = level;
-    turn = 'player'; cameraX = 0;
+    turn = 'player'; cameraX = 0; lastPlayerShot = null;
 }
 
 function checkMatch() {
-    if (cpu.health <= 0) { level++; setTimeout(setup, 1200); }
-    else if (p1.health <= 0) { alert("OVER"); level = 1; score = 0; scoreEl.innerText = 0; setup(); }
+    if (cpu.health <= 0) { turn = 'resolve'; level++; addScore(500); setTimeout(setup, 1500); }
+    else if (p1.health <= 0) { turn = 'resolve'; setTimeout(() => { alert(`GAME OVER\nScore: ${score}`); level = 1; score = 0; scoreEl.innerText = score; setup(); }, 500); }
+}
+
+function doCpuTurn() {
+    if (turn !== 'cpu') return;
+    let dist = cpu.x - p1.x; let heightDiff = cpu.y - p1.y;
+    let idealPower = (dist / 4.45) - (wind * 5.2) + (heightDiff * 0.04);
+    let finalPwr = Math.min(100, Math.max(10, idealPower + (Math.random() * 4 - 2)));
+    arrows.push(new Arrow(cpu.x, cpu.y + 5, 155, finalPwr, 'cpu', wind)); turn = 'flying';
 }
 
 function drawPath(params, color, dash) {
     if (!params) return;
-    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash(dash);
-    let sx = params.x, sy = params.y, svx = Math.cos(params.ang*Math.PI/180)*(params.pwr/5), svy = -Math.sin(params.ang*Math.PI/180)*(params.pwr/5);
-    ctx.moveTo(sx-cameraX, sy);
-    for(let t=0; t<100; t++) { svx += params.wind*0.007; svy += 0.15; sx += svx; sy += svy; ctx.lineTo(sx-cameraX, sy); if (sy > getTerrainY(sx)) break; }
+    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash(dash);
+    let sx = params.x, sy = params.y;
+    let svx = Math.cos(params.ang * Math.PI / 180) * (params.pwr / 5);
+    let svy = -Math.sin(params.ang * Math.PI / 180) * (params.pwr / 5);
+    ctx.moveTo(sx - cameraX, sy);
+    for(let t = 0; t < 120; t++) {
+        svx += params.wind * 0.007; svy += 0.15; sx += svx; sy += svy;
+        ctx.lineTo(sx - cameraX, sy); if (sy > getTerrainY(sx)) break;
+    }
     ctx.stroke(); ctx.setLineDash([]);
 }
 
 function update() {
-    if (isCharging) { power += 2*powerDir; if (power >= 100 || power <= 0) powerDir *= -1; document.getElementById('power-container').style.display = 'block'; document.getElementById('power-bar').style.width = power+'%'; }
+    if (isCharging) {
+        power += 2 * powerDir;
+        if (power >= 100 || power <= 0) powerDir *= -1;
+        powerBar.style.width = power + '%';
+    }
     let tx = (turn === 'flying' && arrows.length > 0) ? arrows[0].x - W/2 : (turn === 'cpu' ? cpu.x - W/2 : p1.x - 150);
     cameraX += (Math.max(0, Math.min(WORLD_WIDTH - W, tx)) - cameraX) * 0.1;
-    arrows.forEach((a, i) => { a.update(); if (!a.active) { arrows.splice(i,1); if(turn==='flying'){ turn = (a.owner==='player') ? 'cpu' : 'player'; if(turn==='cpu') setTimeout(() => {
-        let dist = cpu.x - p1.x; let p = (dist / 4.45) - (wind * 5); arrows.push(new Arrow(cpu.x, cpu.y+5, 155, p, 'cpu', wind)); turn = 'flying';
-    }, 800); } } });
+    arrows.forEach((a, i) => {
+        a.update();
+        if (!a.active) {
+            arrows.splice(i, 1);
+            if (turn === 'flying') {
+                turn = (a.owner === 'player') ? 'cpu' : 'player';
+                if (turn === 'cpu') setTimeout(doCpuTurn, 800);
+            }
+        }
+    });
+    particles.forEach((p, i) => { p.update(); if (p.life <= 0) particles.splice(i, 1); });
     popups.forEach((p, i) => { p.update(); if (p.life <= 0) popups.splice(i, 1); });
+    if (shake > 0) shake *= 0.85;
 }
 
 function draw() {
-    ctx.clearRect(0,0,W,H);
-    ctx.beginPath(); ctx.fillStyle = '#fcfcfc'; ctx.strokeStyle = '#333';
-    ctx.moveTo(0-cameraX, H); ctx.lineTo(terrain[0].x-cameraX, terrain[0].y);
-    for(let i=1; i<terrain.length; i++) ctx.lineTo(terrain[i].x-cameraX, terrain[i].y);
-    ctx.lineTo(WORLD_WIDTH-cameraX, H); ctx.fill(); ctx.stroke();
+    ctx.save();
+    if (shake > 1) ctx.translate(Math.random() * shake - shake/2, Math.random() * shake - shake/2);
+    ctx.clearRect(0, 0, W, H);
+    ctx.beginPath(); ctx.fillStyle = '#fcfcfc'; ctx.strokeStyle = '#333'; ctx.lineWidth = 3;
+    ctx.moveTo(0, H); ctx.lineTo(terrain[0].x - cameraX, terrain[0].y);
+    for(let i=1; i < terrain.length; i++) ctx.lineTo(terrain[i].x - cameraX, terrain[i].y);
+    ctx.lineTo(W, H); ctx.fill(); ctx.stroke();
     
-    drawPath(lastPlayerShot, 'rgba(0,0,0,0.1)', [5,5]); // Previous shot (Ghost)
-    if (level === 1 && isCharging) drawPath({x:p1.x+10, y:p1.y+10, ang:currentAngle, pwr:power, wind:wind}, 'rgba(0,0,0,0.2)', [2,2]); // Level 1 only
+    // Ghost of last shot (Faint gray)
+    drawPath(lastPlayerShot, 'rgba(0,0,0,0.08)', [5, 5]);
+    // Current charging preview (Active stage 1 only or for all for visual feedback)
+    if (isCharging && level === 1) drawPath({x: p1.x+10, y: p1.y+10, ang: currentAngle, pwr: power, wind: wind}, 'rgba(0,0,0,0.15)', [2, 2]);
 
     p1.draw(); cpu.draw();
-    arrows.forEach(a => a.draw()); popups.forEach(p => p.draw());
-    update(); requestAnimationFrame(draw);
+    arrows.forEach(a => a.draw());
+    particles.forEach(p => p.draw());
+    popups.forEach(p => p.draw());
+    ctx.restore(); update(); requestAnimationFrame(draw);
 }
 
-window.addEventListener('pointerdown', () => { if(turn==='player') isCharging = true; power = 0; });
-window.addEventListener('pointermove', (e) => { let dx = (e.clientX+cameraX)-(p1.x+10); let dy = (p1.y+10)-e.clientY; currentAngle = Math.atan2(dy, dx)*180/Math.PI; });
-window.addEventListener('pointerup', () => { if(!isCharging) return; isCharging = false; document.getElementById('power-container').style.display='none';
-    lastPlayerShot = {x:p1.x+10, y:p1.y+10, ang:currentAngle, pwr:power, wind:wind};
-    arrows.push(new Arrow(p1.x+10, p1.y+10, currentAngle, power, 'player', wind)); turn = 'flying';
+window.addEventListener('pointerdown', (e) => { 
+    if (turn !== 'player') return; 
+    isCharging = true; power = 0; powerDir = 1; 
+    powerContainer.style.display = 'block'; 
 });
+window.addEventListener('pointermove', (e) => {
+    if (turn !== 'player') return;
+    let dx = (e.clientX + cameraX) - (p1.x + 10); let dy = (p1.y + 10) - e.clientY;
+    currentAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+});
+window.addEventListener('pointerup', () => {
+    if (!isCharging) return;
+    isCharging = false; powerContainer.style.display = 'none';
+    lastPlayerShot = { x: p1.x+10, y: p1.y+10, ang: currentAngle, pwr: power, wind: wind };
+    arrows.push(new Arrow(p1.x + 10, p1.y + 10, currentAngle, power, 'player', wind));
+    turn = 'flying';
+});
+
 setup(); draw();
+window.onresize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
 </script>
 </body>
 </html>
