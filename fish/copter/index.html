@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Copter Classic</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #222;
+            color: #0f0;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: none;
+        }
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            aspect-ratio: 16 / 9;
+            background: #000;
+            border: 4px solid #333;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .ui-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            pointer-events: none;
+            text-shadow: 2px 2px #000;
+        }
+        #start-screen {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.7);
+            cursor: pointer;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <div class="ui-overlay">
+        <div>SCORE: <span id="score">0</span></div>
+        <div>BEST: <span id="highScore">0</span></div>
+    </div>
+    <div id="start-screen">
+        <h1 style="color: #0f0; margin-bottom: 5px;">COPTER CLASSIC</h1>
+        <p>CLICK, SPACE, or TAP to fly UP</p>
+        <p style="font-size: 0.8em; color: #888;">(Click to Start)</p>
+    </div>
+</div>
+
+<script>
+/** * GAME CONFIGURATION 
+ */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const scoreEl = document.getElementById('score');
+const highScoreEl = document.getElementById('highScore');
+const startScreen = document.getElementById('start-screen');
+
+// Virtual Resolution
+const V_WIDTH = 800;
+const V_HEIGHT = 450;
+canvas.width = V_WIDTH;
+canvas.height = V_HEIGHT;
+
+// Physics Constants
+const GRAVITY = 0.22;
+const LIFT = -0.45;
+const SPEED = 5;
+const CAVE_STEP = 20; // Width of wall segments
+
+let gameState = 'START'; // START, PLAYING, GAMEOVER
+let score = 0;
+let highScore = localStorage.getItem('copterHighScore') || 0;
+highScoreEl.innerText = highScore;
+
+/**
+ * AUDIO ENGINE (Web Audio API)
+ */
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let engineOsc, engineGain;
+
+function startEngineSound() {
+    if (engineOsc) return;
+    engineOsc = audioCtx.createOscillator();
+    engineGain = audioCtx.createGain();
+    
+    engineOsc.type = 'sawtooth';
+    engineOsc.frequency.setValueAtTime(50, audioCtx.currentTime); 
+    
+    // Modulation for the "thwop thwop" sound
+    const lfo = audioCtx.createOscillator();
+    const lfoGain = audioCtx.createGain();
+    lfo.frequency.setValueAtTime(12, audioCtx.currentTime);
+    lfoGain.gain.setValueAtTime(15, audioCtx.currentTime);
+    lfo.connect(lfoGain);
+    lfoGain.connect(engineOsc.frequency);
+    
+    engineGain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    engineOsc.connect(engineGain);
+    engineGain.connect(audioCtx.destination);
+    
+    engineOsc.start();
+    lfo.start();
+}
+
+function stopEngineSound() {
+    if (engineOsc) {
+        engineOsc.stop();
+        engineOsc = null;
+    }
+}
+
+function playCrashSound() {
+    const noise = audioCtx.createBufferSource();
+    const bufferSize = audioCtx.sampleRate * 0.5;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    
+    noise.buffer = buffer;
+    const g = audioCtx.createGain();
+    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+    noise.connect(g);
+    g.connect(audioCtx.destination);
+    noise.start();
+}
+
+/**
+ * GAME OBJECTS
+ */
+let copter = {
+    x: 150,
+    y: V_HEIGHT / 2,
+    vy: 0,
+    w: 40,
+    h: 20,
+    thrust: false
+};
+
+let walls = [];
+let obstacles = [];
+let smoke = [];
+
+function initGame() {
+    score = 0;
+    scoreEl.innerText = score;
+    copter.y = V_HEIGHT / 2;
+    copter.vy = 0;
+    walls = [];
+    obstacles = [];
+    smoke = [];
+    
+    // Initial flat cave
+    for (let x = 0; x <= V_WIDTH + CAVE_STEP; x += CAVE_STEP) {
+        walls.push({ x, top: 50, bot: 50 });
+    }
+}
+
+function createObstacle() {
+    const lastWall = walls[walls.length - 1];
+    const gapTop = lastWall.top + 20;
+    const gapBot = V_HEIGHT - lastWall.bot - 20;
+    const obsH = 60;
+    const obsY = gapTop + Math.random() * (gapBot - gapTop - obsH);
+    obstacles.push({ x: V_WIDTH, y: obsY, w: 30, h: obsH });
+}
+
+/**
+ * INPUT HANDLING
+ */
+function handleInput(e) {
+    if (e.type === 'mousedown' || e.type === 'touchstart' || (e.type === 'keydown' && e.code === 'Space')) {
+        if (gameState === 'START' || gameState === 'GAMEOVER') {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            initGame();
+            gameState = 'PLAYING';
+            startScreen.style.display = 'none';
+            startEngineSound();
+        }
+        copter.thrust = true;
+    }
+}
+
+function handleRelease(e) {
+    copter.thrust = false;
+}
+
+window.addEventListener('mousedown', handleInput);
+window.addEventListener('mouseup', handleRelease);
+window.addEventListener('touchstart', handleInput);
+window.addEventListener('touchend', handleRelease);
+window.addEventListener('keydown', handleInput);
+window.addEventListener('keyup', handleRelease);
+
+/**
+ * CORE LOOP
+ */
+function update() {
+    if (gameState !== 'PLAYING') return;
+
+    // Copter Physics
+    if (copter.thrust) copter.vy += LIFT;
+    copter.vy += GRAVITY;
+    copter.y += copter.vy;
+
+    // Smoke particles
+    if (Math.random() > 0.7) {
+        smoke.push({ x: copter.x, y: copter.y + 10, size: 4 + Math.random() * 6, life: 1 });
+    }
+    smoke.forEach(p => { p.x -= SPEED; p.life -= 0.02; });
+    smoke = smoke.filter(p => p.life > 0);
+
+    // Wall movement
+    walls.forEach(w => w.x -= SPEED);
+    if (walls[0].x <= -CAVE_STEP) {
+        walls.shift();
+        const last = walls[walls.length - 1];
+        const change = (Math.random() - 0.5) * 20;
+        let newTop = Math.max(20, Math.min(150, last.top + change));
+        let newBot = Math.max(20, Math.min(150, last.bot - change));
+        walls.push({ x: last.x + CAVE_STEP, top: newTop, bot: newBot });
+        score++;
+        scoreEl.innerText = score;
+    }
+
+    // Obstacles
+    if (score > 100 && score % 100 === 0) createObstacle();
+    obstacles.forEach(o => o.x -= SPEED);
+    obstacles = obstacles.filter(o => o.x > -50);
+
+    // Collision Detection
+    const hitWall = walls.some(w => {
+        if (copter.x + copter.w > w.x && copter.x < w.x + CAVE_STEP) {
+            return copter.y < w.top || copter.y + copter.h > V_HEIGHT - w.bot;
+        }
+        return false;
+    });
+
+    const hitObs = obstacles.some(o => (
+        copter.x < o.x + o.w &&
+        copter.x + copter.w > o.x &&
+        copter.y < o.y + o.h &&
+        copter.y + copter.h > o.y
+    ));
+
+    if (hitWall || hitObs || copter.y < 0 || copter.y > V_HEIGHT) {
+        gameOver();
+    }
+}
+
+function gameOver() {
+    gameState = 'GAMEOVER';
+    stopEngineSound();
+    playCrashSound();
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('copterHighScore', highScore);
+        highScoreEl.innerText = highScore;
+    }
+    startScreen.style.display = 'flex';
+    startScreen.innerHTML = `<h1 style="color:red">CRASHED!</h1><p>Score: ${score}</p><p>Tap to Retry</p>`;
+}
+
+function draw() {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
+
+    // Draw Smoke
+    ctx.fillStyle = 'rgba(100, 100, 100, 0.5)';
+    smoke.forEach(p => {
+        ctx.globalAlpha = p.life;
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+    });
+    ctx.globalAlpha = 1;
+
+    // Draw Walls
+    ctx.fillStyle = '#0f0';
+    ctx.beginPath();
+    walls.forEach((w, i) => {
+        if (i === 0) ctx.moveTo(w.x, 0);
+        ctx.lineTo(w.x, w.top);
+    });
+    ctx.lineTo(V_WIDTH, 0);
+    ctx.fill();
+
+    ctx.beginPath();
+    walls.forEach((w, i) => {
+        if (i === 0) ctx.moveTo(w.x, V_HEIGHT);
+        ctx.lineTo(w.x, V_HEIGHT - w.bot);
+    });
+    ctx.lineTo(V_WIDTH, V_HEIGHT);
+    ctx.fill();
+
+    // Draw Obstacles
+    obstacles.forEach(o => ctx.fillRect(o.x, o.y, o.w, o.h));
+
+    // Draw Copter (Retro look)
+    ctx.fillStyle = '#0f0';
+    // Body
+    ctx.fillRect(copter.x, copter.y, copter.w, copter.h);
+    // Tail
+    ctx.fillRect(copter.x - 15, copter.y + 5, 15, 5);
+    ctx.fillRect(copter.x - 15, copter.y, 5, 10);
+    // Rotor
+    const rotorOffset = (Date.now() % 100 < 50) ? 0 : 5;
+    ctx.fillRect(copter.x + 5, copter.y - 5, copter.w - 10, 2);
+    ctx.fillRect(copter.x + 20 - rotorOffset, copter.y - 8, 2, 5);
+}
+
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+initGame();
+loop();
+</script>
+</body>
+</html>
