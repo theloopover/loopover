@@ -3,27 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bowman: Precision</title>
+    <title>Bowman: Dynamic AI</title>
     <style>
-        :root { --red: #ff3b30; --green: #8bc34a; }
-        body { margin: 0; padding: 0; background: #fff; font-family: 'Arial Black', sans-serif; overflow: hidden; touch-action: none; user-select: none; }
+        :root { --red: #e74c3c; --green: #27ae60; }
+        body { margin: 0; padding: 0; background: #f0f4f8; font-family: 'Arial Black', sans-serif; overflow: hidden; touch-action: none; user-select: none; }
         canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
         
         #top-bar {
-            position: absolute; top: 60px; left: 30px; right: 30px;
+            position: absolute; top: 40px; left: 30px; right: 30px;
             display: flex; justify-content: space-between; pointer-events: none; z-index: 10;
         }
         .score-box { text-align: left; }
         .score-box.right { text-align: right; }
-        .score-label { font-size: 10px; color: #bbb; letter-spacing: 1px; }
-        .score-val { font-size: 22px; color: #000; }
+        .score-label { font-size: 10px; color: #999; letter-spacing: 1px; }
+        .score-val { font-size: 22px; color: #333; }
         
         #ui-center { 
-            position: absolute; top: 32%; left: 50%; transform: translate(-50%, -50%); 
+            position: absolute; top: 25%; left: 50%; transform: translate(-50%, -50%); 
             text-align: center; pointer-events: none; width: 100%; z-index: 10;
         }
-        .level-text { font-size: 40px; color: #000; margin: 0; }
-        .sub-text { font-size: 12px; color: #888; letter-spacing: 2px; }
+        .level-text { font-size: 40px; color: #333; margin: 0; }
+        .sub-text { font-size: 12px; color: #aaa; letter-spacing: 2px; }
         #wind-display { font-size: 18px; color: var(--red); margin-top: 5px; }
     </style>
 </head>
@@ -54,33 +54,31 @@ const ctx = canvas.getContext('2d');
 const scoreEl = document.getElementById('score-display');
 const highScoreEl = document.getElementById('highscore-display');
 
-let W, H, level = 1, wind = 0, arrows = [], particles = [], popups = [], terrain = [];
+let W, H, level = 1, wind = 0, arrows = [], particles = [], terrain = [], flags = [];
 let turn = 'player', isDragging = false, power = 0, currentAngle = 45;
-let dragStartX = 0, dragStartY = 0;
-let cameraX = 0, shake = 0, WORLD_WIDTH = 2200; 
+let dragStartX = 0, dragStartY = 0, cameraX = 0, shake = 0, WORLD_WIDTH = 2500; 
 
-let lastPlayerShot = null; 
-let score = 0;
-let highScore = localStorage.getItem('bowman_best_score') || 0;
+let lastPlayerShot = null, score = 0, highScore = localStorage.getItem('bowman_best_score') || 0;
 highScoreEl.innerText = highScore;
 
 function addScore(points) {
-    score += points;
-    scoreEl.innerText = score;
-    if (score > highScore) {
-        highScore = score;
-        highScoreEl.innerText = highScore;
-        localStorage.setItem('bowman_best_score', highScore);
-    }
+    score += points; scoreEl.innerText = score;
+    if (score > highScore) { highScore = score; highScoreEl.innerText = highScore; localStorage.setItem('bowman_best_score', highScore); }
 }
 
 function generateTerrain() {
-    terrain = [];
-    let h = H * 0.8;
+    terrain = []; flags = [];
+    const amplitude = Math.min(250, 60 + (level * 25)); 
+    const freq = 0.001 + (Math.random() * 0.002);
+    const baseH = H * 0.7;
     for (let x = 0; x <= WORLD_WIDTH; x += 10) {
-        h += (Math.random() - 0.5) * 40;
-        h = Math.max(H * 0.5, Math.min(H * 0.9, h));
+        let h = baseH + Math.sin(x * freq) * amplitude + Math.sin(x * freq * 2.5) * (amplitude * 0.4);
+        h += (Math.random() - 0.5) * 10;
+        h = Math.max(H * 0.2, Math.min(H * 0.95, h));
         terrain.push({x, y: h});
+    }
+    for (let i = 20; i < terrain.length - 20; i += 40) {
+        if (terrain[i].y < terrain[i-1].y && terrain[i].y < terrain[i+1].y) flags.push({x: terrain[i].x, y: terrain[i].y});
     }
 }
 
@@ -90,46 +88,36 @@ function getTerrainY(x) {
 }
 
 class Particle {
-    constructor(x, y, color = '#ff3b30') {
+    constructor(x, y, color = '#aa0000') {
         this.x = x; this.y = y;
-        this.vx = (Math.random() - 0.5) * 8; this.vy = (Math.random() - 2) * 6;
+        this.vx = (Math.random() - 0.5) * 10; this.vy = (Math.random() - 1.2) * 8;
         this.life = 1.0; this.color = color;
     }
-    update() { this.x += this.vx; this.y += this.vy; this.vy += 0.25; this.life -= 0.02; }
-    draw() { 
-        ctx.fillStyle = this.color; ctx.globalAlpha = Math.max(0, this.life); 
-        ctx.fillRect(this.x - cameraX, this.y, 4, 4); ctx.globalAlpha = 1; 
-    }
-}
-
-class Popup {
-    constructor(text, x, y, color = '#000') {
-        this.text = text; this.x = x; this.y = y; this.life = 1.0; this.color = color;
-    }
-    update() { this.y -= 1; this.life -= 0.015; }
-    draw() {
-        ctx.fillStyle = this.color; ctx.font = 'bold 18px Arial Black'; 
-        ctx.globalAlpha = Math.max(0, this.life); ctx.textAlign = 'center'; 
-        ctx.fillText(this.text, this.x - cameraX, this.y); ctx.globalAlpha = 1;
-    }
+    update() { this.x += this.vx; this.y += this.vy; this.vy += 0.4; this.life -= 0.02; }
+    draw() { ctx.fillStyle = this.color; ctx.globalAlpha = Math.max(0, this.life); ctx.fillRect(this.x - cameraX, this.y, 4, 4); ctx.globalAlpha = 1; }
 }
 
 class Char {
     constructor(isPlayer) { this.isPlayer = isPlayer; this.reset(); }
     reset() {
-        this.health = 100;
-        this.x = this.isPlayer ? 100 : 800 + (Math.random() * 1000); 
+        this.health = 100; this.stuckArrows = [];
+        this.x = this.isPlayer ? 100 + Math.random() * 150 : 1300 + (Math.random() * (WORLD_WIDTH - 1500)); 
         this.y = getTerrainY(this.x) - 45;
-        this.hasApple = (!this.isPlayer && Math.random() < 0.4);
     }
     draw() {
-        ctx.fillStyle = this.isPlayer ? '#000' : '#444';
+        let p = Math.max(0, this.health / 100);
+        let r = Math.max(this.isPlayer ? 0 : 50, Math.floor(255 * (1 - p)));
+        let g = Math.floor((this.isPlayer ? 0 : 50) * p);
+        let b = Math.floor((this.isPlayer ? 0 : 50) * p);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
         ctx.beginPath(); ctx.arc(this.x + 10 - cameraX, this.y - 8, 8, 0, Math.PI*2); ctx.fill();
         ctx.fillRect(this.x - cameraX, this.y, 20, 30);
         ctx.fillRect(this.x + 2 - cameraX, this.y + 30, 6, 15); ctx.fillRect(this.x + 12 - cameraX, this.y + 30, 6, 15);
-        if (this.hasApple) {
-            ctx.fillStyle = '#ff3b30'; ctx.beginPath(); ctx.arc(this.x + 10 - cameraX, this.y - 22, 5, 0, Math.PI*2); ctx.fill();
-        }
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5;
+        this.stuckArrows.forEach(arr => {
+            let absX = this.x + arr.offsetX - cameraX, absY = this.y + arr.offsetY;
+            ctx.beginPath(); ctx.moveTo(absX, absY); ctx.lineTo(absX - Math.cos(arr.a)*15, absY - Math.sin(arr.a)*15); ctx.stroke();
+        });
     }
 }
 
@@ -145,109 +133,123 @@ class Arrow {
         this.vx += this.windAtShot * 0.007; this.vy += 0.15; this.x += this.vx; this.y += this.vy;
         let target = (this.owner === 'player') ? cpu : p1;
         if (this.x > target.x && this.x < target.x + 20 && this.y > target.y - 16 && this.y < target.y + 45) {
-            target.health -= 60; this.active = false; 
-            if (this.owner === 'player') addScore(100);
-            checkMatch();
+            let isHead = (this.y < target.y); target.health -= isHead ? 65 : 35; 
+            for(let i=0; i<30; i++) particles.push(new Particle(this.x, this.y));
+            target.stuckArrows.push({ offsetX: this.x - target.x, offsetY: this.y - target.y, a: Math.atan2(this.vy, this.vx) });
+            if (isHead) shake = 15; if (this.owner === 'player') addScore(isHead ? 300 : 100); this.active = false; 
         }
         if (this.y > getTerrainY(this.x) || this.x < 0 || this.x > WORLD_WIDTH) this.active = false;
     }
-    draw() {
-        ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
-        let a = Math.atan2(this.vy, this.vx);
-        ctx.beginPath(); ctx.moveTo(this.x - cameraX, this.y);
-        ctx.lineTo((this.x - Math.cos(a)*15) - cameraX, this.y - Math.sin(a)*15); ctx.stroke();
-    }
+    draw() { ctx.strokeStyle = '#000'; ctx.lineWidth = 2; let a = Math.atan2(this.vy, this.vx);
+        ctx.beginPath(); ctx.moveTo(this.x - cameraX, this.y); ctx.lineTo((this.x - Math.cos(a)*18) - cameraX, this.y - Math.sin(a)*18); ctx.stroke(); }
 }
 
 let p1, cpu;
 
 function setup() {
     W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight;
-    generateTerrain();
-    arrows = []; particles = []; popups = [];
+    generateTerrain(); arrows = []; particles = [];
     if (!p1) { p1 = new Char(true); cpu = new Char(false); } else { p1.reset(); cpu.reset(); }
-    wind = (Math.random() * 6 - 3);
+    wind = (Math.random() * 10 - 5);
     document.getElementById('wind-display').innerText = (wind > 0 ? "WIND: → " : "WIND: ← ") + Math.abs(wind).toFixed(1);
-    document.getElementById('level-num').innerText = level;
-    turn = 'player'; cameraX = 0;
-}
-
-function checkMatch() {
-    if (cpu.health <= 0) { turn = 'resolve'; level++; addScore(500); setTimeout(setup, 1500); }
-    else if (p1.health <= 0) { turn = 'resolve'; setTimeout(() => { alert(`GAME OVER\nScore: ${score}`); level = 1; score = 0; scoreEl.innerText = score; setup(); }, 500); }
+    document.getElementById('level-num').innerText = level; turn = 'player'; cameraX = 0;
 }
 
 function doCpuTurn() {
     if (turn !== 'cpu') return;
-    let dist = cpu.x - p1.x;
-    let idealPower = (dist / 4.45) - (wind * 5.2);
-    let finalPwr = Math.min(100, Math.max(10, idealPower + (Math.random() * 4 - 2)));
-    arrows.push(new Arrow(cpu.x, cpu.y + 5, 155, finalPwr, 'cpu', wind)); turn = 'flying';
-}
-
-function drawPath(params, color, dash) {
-    if (!params) return;
-    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash(dash);
-    let sx = params.x, sy = params.y, svx = Math.cos(params.ang * Math.PI / 180) * (params.pwr / 5), svy = -Math.sin(params.ang * Math.PI / 180) * (params.pwr / 5);
-    ctx.moveTo(sx - cameraX, sy);
-    for(let t = 0; t < 120; t++) { svx += params.wind * 0.007; svy += 0.15; sx += svx; sy += svy; ctx.lineTo(sx - cameraX, sy); if (sy > getTerrainY(sx)) break; }
-    ctx.stroke(); ctx.setLineDash([]);
+    
+    // --- VARIETY UPGRADE ---
+    let dist = cpu.x - p1.x; // Typically negative
+    let hDiff = cpu.y - p1.y; 
+    
+    // Randomize angle first (Drive vs Lob)
+    let cpuAngle = 130 + Math.random() * 35; 
+    let rad = cpuAngle * Math.PI / 180;
+    
+    // Calculate required power for this specific angle
+    // Approximation: base dist / (scaling * cos(angle))
+    let basePower = Math.abs(dist) / (Math.abs(Math.cos(rad)) * 14);
+    let windEffect = wind * 5.5;
+    let elevEffect = hDiff * 0.1;
+    
+    let errorRange = Math.max(0.5, 12 - (level * 1.2)); 
+    let finalPwr = Math.min(100, Math.max(15, (basePower - windEffect + elevEffect) + (Math.random() - 0.5) * errorRange));
+    
+    arrows.push(new Arrow(cpu.x, cpu.y + 5, cpuAngle, finalPwr, 'cpu', wind)); 
+    turn = 'flying';
 }
 
 function update() {
-    let tx = (turn === 'flying' && arrows.length > 0) ? arrows[0].x - W/2 : (turn === 'cpu' ? cpu.x - W/2 : p1.x - 150);
-    cameraX += (Math.max(0, Math.min(WORLD_WIDTH - W, tx)) - cameraX) * 0.1;
+    let tx = cameraX; 
+    if (turn === 'flying' && arrows.length > 0) tx = arrows[0].x - W/2;
+    else if (turn === 'player') tx = p1.x - 150;
+    else if (turn === 'cpu') tx = cpu.x - W/2;
+    if (turn !== 'hang' && turn !== 'win' && turn !== 'lose') cameraX += (Math.max(0, Math.min(WORLD_WIDTH - W, tx)) - cameraX) * 0.08;
+
     arrows.forEach((a, i) => {
         a.update();
         if (!a.active) {
             if (a.owner === 'player') lastPlayerShot = { x: a.initX, y: a.initY, ang: a.initAng, pwr: a.initPwr, wind: a.windAtShot };
             arrows.splice(i, 1);
-            if (turn === 'flying') { turn = (a.owner === 'player') ? 'cpu' : 'player'; if (turn === 'cpu') setTimeout(doCpuTurn, 800); }
+            if (turn === 'flying') { turn = 'hang'; setTimeout(() => {
+                if (cpu.health <= 0) { turn = 'win'; addScore(1000); setTimeout(() => { level++; setup(); }, 600); } // FASTER
+                else if (p1.health <= 0) { turn = 'lose'; setTimeout(() => { level = 1; score = 0; scoreEl.innerText = score; setup(); }, 800); } // FASTER
+                else { turn = (a.owner === 'player') ? 'cpu' : 'player'; if (turn === 'cpu') setTimeout(doCpuTurn, 500); }
+            }, 400); }
         }
     });
+    particles.forEach((p, i) => { p.update(); if (p.life <= 0) particles.splice(i, 1); });
+    if (shake > 0) shake *= 0.85;
 }
 
 function draw() {
+    ctx.save(); if (shake > 1) ctx.translate(Math.random() * shake - shake/2, Math.random() * shake - shake/2);
     ctx.clearRect(0, 0, W, H);
-    ctx.beginPath(); ctx.fillStyle = '#fcfcfc'; ctx.strokeStyle = '#333'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.fillStyle = '#fff'; ctx.strokeStyle = '#333'; ctx.lineWidth = 4;
     ctx.moveTo(0 - cameraX, H); ctx.lineTo(terrain[0].x - cameraX, terrain[0].y);
     for(let i=1; i < terrain.length; i++) ctx.lineTo(terrain[i].x - cameraX, terrain[i].y);
     ctx.lineTo(WORLD_WIDTH - cameraX, H); ctx.fill(); ctx.stroke();
     
-    drawPath(lastPlayerShot, 'rgba(0,0,0,0.1)', [5, 5]);
-    p1.draw(); cpu.draw();
-    
-    if (isDragging && turn === 'player') {
-        // Line Indicator
-        ctx.setLineDash([2, 4]); ctx.strokeStyle = '#000'; ctx.beginPath();
-        let ilen = power * 0.8;
-        ctx.moveTo(p1.x + 10 - cameraX, p1.y + 10);
-        ctx.lineTo((p1.x + 10 + Math.cos(currentAngle * Math.PI/180) * ilen) - cameraX, p1.y + 10 - Math.sin(currentAngle * Math.PI/180) * ilen);
-        ctx.stroke(); ctx.setLineDash([]);
+    // Flags
+    ctx.lineWidth = 2; ctx.strokeStyle = '#333';
+    flags.forEach(f => {
+        ctx.beginPath(); ctx.moveTo(f.x - cameraX, f.y); ctx.lineTo(f.x - cameraX, f.y - 25); ctx.stroke();
+        ctx.fillStyle = '#e74c3c';
+        let flutter = Math.sin(Date.now() / 100) * 5;
+        let windLen = Math.abs(wind) * 4 + 5;
+        ctx.beginPath(); ctx.moveTo(f.x - cameraX, f.y - 25);
+        ctx.lineTo(f.x - cameraX + (windLen * (wind > 0 ? 1 : -1)), f.y - 20 + flutter);
+        ctx.lineTo(f.x - cameraX, f.y - 15); ctx.fill();
+    });
 
-        // Precision Numbers
-        ctx.fillStyle = '#000'; ctx.font = '14px Arial Black'; ctx.textAlign = 'center';
-        ctx.fillText(`ANG: ${Math.round(currentAngle)}°`, p1.x + 10 - cameraX, p1.y - 65);
-        ctx.fillText(`PWR: ${Math.round(power)}`, p1.x + 10 - cameraX, p1.y - 45);
+    if (lastPlayerShot) {
+        ctx.beginPath(); ctx.strokeStyle = 'rgba(0,0,0,0.08)'; ctx.lineWidth = 2; ctx.setLineDash([5,5]);
+        let sx = lastPlayerShot.x, sy = lastPlayerShot.y, svx = Math.cos(lastPlayerShot.ang * Math.PI / 180) * (lastPlayerShot.pwr / 5), svy = -Math.sin(lastPlayerShot.ang * Math.PI / 180) * (lastPlayerShot.pwr / 5);
+        ctx.moveTo(sx - cameraX, sy);
+        for(let t = 0; t < 150; t++) { svx += lastPlayerShot.wind * 0.007; svy += 0.15; sx += svx; sy += svy; ctx.lineTo(sx - cameraX, sy); if (sy > getTerrainY(sx)) break; }
+        ctx.stroke(); ctx.setLineDash([]);
     }
 
-    arrows.forEach(a => a.draw());
+    p1.draw(); cpu.draw();
+    if (isDragging && turn === 'player') {
+        ctx.setLineDash([2, 4]); ctx.strokeStyle = '#000'; ctx.beginPath(); let ilen = power * 0.8;
+        ctx.moveTo(p1.x + 10 - cameraX, p1.y + 10); ctx.lineTo((p1.x + 10 + Math.cos(currentAngle * Math.PI/180) * ilen) - cameraX, p1.y + 10 - Math.sin(currentAngle * Math.PI/180) * ilen);
+        ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = '#000'; ctx.font = '14px Arial Black'; ctx.textAlign = 'center';
+        ctx.fillText(`ANG: ${Math.round(currentAngle)}°`, p1.x + 10 - cameraX, p1.y - 65); ctx.fillText(`PWR: ${Math.round(power)}`, p1.x + 10 - cameraX, p1.y - 45);
+    }
+    arrows.forEach(a => a.draw()); particles.forEach(p => p.draw()); ctx.restore(); 
+    if (turn === 'win') { ctx.fillStyle = 'rgba(255, 255, 255, 0.4)'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = '#27ae60'; ctx.font = 'bold 50px Arial Black'; ctx.textAlign = 'center'; ctx.fillText("STAGE CLEARED!", W/2, H/2); }
+    else if (turn === 'lose') { ctx.fillStyle = 'rgba(231, 76, 60, 0.15)'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = '#e74c3c'; ctx.font = 'bold 50px Arial Black'; ctx.textAlign = 'center'; ctx.fillText("DEFEATED", W/2, H/2); }
     update(); requestAnimationFrame(draw);
 }
 
 window.addEventListener('pointerdown', (e) => { if (turn !== 'player') return; isDragging = true; dragStartX = e.clientX; dragStartY = e.clientY; power = 0; });
 window.addEventListener('pointermove', (e) => {
     if (!isDragging || turn !== 'player') return;
-    let dx = dragStartX - e.clientX; let dy = e.clientY - dragStartY;
-    currentAngle = Math.atan2(dy, dx) * 180 / Math.PI;
-    power = Math.min(100, Math.sqrt(dx*dx + dy*dy) * 0.6);
+    let dx = dragStartX - e.clientX, dy = e.clientY - dragStartY;
+    currentAngle = Math.atan2(dy, dx) * 180 / Math.PI; power = Math.min(100, Math.sqrt(dx*dx + dy*dy) * 0.6);
 });
-window.addEventListener('pointerup', () => {
-    if (!isDragging || turn !== 'player') return;
-    isDragging = false; if (power < 5) return; 
-    arrows.push(new Arrow(p1.x + 10, p1.y + 10, currentAngle, power, 'player', wind));
-    turn = 'flying';
-});
+window.addEventListener('pointerup', () => { if (!isDragging || turn !== 'player') return; isDragging = false; if (power < 5) return; arrows.push(new Arrow(p1.x + 10, p1.y + 10, currentAngle, power, 'player', wind)); turn = 'flying'; });
 
 setup(); draw();
 window.onresize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
