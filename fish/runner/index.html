@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Canabalt Web Clone</title>
+    <title>Canabalt Web Clone - Extended</title>
     <style>
         body, html {
             margin: 0;
@@ -13,7 +13,7 @@
             background-color: #e0e0e0;
             overflow: hidden;
             font-family: 'Courier New', Courier, monospace;
-            touch-action: none; /* Prevents mobile scrolling */
+            touch-action: none;
         }
         canvas {
             display: block;
@@ -36,6 +36,7 @@
             font-size: 24px;
             font-weight: bold;
             color: #333;
+            text-shadow: 1px 1px 0px #fff;
         }
         #message {
             text-align: center;
@@ -44,6 +45,8 @@
             margin-bottom: 20vh;
             text-transform: uppercase;
             font-weight: bold;
+            background: rgba(255,255,255,0.7);
+            padding: 10px;
         }
         .blink {
             animation: blinker 1s linear infinite;
@@ -74,12 +77,11 @@
         const messageEl = document.getElementById('message');
 
         let width, height;
-        let scale = 1;
         let isRunning = false;
         let animationId;
 
         // Game State
-        let state = 'START'; // START, PLAYING, GAMEOVER
+        let state = 'START'; 
         let score = 0;
         let highScore = localStorage.getItem('canabaltHighScore') || 0;
         highScoreEl.innerText = Math.floor(highScore);
@@ -97,15 +99,17 @@
             }
         }
 
-        function playJumpSound() {
+        function playJumpSound(isDoubleJump = false) {
             if (!audioCtx) return;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.connect(gain);
             gain.connect(audioCtx.destination);
             osc.type = 'square';
-            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.15);
+            const startFreq = isDoubleJump ? 250 : 150;
+            const endFreq = isDoubleJump ? 600 : 400;
+            osc.frequency.setValueAtTime(startFreq, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(endFreq, audioCtx.currentTime + 0.15);
             gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
             osc.start();
@@ -127,10 +131,35 @@
             osc.stop(audioCtx.currentTime + 0.5);
         }
 
+        function playGlassSound() {
+            if (!audioCtx) return;
+            // Generate white noise for glass shatter
+            const bufferSize = audioCtx.sampleRate * 0.2;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            
+            const bandpass = audioCtx.createBiquadFilter();
+            bandpass.type = 'highpass';
+            bandpass.frequency.value = 4000;
+            
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            
+            noise.connect(bandpass);
+            bandpass.connect(gain);
+            gain.connect(audioCtx.destination);
+            noise.start();
+        }
+
         function startMusic() {
             if (!audioCtx) return;
             let noteIndex = 0;
-            // A driving, repetitive bassline typical of the genre
             const notes = [110, 110, 130, 110, 146.83, 110, 130, 98]; 
             
             musicInterval = setInterval(() => {
@@ -146,7 +175,7 @@
                 osc.start();
                 osc.stop(audioCtx.currentTime + 0.15);
                 noteIndex++;
-            }, 150); // 150ms per 16th note (~100 BPM)
+            }, 150);
         }
 
         function stopMusic() {
@@ -163,13 +192,19 @@
             gravity: 0.6,
             jumpPower: -10,
             isGrounded: false,
+            jumpCount: 0,
+            maxJumps: 2,
             animFrame: 0
         };
 
         let buildings = [];
+        let crates = [];
+        let glasses = [];
+        let particles = [];
+        
         let baseSpeed = 6;
         let speed = baseSpeed;
-        const maxSpeed = 16;
+        const maxSpeed = 18;
         const buildingColors = ['#222', '#333', '#1a1a1a'];
 
         function resize() {
@@ -177,9 +212,6 @@
             height = window.innerHeight;
             canvas.width = width;
             canvas.height = height;
-            
-            // Re-adjust player if necessary, keeping relative scale
-            player.y = height / 2;
         }
         window.addEventListener('resize', resize);
         resize();
@@ -190,9 +222,13 @@
             speed = baseSpeed;
             player.y = height / 2 - 100;
             player.vy = 0;
-            buildings = [];
+            player.jumpCount = 0;
             
-            // Create initial building under player
+            buildings = [];
+            crates = [];
+            glasses = [];
+            particles = [];
+            
             buildings.push({
                 x: 0,
                 y: height / 2,
@@ -202,33 +238,68 @@
             });
         }
 
-        function generateBuildings() {
+        function spawnParticles(x, y, type, count) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: type === 'dust' ? (Math.random() * -2 - speed/2) : (Math.random() * 6 - 3 + speed/3),
+                    vy: type === 'dust' ? (Math.random() * -2) : (Math.random() * -6 - 2),
+                    life: 1.0,
+                    decay: Math.random() * 0.05 + 0.02,
+                    type: type, // 'dust' or 'glass'
+                    size: Math.random() * 4 + 2
+                });
+            }
+        }
+
+        function generateEnvironment() {
             const lastBuilding = buildings[buildings.length - 1];
             
-            // If the last building is entering the screen, generate the next one
             if (lastBuilding.x + lastBuilding.width < width + 100) {
-                // Gap correlates to current speed (faster = can jump further)
                 const gap = Math.random() * (speed * 15) + 50; 
-                const newWidth = Math.random() * 400 + 200;
+                const newWidth = Math.random() * 400 + 300;
                 
-                // Height changes moderately
                 let newY = lastBuilding.y + (Math.random() * 160 - 80);
-                
-                // Keep it within screen bounds
                 if (newY < height * 0.3) newY = height * 0.3;
                 if (newY > height * 0.8) newY = height * 0.8;
 
-                buildings.push({
+                let b = {
                     x: lastBuilding.x + lastBuilding.width + gap,
                     y: newY,
                     width: newWidth,
                     height: height - newY,
                     color: buildingColors[Math.floor(Math.random() * buildingColors.length)]
-                });
+                };
+                buildings.push(b);
+
+                // Spawn Crate or Glass
+                const featureRand = Math.random();
+                if (featureRand > 0.6) {
+                    // Crate
+                    crates.push({
+                        x: b.x + b.width / 2 + (Math.random() * 100 - 50),
+                        y: b.y - 40,
+                        width: 40,
+                        height: 40
+                    });
+                } else if (featureRand > 0.3) {
+                    // Breakable Glass Panel
+                    glasses.push({
+                        x: b.x + 50,
+                        y: b.y - 100,
+                        width: 10,
+                        height: 100,
+                        broken: false
+                    });
+                }
             }
 
-            // Cleanup old buildings
+            // Cleanup
             buildings = buildings.filter(b => b.x + b.width > 0);
+            crates = crates.filter(c => c.x + c.width > 0);
+            glasses = glasses.filter(g => g.x + g.width > 0);
+            particles = particles.filter(p => p.life > 0);
         }
 
         function jump() {
@@ -242,10 +313,12 @@
                 return;
             }
 
-            if (state === 'PLAYING' && player.isGrounded) {
+            if (state === 'PLAYING' && player.jumpCount < player.maxJumps) {
                 player.vy = player.jumpPower;
                 player.isGrounded = false;
-                playJumpSound();
+                player.jumpCount++;
+                playJumpSound(player.jumpCount === 2);
+                spawnParticles(player.x + player.width/2, player.y + player.height, 'dust', 5);
             }
         }
 
@@ -253,6 +326,13 @@
         window.addEventListener('keydown', (e) => { if(e.code === 'Space') jump(); });
         window.addEventListener('touchstart', (e) => { e.preventDefault(); jump(); }, {passive: false});
         window.addEventListener('mousedown', jump);
+
+        function checkCollision(r1, r2) {
+            return (r1.x < r2.x + r2.width &&
+                    r1.x + r1.width > r2.x &&
+                    r1.y + r1.height > r2.y &&
+                    r1.y < r2.y + r2.height);
+        }
 
         function update() {
             if (state !== 'PLAYING') return;
@@ -262,49 +342,71 @@
             player.y += player.vy;
             player.isGrounded = false;
 
-            // Speed up over time
-            if (speed < maxSpeed) speed += 0.002;
-            
-            // Score
-            score += speed / 60; // Meters based on speed
+            if (speed < maxSpeed) speed += 0.003;
+            score += speed / 60; 
             scoreEl.innerText = Math.floor(score);
 
-            generateBuildings();
+            generateEnvironment();
 
-            // Move buildings and Check Collisions
-            let hitBuilding = false;
+            // Particles Update
+            for (let p of particles) {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= p.decay;
+                if (p.type === 'glass') p.vy += 0.5; // Gravity for glass
+            }
+
+            // Run dust effect
+            if (player.isGrounded && Math.random() > 0.6) {
+                spawnParticles(player.x, player.y + player.height, 'dust', 1);
+            }
+
+            // --- Collisions ---
             
-            for (let i = 0; i < buildings.length; i++) {
-                let b = buildings[i];
+            // Buildings
+            for (let b of buildings) {
                 b.x -= speed;
-
-                // AABB Collision check
-                if (player.x < b.x + b.width &&
-                    player.x + player.width > b.x &&
-                    player.y + player.height > b.y &&
-                    player.y < b.y + b.height) {
-                    
-                    // Did we land on top?
-                    // Previous frame Y bottom <= building Y top
+                if (checkCollision(player, b)) {
                     const prevBottom = (player.y - player.vy) + player.height;
                     if (prevBottom <= b.y + 10 && player.vy >= 0) {
                         player.y = b.y - player.height;
                         player.vy = 0;
                         player.isGrounded = true;
-                        hitBuilding = true;
+                        player.jumpCount = 0;
                     } else {
-                        // Crashed into the side!
                         gameOver();
                     }
                 }
             }
 
-            // Death by falling
-            if (player.y > height) {
-                gameOver();
+            // Crates (Act like solid mini-buildings)
+            for (let c of crates) {
+                c.x -= speed;
+                if (checkCollision(player, c)) {
+                    const prevBottom = (player.y - player.vy) + player.height;
+                    if (prevBottom <= c.y + 10 && player.vy >= 0) {
+                        player.y = c.y - player.height;
+                        player.vy = 0;
+                        player.isGrounded = true;
+                        player.jumpCount = 0;
+                    } else {
+                        gameOver(); // Hit the side of a crate
+                    }
+                }
             }
 
-            // Animation timing
+            // Glass Panels (Break on impact)
+            for (let g of glasses) {
+                g.x -= speed;
+                if (!g.broken && checkCollision(player, g)) {
+                    g.broken = true;
+                    playGlassSound();
+                    spawnParticles(g.x, player.y + player.height/2, 'glass', 20);
+                }
+            }
+
+            if (player.y > height) gameOver();
+
             if (player.isGrounded) {
                 player.animFrame += speed * 0.05;
             }
@@ -326,11 +428,9 @@
         }
 
         function draw() {
-            // Background
             ctx.fillStyle = '#e0e0e0';
             ctx.fillRect(0, 0, width, height);
 
-            // Draw Background Parallax Buildings (Simple rectangles)
             ctx.fillStyle = '#bcbcbc';
             for(let i=0; i<5; i++) {
                 let px = ((i * 300) - (score * 5 % 300));
@@ -342,12 +442,9 @@
                 ctx.fillStyle = b.color;
                 ctx.fillRect(b.x, b.y, b.width, height - b.y);
                 
-                // Draw a simple ledge/trim at the top
                 ctx.fillStyle = '#555';
                 ctx.fillRect(b.x, b.y, b.width, 4);
                 
-                // Draw windows
-                ctx.fillStyle = '#555';
                 for(let wx = b.x + 20; wx < b.x + b.width - 20; wx += 40) {
                     for(let wy = b.y + 30; wy < height; wy += 50) {
                         ctx.fillRect(wx, wy, 15, 25);
@@ -355,27 +452,56 @@
                 }
             }
 
+            // Draw Crates
+            ctx.fillStyle = '#6b4c3a'; // Brown
+            for (let c of crates) {
+                ctx.fillRect(c.x, c.y, c.width, c.height);
+                // Crate details
+                ctx.strokeStyle = '#4a3325';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(c.x, c.y, c.width, c.height);
+                ctx.beginPath();
+                ctx.moveTo(c.x, c.y);
+                ctx.lineTo(c.x + c.width, c.y + c.height);
+                ctx.moveTo(c.x + c.width, c.y);
+                ctx.lineTo(c.x, c.y + c.height);
+                ctx.stroke();
+            }
+
+            // Draw Glass
+            for (let g of glasses) {
+                if (!g.broken) {
+                    ctx.fillStyle = 'rgba(150, 220, 255, 0.4)';
+                    ctx.fillRect(g.x, g.y, g.width, g.height);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(g.x, g.y, g.width, g.height);
+                }
+            }
+
+            // Draw Particles
+            for (let p of particles) {
+                if (p.type === 'dust') {
+                    ctx.fillStyle = `rgba(100, 100, 100, ${p.life})`;
+                } else {
+                    ctx.fillStyle = `rgba(180, 240, 255, ${p.life})`;
+                }
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+            }
+
             // Draw Player
             ctx.save();
             ctx.translate(player.x, player.y);
             
-            // Simple animation
-            let yOffset = 0;
-            if (player.isGrounded) {
-                yOffset = Math.sin(player.animFrame) * 2; // Bobbing up and down while running
-            } else {
-                yOffset = -3; // Jump pose
-            }
+            let yOffset = player.isGrounded ? Math.sin(player.animFrame) * 2 : -3;
 
-            // Player body
             ctx.fillStyle = '#111';
             ctx.fillRect(0, yOffset, player.width, player.height);
             
-            // Scarf / tie (Canabalt trademark flowing tie)
             ctx.fillStyle = '#fff';
-            ctx.fillRect(-15, yOffset + 10, 20, 4); 
+            // Scarf length changes slightly based on speed
+            ctx.fillRect(-15 - (speed/2), yOffset + 10, 20 + (speed/2), 4); 
 
-            // Head
             ctx.fillStyle = '#fff';
             ctx.fillRect(player.width - 10, yOffset - 5, 12, 10);
 
@@ -388,7 +514,6 @@
             animationId = requestAnimationFrame(loop);
         }
 
-        // Start loop
         resetGame();
         loop();
 
