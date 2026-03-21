@@ -268,8 +268,9 @@ canvas{display:block;border-radius:4px;cursor:pointer;touch-action:none;
 //  CONSTANTS
 // ═══════════════════════════════════════════════════════════
 const W='w', B='b';
-const SYMS={wK:'♔',wQ:'♕',wR:'♖',wB:'♗',wN:'♘',wP:'♙',
-             bK:'♚',bQ:'♛',bR:'♜',bB:'♝',bN:'♞',bP:'♟'};
+// \uFE0E = text-presentation selector → prevents emoji substitution in HTML
+const SYMS={wK:'♔\uFE0E',wQ:'♕\uFE0E',wR:'♖\uFE0E',wB:'♗\uFE0E',wN:'♘\uFE0E',wP:'♙\uFE0E',
+             bK:'♚\uFE0E',bQ:'♛\uFE0E',bR:'♜\uFE0E',bB:'♝\uFE0E',bN:'♞\uFE0E',bP:'♟\uFE0E'};
 const DVAL={P:1,N:3,B:3,R:5,Q:9,K:0}; // display values
 const CVAL={P:100,N:320,B:330,R:500,Q:900,K:20000}; // centipawns
 
@@ -842,6 +843,166 @@ function buildNote(board,r1,c1,r2,c2,flag,promo){
 }
 
 // ═══════════════════════════════════════════════════════════
+//  SVG PIECE SYSTEM
+//  Each piece is a tiny inline SVG rendered to an Image object.
+//  This gives pixel-perfect, emoji-free, DPR-aware rendering
+//  on every platform (iOS, Android, desktop).
+// ═══════════════════════════════════════════════════════════
+
+// Returns a full SVG string for one piece type in one color.
+// Viewbox 0 0 45 45. All shapes follow classic Staunton proportions.
+function pieceSVG(type, isWhite){
+  const f  = isWhite ? '#ffffff' : '#1c1208';  // body fill
+  const s  = isWhite ? '#1a1208' : '#d4a878';  // outline / detail stroke
+  const d  = isWhite ? '#333'    : '#d4a878';  // internal detail lines
+  // Main fill+stroke attribute
+  const a  = `fill="${f}" stroke="${s}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"`;
+  // Thick outline (base, body perimeter)
+  const a2 = `fill="${f}" stroke="${s}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"`;
+
+  const shapes = {
+
+    // ════════ PAWN ════════════════════════════════════════════
+    P:`
+      <circle cx="22.5" cy="11" r="5" ${a}/>
+      <path d="M19,16.5 C14.5,18 12,21.5 12,25.5
+               C12,29 14,31.5 17.5,32.5 L16,36 H29 L27.5,32.5
+               C31,31.5 33,29 33,25.5 C33,21.5 30.5,18 26,16.5 Z" ${a}/>
+      <rect x="11.5" y="36" width="22" height="3.5" rx="1.2" ${a2}/>
+      <line x1="15" y1="36.2" x2="30" y2="36.2" stroke="${d}" stroke-width="0.7" fill="none"/>`,
+
+    // ════════ KNIGHT — horse head in profile facing right ════
+    // Back of head/neck on the left, nose/muzzle on the right
+    N:`
+      <!-- Base platform -->
+      <rect x="9.5" y="36" width="26" height="4" rx="1.5" ${a2}/>
+      <!-- Neck collar -->
+      <rect x="12"  y="30" width="21" height="7"  rx="1"  ${a}/>
+      <!-- Horse head outline — clockwise from left collar -->
+      <path d="
+        M12.5,30
+        C12.5,27.5 10,24.5 9,21.5
+        C8,18.5 8.5,14.5 11,12
+        C13,10 15.5,9 17.5,9
+        L17,6.5
+        L20.5,9.5
+        C23,10.5 25.5,12 27.5,14
+        C29.5,16 30.5,18.5 30,20.5
+        C29.5,22.5 28,23 26,23
+        C24.5,23.5 24,25.5 25,27
+        C25.5,28 24,29.5 22.5,30
+        L18,30.5 L12.5,30 Z" ${a}/>
+      <!-- Eye -->
+      <circle cx="23.5" cy="14.5" r="2" fill="${s}" stroke="none"/>
+      <!-- Nostril -->
+      <ellipse cx="28.5" cy="21" rx="1.2" ry="0.9"
+               fill="none" stroke="${d}" stroke-width="1"/>
+      <!-- Collar divider -->
+      <line x1="12" y1="34" x2="33" y2="34" stroke="${d}" stroke-width="0.8" fill="none"/>`,
+
+    // ════════ BISHOP — tall mitre with slash and orb ══════════
+    B:`
+      <!-- Base platform -->
+      <rect x="9.5" y="36" width="26" height="4" rx="1.5" ${a2}/>
+      <!-- Body — widens from collar to base -->
+      <path d="M14,36 C14.5,31.5 17,27.5 18,25
+               C19,23 19,21.5 18.5,20.5 H26.5
+               C26,21.5 26,23 27,25
+               C28,27.5 30.5,31.5 31,36 Z" ${a}/>
+      <!-- Waist collar ring -->
+      <ellipse cx="22.5" cy="20.5" rx="7" ry="2.5" ${a}/>
+      <!-- Mitre / hat — pointed, narrows to orb -->
+      <path d="M20,20.5
+               C19,17.5 18,13.5 19,10.5
+               C19.5,8.5 20.8,7.5 22.5,7.5
+               C24.2,7.5 25.5,8.5 26,10.5
+               C27,13.5 26,17.5 25,20.5 Z" ${a}/>
+      <!-- Diagonal slash — defining bishop feature -->
+      <line x1="17" y1="17" x2="28" y2="13.5"
+            stroke="${d}" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+      <!-- Orb at tip -->
+      <circle cx="22.5" cy="5.2" r="3.2" ${a}/>`,
+
+    // ════════ ROOK ════════════════════════════════════════════
+    R:`
+      <rect x="9.5" y="36" width="26" height="4" rx="1.5" ${a2}/>
+      <rect x="13.5" y="19.5" width="18" height="17" rx="0.5" ${a}/>
+      <rect x="13.5" y="10"   width="4"  height="10" rx="0.3" ${a}/>
+      <rect x="20.5" y="10"   width="4"  height="10" rx="0.3" ${a}/>
+      <rect x="27.5" y="10"   width="4"  height="10" rx="0.3" ${a}/>
+      <rect x="13.5" y="14.5" width="18" height="5"  rx="0"   ${a}/>
+      <line x1="13.5" y1="26" x2="31.5" y2="26" stroke="${d}" stroke-width="0.9" fill="none"/>
+      <line x1="13.5" y1="20" x2="31.5" y2="20" stroke="${d}" stroke-width="0.9" fill="none"/>`,
+
+    // ════════ QUEEN — 5 orbs on crown, chalice body ═══════════
+    Q:`
+      <!-- Base platform -->
+      <rect x="9.5" y="36" width="26" height="4" rx="1.5" ${a2}/>
+      <!-- Body — chalice shape, slight waist -->
+      <path d="M13,36
+               C13.5,31 17,26.5 18.5,24
+               C19,22.5 19,21.5 18.5,20.5 H26.5
+               C26,21.5 26,22.5 26.5,24
+               C28,26.5 31.5,31 32,36 Z" ${a}/>
+      <!-- Waist collar ring -->
+      <ellipse cx="22.5" cy="20.5" rx="7.5" ry="2.5" ${a}/>
+      <!-- Crown band -->
+      <rect x="14.5" y="15.5" width="16" height="3.5" rx="1" ${a}/>
+      <!-- Five orbs on crown points -->
+      <circle cx="14.5" cy="13.5" r="2.7" ${a}/>
+      <circle cx="18.5" cy="11.5" r="2.7" ${a}/>
+      <circle cx="22.5" cy="10.5" r="2.7" ${a}/>
+      <circle cx="26.5" cy="11.5" r="2.7" ${a}/>
+      <circle cx="30.5" cy="13.5" r="2.7" ${a}/>
+      <!-- Waist detail line -->
+      <line x1="13.5" y1="30" x2="31.5" y2="30" stroke="${d}" stroke-width="0.8" fill="none"/>`,
+
+    // ════════ KING — battlemented crown + prominent cross ═════
+    K:`
+      <!-- Base platform -->
+      <rect x="9.5" y="36" width="26" height="4" rx="1.5" ${a2}/>
+      <!-- Body — same chalice as queen -->
+      <path d="M13,36
+               C13.5,31 17,26.5 18.5,24
+               C19,22.5 19,21.5 18.5,20.5 H26.5
+               C26,21.5 26,22.5 26.5,24
+               C28,26.5 31.5,31 32,36 Z" ${a}/>
+      <!-- Waist collar ring -->
+      <ellipse cx="22.5" cy="20.5" rx="7.5" ry="2.5" ${a}/>
+      <!-- Crown base band (below battlements) -->
+      <rect x="14" y="15.5" width="17" height="5.5" rx="0.5" ${a}/>
+      <!-- Three battlements — left, centre (taller), right -->
+      <rect x="13"   y="12"  width="6"   height="5" rx="0.5" ${a}/>
+      <rect x="19.5" y="10"  width="6.5" height="6.5" rx="0.5" ${a}/>
+      <rect x="26"   y="12"  width="6"   height="5" rx="0.5" ${a}/>
+      <!-- Cross — vertical bar, then horizontal, drawn as filled shapes -->
+      <rect x="21"   y="2"   width="3"   height="9.5" rx="1.5"
+            fill="${f}" stroke="${s}" stroke-width="1.5"/>
+      <rect x="16.5" y="5"   width="12"  height="3"   rx="1.5"
+            fill="${f}" stroke="${s}" stroke-width="1.5"/>
+      <!-- Waist detail line -->
+      <line x1="13.5" y1="30" x2="31.5" y2="30" stroke="${d}" stroke-width="0.8" fill="none"/>`
+  };
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45">${shapes[type]||''}</svg>`;
+}
+
+// Pre-load all 12 piece images from SVG data URLs
+const PIECE_IMGS={};
+function loadPieces(cb){
+  const keys=['wP','wN','wB','wR','wQ','wK','bP','bN','bB','bR','bQ','bK'];
+  let total=keys.length, done=0;
+  for(const k of keys){
+    const svg=pieceSVG(k[1], k[0]==='w');
+    const url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+    const img=new Image();
+    img.onload=img.onerror=()=>{if(++done===total)cb();};
+    img.src=url;
+    PIECE_IMGS[k]=img;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 //  CANVAS RENDERING
 // ═══════════════════════════════════════════════════════════
 const canvas=document.getElementById('board');
@@ -850,7 +1011,7 @@ let SQ=64;
 
 // ── Piece slide animation ──
 let ANIM={active:false};
-const ANIM_MS=155; // total duration in ms
+const ANIM_MS=155;
 
 function easeInOut(t){return t<0.5?2*t*t:-1+(4-2*t)*t;}
 
@@ -859,35 +1020,31 @@ function animFrame(ts){
   const raw=(ts-ANIM.t0)/ANIM_MS;
   const t=easeInOut(Math.min(raw,1));
   renderWithAnim(t);
-  if(raw<1) requestAnimationFrame(animFrame);
+  if(raw<1)requestAnimationFrame(animFrame);
   else finishAnim();
 }
 
 function finishAnim(){
   ANIM.active=false;
   render();
-  if(ANIM.onDone) ANIM.onDone();
+  if(ANIM.onDone)ANIM.onDone();
 }
 
-// Start a slide for one piece (r1,c1)→(r2,c2).
-// preBoard = board state BEFORE move (for "ghost" source square).
-// postBoard = board state AFTER move (already in G.board).
-// For castling a second piece can also be animated: anim2={r1,c1,r2,c2,piece}.
 function startAnim(piece,r1,c1,r2,c2,onDone,anim2){
-  ANIM={
-    active:true, piece, r1,c1, r2,c2,
-    anim2:anim2||null,
-    t0:performance.now(), onDone
-  };
+  ANIM={active:true,piece,r1,c1,r2,c2,anim2:anim2||null,t0:performance.now(),onDone};
   requestAnimationFrame(animFrame);
 }
 
+// ── resize: DPR-aware so pieces are crisp on retina / mobile ──
 function resize(){
   const avail=Math.min(window.innerWidth-56, window.innerHeight-220, 520);
   SQ=Math.floor(avail/8);
   const size=SQ*8;
-  canvas.width=canvas.height=size;
+  const dpr=Math.min(window.devicePixelRatio||1, 3);
+  canvas.width=canvas.height=Math.round(size*dpr);
   canvas.style.width=canvas.style.height=size+'px';
+  // Use setTransform (not scale) so repeated resizes don't stack
+  ctx.setTransform(dpr,0,0,dpr,0,0);
   const cont=document.getElementById('bcont');
   cont.style.width=size+'px'; cont.style.height=size+'px';
   document.getElementById('ccoords').innerHTML='87654321'.split('').map(n=>`<span>${n}</span>`).join('');
@@ -895,30 +1052,16 @@ function resize(){
   render();
 }
 
-// Draw a single piece symbol at pixel coords (x,y)
-function drawPiece(sym,color,x,y){
-  const fs=Math.floor(SQ*0.80);
-  ctx.font=`${fs}px serif`;
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.shadowColor='rgba(0,0,0,0.55)';
-  ctx.shadowBlur=4; ctx.shadowOffsetX=1; ctx.shadowOffsetY=2;
-  if(color===W){
-    ctx.fillStyle='#ffffff';
-    ctx.strokeStyle='rgba(0,0,0,0.88)';
-    ctx.lineWidth=Math.max(1,SQ*0.042);
-    ctx.strokeText(sym,x,y); ctx.fillText(sym,x,y);
-  } else {
-    ctx.fillStyle='#1a1208';
-    ctx.strokeStyle='rgba(240,210,160,0.22)';
-    ctx.lineWidth=Math.max(1,SQ*0.028);
-    ctx.strokeText(sym,x,y); ctx.fillText(sym,x,y);
-  }
-  ctx.shadowColor='transparent'; ctx.shadowBlur=0;
-  ctx.shadowOffsetX=0; ctx.shadowOffsetY=0;
+// ── Draw a piece image centered at (cx,cy) ──
+function drawPiece(pieceCode,cx,cy){
+  const img=PIECE_IMGS[pieceCode];
+  if(!img||!img.complete||!img.naturalWidth)return;
+  const pad=SQ*0.055;
+  const sz=SQ-pad*2;
+  ctx.drawImage(img,cx-sz/2,cy-sz/2,sz,sz);
 }
 
-// Draw board squares + piece layer, skipping squares listed in skipSet
-// skipSet: Set of "r,c" strings to skip (the animated pieces)
+// ── Board + static pieces (skipSet = Set of "r,c" to skip) ──
 function drawBoard(skipSet){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
@@ -927,10 +1070,11 @@ function drawBoard(skipSet){
     let sq=light?'#f0d9b5':'#b58863';
     if(G.lastMove){
       const{r1,c1,r2,c2}=G.lastMove;
-      if((r===r1&&c===c1)||(r===r2&&c===c2)) sq=light?'#cdd36a':'#aaa23a';
+      if((r===r1&&c===c1)||(r===r2&&c===c2))sq=light?'#cdd36a':'#aaa23a';
     }
     ctx.fillStyle=sq;
     ctx.fillRect(c*SQ,r*SQ,SQ,SQ);
+
     if(G.selected&&G.selected[0]===r&&G.selected[1]===c){
       ctx.fillStyle='rgba(20,100,200,0.42)';
       ctx.fillRect(c*SQ,r*SQ,SQ,SQ);
@@ -961,38 +1105,33 @@ function drawBoard(skipSet){
     }
   }
 
-  // Static pieces (skip animated ones)
+  // Static pieces
   for(let r=0;r<8;r++) for(let c=0;c<8;c++){
-    if(skipSet&&skipSet.has(r+','+c)) continue;
-    const p=G.board[r][c]; if(!p) continue;
-    drawPiece(SYMS[p],pc(p),c*SQ+SQ/2,r*SQ+SQ/2);
+    if(skipSet&&skipSet.has(r+','+c))continue;
+    const p=G.board[r][c]; if(!p)continue;
+    drawPiece(p, c*SQ+SQ/2, r*SQ+SQ/2);
   }
 }
 
-function render(){ drawBoard(null); }
+function render(){drawBoard(null);}
 
-// Animate frame at eased progress t (0→1)
+// ── Animation frame renderer ──
 function renderWithAnim(t){
   const a=ANIM;
-  // Build set of squares to skip so we draw them as the sliding overlay instead
   const skip=new Set();
-  // Skip the destination square for main piece (it's drawn sliding)
   skip.add(a.r2+','+a.c2);
-  if(a.anim2) skip.add(a.anim2.r2+','+a.anim2.c2);
-
+  if(a.anim2)skip.add(a.anim2.r2+','+a.anim2.c2);
   drawBoard(skip);
 
-  // Draw main animated piece at lerped position
   const x1=a.c1*SQ+SQ/2, y1=a.r1*SQ+SQ/2;
   const x2=a.c2*SQ+SQ/2, y2=a.r2*SQ+SQ/2;
-  drawPiece(SYMS[a.piece],pc(a.piece), x1+(x2-x1)*t, y1+(y2-y1)*t);
+  drawPiece(a.piece, x1+(x2-x1)*t, y1+(y2-y1)*t);
 
-  // Draw second animated piece (rook in castling)
   if(a.anim2){
     const b=a.anim2;
     const bx1=b.c1*SQ+SQ/2, by1=b.r1*SQ+SQ/2;
     const bx2=b.c2*SQ+SQ/2, by2=b.r2*SQ+SQ/2;
-    drawPiece(SYMS[b.piece],pc(b.piece), bx1+(bx2-bx1)*t, by1+(by2-by1)*t);
+    drawPiece(b.piece, bx1+(bx2-bx1)*t, by1+(by2-by1)*t);
   }
 }
 
@@ -1116,8 +1255,13 @@ window.addEventListener('resize',()=>{
   if(document.getElementById('gameScreen').style.display!=='none') resize();
 });
 
-// ── Boot ──
+// ── Boot: load all piece images, then init ──
 G=makeState();
+loadPieces(()=>{
+  // Pieces ready — if game screen is already visible (shouldn't be on boot
+  // but handles hot-reloads / edge cases), re-render
+  if(document.getElementById('gameScreen').style.display!=='none') resize();
+});
 </script>
 </body>
 </html>
