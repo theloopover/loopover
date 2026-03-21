@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Chess</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#1a1208;--panel:#221a0e;--accent:#e8c96a;--accent2:#c0392b;
+  --text:#f5e8cc;--dim:#a08060;--border:#3a2a14;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);
+  font-family:'DM Mono',monospace;overflow-x:hidden}
+body{display:flex;flex-direction:column;align-items:center;
+  min-height:100vh;padding:10px 8px;
+  background:radial-gradient(ellipse at 50% 0%,#2e1f08 0%,#1a1208 60%)}
+
+/* ─── MENU ─── */
+#menuScreen{display:flex;flex-direction:column;align-items:center;
+  justify-content:center;min-height:100vh;width:100%;padding:20px}
+.menu-card{background:var(--panel);border:1.5px solid var(--border);
+  border-radius:16px;padding:36px 40px;max-width:420px;width:100%;
+  text-align:center;box-shadow:0 12px 60px rgba(0,0,0,0.7)}
+.menu-preview{font-size:1.8rem;margin-bottom:12px;opacity:0.55;letter-spacing:0.06em}
+.menu-card h1{font-family:'Playfair Display',serif;font-size:clamp(2rem,7vw,2.8rem);
+  font-weight:900;letter-spacing:0.14em;color:var(--accent);
+  text-shadow:0 2px 30px rgba(232,201,106,0.35);margin-bottom:4px}
+.menu-tag{font-size:0.62rem;letter-spacing:0.22em;text-transform:uppercase;
+  color:var(--dim);margin-bottom:30px}
+.menu-section{margin-bottom:22px;text-align:left}
+.mlabel{font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;
+  color:var(--dim);margin-bottom:8px}
+.bgrp{display:flex;gap:8px;flex-wrap:wrap}
+.sbtn{font-family:'DM Mono',monospace;font-size:0.7rem;letter-spacing:0.1em;
+  text-transform:uppercase;padding:9px 14px;border-radius:8px;
+  border:1.5px solid var(--border);background:transparent;color:var(--dim);
+  cursor:pointer;transition:all 0.2s;flex:1;min-width:80px}
+.sbtn:hover{border-color:var(--accent);color:var(--accent);background:rgba(232,201,106,0.07)}
+.sbtn.on{border-color:var(--accent);color:var(--bg);background:var(--accent);font-weight:500}
+.diffsec{max-height:0;overflow:hidden;transition:max-height 0.35s ease,opacity 0.3s;
+  opacity:0;margin-bottom:0}
+.diffsec.open{max-height:140px;opacity:1;margin-bottom:22px}
+.startbtn{font-family:'DM Mono',monospace;font-size:0.75rem;letter-spacing:0.18em;
+  text-transform:uppercase;padding:13px 32px;border-radius:9px;width:100%;
+  border:1.5px solid var(--accent);background:var(--accent);color:var(--bg);
+  cursor:pointer;font-weight:500;transition:all 0.2s;margin-top:4px}
+.startbtn:hover{background:transparent;color:var(--accent)}
+.startbtn:disabled{opacity:0.3;cursor:not-allowed;background:transparent;
+  color:var(--dim);border-color:var(--border)}
+
+/* ─── GAME ─── */
+#gameScreen{display:none;flex-direction:column;align-items:center;width:100%;
+  padding-bottom:16px}
+.gtitle{font-family:'Playfair Display',serif;font-size:clamp(1.2rem,4vw,1.7rem);
+  font-weight:900;letter-spacing:0.12em;color:var(--accent);text-align:center;
+  margin-bottom:8px;text-shadow:0 2px 20px rgba(232,201,106,0.3)}
+.gwrap{display:flex;flex-direction:row;align-items:flex-start;
+  justify-content:center;gap:14px;width:100%;max-width:920px}
+.spanel{display:flex;flex-direction:column;gap:10px;width:165px;flex-shrink:0}
+.pcard{background:var(--panel);border:1.5px solid var(--border);border-radius:10px;
+  padding:10px 12px;transition:border-color 0.3s,box-shadow 0.3s}
+.pcard.active{border-color:var(--accent);
+  box-shadow:0 0 0 2px rgba(232,201,106,0.15),0 4px 24px rgba(232,201,106,0.1)}
+.pcard.incheck{border-color:var(--accent2)!important;
+  box-shadow:0 0 0 2px rgba(192,57,43,0.35),0 4px 24px rgba(192,57,43,0.18)!important;
+  animation:ck 0.8s ease-in-out infinite alternate}
+@keyframes ck{from{box-shadow:0 0 0 2px rgba(192,57,43,0.35),0 4px 18px rgba(192,57,43,0.15)}
+  to{box-shadow:0 0 0 4px rgba(192,57,43,0.55),0 4px 32px rgba(192,57,43,0.35)}}
+.plabel{font-size:0.58rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--dim);margin-bottom:2px}
+.pname{font-family:'Playfair Display',serif;font-size:0.92rem;font-weight:700;
+  color:var(--text);margin-bottom:4px}
+.badgerow{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;min-height:18px}
+.tbadge,.cbadge,.cpubadge,.thinkbadge{display:none;font-size:0.56rem;
+  letter-spacing:0.1em;text-transform:uppercase;padding:2px 7px;
+  border-radius:20px;font-weight:500}
+.tbadge{background:var(--accent);color:var(--bg)}
+.cbadge{background:var(--accent2);color:#fff}
+.cpubadge{background:rgba(100,160,255,0.15);color:#aac8ff;
+  border:1px solid rgba(100,160,255,0.25)}
+.thinkbadge{background:rgba(232,201,106,0.1);color:var(--accent);
+  border:1px solid rgba(232,201,106,0.2);animation:blink 1s ease-in-out infinite alternate}
+@keyframes blink{from{opacity:0.45}to{opacity:1}}
+.pcard.active .tbadge{display:inline-block}
+.pcard.incheck .cbadge{display:inline-block}
+.clabel{font-size:0.54rem;color:var(--dim);letter-spacing:0.1em;
+  text-transform:uppercase;margin-bottom:2px}
+.caprow{display:flex;flex-wrap:wrap;min-height:22px;font-size:1.1rem;line-height:1}
+.matscore{font-size:0.67rem;color:var(--accent);margin-top:3px;font-weight:500}
+.hbox{background:var(--panel);border:1.5px solid var(--border);border-radius:10px;
+  padding:10px 12px;flex:1;min-height:70px;max-height:230px;overflow-y:auto}
+.hbox::-webkit-scrollbar{width:3px}
+.hbox::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.htitle{font-size:0.57rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.mlist{font-size:0.67rem;line-height:1.9}
+.mrow{display:flex;gap:4px;color:var(--dim)}
+.mrow .mn{color:var(--dim);width:18px;flex-shrink:0}
+.mrow .mw{color:var(--text);min-width:44px}
+.mrow .mb{color:var(--text)}
+.mrow.lat .mw,.mrow.lat .mb{color:var(--accent)}
+
+/* ─── BOARD ─── */
+.barea{display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+.bcont{position:relative}
+.ccoords{position:absolute;left:-20px;top:0;height:100%;display:flex;
+  flex-direction:column;justify-content:space-around;align-items:center;
+  font-size:0.58rem;color:var(--dim);pointer-events:none;width:18px}
+.rcoords{position:absolute;bottom:-18px;left:0;width:100%;display:flex;
+  justify-content:space-around;font-size:0.58rem;color:var(--dim);pointer-events:none}
+canvas{display:block;border-radius:4px;cursor:pointer;touch-action:none;
+  box-shadow:0 8px 48px rgba(0,0,0,0.7),0 2px 8px rgba(0,0,0,0.5)}
+.sbar{margin-top:14px;font-size:0.7rem;letter-spacing:0.08em;color:var(--dim);
+  text-align:center;min-height:16px}
+.sbar .ac{color:var(--accent)}.sbar .ck{color:var(--accent2)}
+.btnrow{display:flex;gap:8px;margin-top:10px;justify-content:center}
+.gbtn{font-family:'DM Mono',monospace;font-size:0.67rem;letter-spacing:0.12em;
+  text-transform:uppercase;padding:7px 14px;border-radius:6px;
+  border:1.5px solid var(--border);background:var(--panel);color:var(--dim);
+  cursor:pointer;transition:all 0.2s}
+.gbtn:hover{border-color:var(--accent);color:var(--accent);background:rgba(232,201,106,0.07)}
+.gbtn.pr{border-color:var(--accent);color:var(--accent)}
+
+/* ─── MODALS ─── */
+.moverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.82);
+  z-index:100;align-items:center;justify-content:center}
+.moverlay.show{display:flex}
+.mdialog{background:var(--panel);border:2px solid var(--accent);border-radius:14px;
+  padding:28px 32px;text-align:center;max-width:320px;width:90%;
+  box-shadow:0 8px 60px rgba(0,0,0,0.7)}
+.mdialog h2{font-family:'Playfair Display',serif;font-size:1.5rem;
+  color:var(--accent);margin-bottom:8px}
+.mdialog p{font-size:0.77rem;color:var(--dim);margin-bottom:20px;letter-spacing:0.05em}
+.pgrid{display:flex;gap:14px;justify-content:center;margin-bottom:8px}
+.pbtn{font-size:2rem;background:none;border:2px solid var(--border);border-radius:8px;
+  width:52px;height:52px;cursor:pointer;transition:all 0.18s;display:flex;
+  align-items:center;justify-content:center;font-family:serif;
+  color:var(--text);padding:0;text-transform:none;letter-spacing:0}
+.pbtn:hover{border-color:var(--accent);background:rgba(232,201,106,0.12);transform:scale(1.1)}
+
+/* ─── RESPONSIVE ─── */
+@media(max-width:680px){
+  .gwrap{flex-direction:column;align-items:center;gap:8px}
+  .spanel{flex-direction:row;width:100%;max-width:500px;flex-wrap:wrap}
+  .pcard{flex:1;min-width:128px}
+  .hbox{width:100%;max-width:500px;max-height:90px}
+}
+@media(max-width:400px){
+  .spanel{gap:5px}.pcard{padding:7px 9px}.menu-card{padding:28px 18px}
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════ MENU ════════════ -->
+<div id="menuScreen">
+  <div class="menu-card">
+    <div class="menu-preview">♔ ♕ ♖ ♗ ♘ ♙</div>
+    <h1>CHESS</h1>
+    <div class="menu-tag">Two Player · vs CPU</div>
+
+    <div class="menu-section">
+      <div class="mlabel">Game Mode</div>
+      <div class="bgrp">
+        <button class="sbtn" data-mode="2p"  onclick="selMode('2p')">⚔ Two Players</button>
+        <button class="sbtn" data-mode="cpu" onclick="selMode('cpu')">🤖 vs CPU</button>
+      </div>
+    </div>
+
+    <div class="diffsec" id="diffsec">
+      <div class="menu-section" style="margin-bottom:0">
+        <div class="mlabel">Difficulty</div>
+        <div class="bgrp">
+          <button class="sbtn" data-diff="easy"   onclick="selDiff('easy')">Easy</button>
+          <button class="sbtn" data-diff="medium" onclick="selDiff('medium')">Medium</button>
+          <button class="sbtn" data-diff="hard"   onclick="selDiff('hard')">Hard</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="startbtn" id="startBtn" onclick="startGame()" disabled>Start Game</button>
+  </div>
+</div>
+
+<!-- ════════════ GAME ════════════ -->
+<div id="gameScreen">
+  <div class="gtitle">♟ CHESS</div>
+  <div class="gwrap">
+
+    <!-- Black panel -->
+    <div class="spanel" id="panelL">
+      <div class="pcard" id="cardB">
+        <div class="plabel">Player 2</div>
+        <div class="pname" id="nameB">Black</div>
+        <div class="badgerow">
+          <span class="tbadge">Your Turn</span>
+          <span class="cbadge">Check!</span>
+          <span class="cpubadge" id="cpuBadge">CPU</span>
+          <span class="thinkbadge" id="thinkBadge">Thinking…</span>
+        </div>
+        <div class="clabel">Captured</div>
+        <div class="caprow" id="capB"></div>
+        <div class="matscore" id="scoreB"></div>
+      </div>
+      <div class="hbox">
+        <div class="htitle">Move History</div>
+        <div class="mlist" id="mlist"></div>
+      </div>
+    </div>
+
+    <!-- Board -->
+    <div class="barea">
+      <div class="bcont" id="bcont">
+        <div class="ccoords" id="ccoords"></div>
+        <canvas id="board"></canvas>
+        <div class="rcoords" id="rcoords"></div>
+      </div>
+      <div class="sbar" id="sbar">White to move</div>
+      <div class="btnrow">
+        <button class="gbtn" onclick="goMenu()">Menu</button>
+        <button class="gbtn" onclick="undoMove()">Undo</button>
+        <button class="gbtn pr" onclick="newGame()">New Game</button>
+      </div>
+    </div>
+
+    <!-- White panel -->
+    <div class="spanel" id="panelR">
+      <div class="pcard" id="cardW">
+        <div class="plabel">Player 1</div>
+        <div class="pname">White</div>
+        <div class="badgerow">
+          <span class="tbadge">Your Turn</span>
+          <span class="cbadge">Check!</span>
+        </div>
+        <div class="clabel">Captured</div>
+        <div class="caprow" id="capW"></div>
+        <div class="matscore" id="scoreW"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Promotion modal -->
+<div class="moverlay" id="promoModal">
+  <div class="mdialog">
+    <h2>Promote Pawn</h2>
+    <p>Choose a piece</p>
+    <div class="pgrid" id="pgrid"></div>
+  </div>
+</div>
+
+<!-- Game over modal -->
+<div class="moverlay" id="goModal">
+  <div class="mdialog">
+    <h2 id="goTitle">Checkmate!</h2>
+    <p id="goMsg">White wins!</p>
+    <div class="btnrow" style="justify-content:center;margin-top:0">
+      <button class="gbtn" onclick="goMenu();document.getElementById('goModal').classList.remove('show')">Menu</button>
+      <button class="gbtn pr" onclick="newGame();document.getElementById('goModal').classList.remove('show')">Play Again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════════════════
+const W='w', B='b';
+const SYMS={wK:'♔',wQ:'♕',wR:'♖',wB:'♗',wN:'♘',wP:'♙',
+             bK:'♚',bQ:'♛',bR:'♜',bB:'♝',bN:'♞',bP:'♟'};
+const DVAL={P:1,N:3,B:3,R:5,Q:9,K:0}; // display values
+const CVAL={P:100,N:320,B:330,R:500,Q:900,K:20000}; // centipawns
+
+// Piece-square tables — WHITE perspective
+// Row 0 = opponent's back rank (rank 8 in chess notation)
+// Row 7 = white's back rank (rank 1)
+const PST={
+  P:[[ 0, 0, 0, 0, 0, 0, 0, 0],
+     [50,50,50,50,50,50,50,50],
+     [10,10,20,30,30,20,10,10],
+     [ 5, 5,10,25,25,10, 5, 5],
+     [ 0, 0, 0,20,20, 0, 0, 0],
+     [ 5,-5,-10,0, 0,-10,-5, 5],
+     [ 5,10,10,-20,-20,10,10, 5],
+     [ 0, 0, 0, 0, 0, 0, 0, 0]],
+  N:[[-50,-40,-30,-30,-30,-30,-40,-50],
+     [-40,-20,  0,  0,  0,  0,-20,-40],
+     [-30,  0, 10, 15, 15, 10,  0,-30],
+     [-30,  5, 15, 20, 20, 15,  5,-30],
+     [-30,  0, 15, 20, 20, 15,  0,-30],
+     [-30,  5, 10, 15, 15, 10,  5,-30],
+     [-40,-20,  0,  5,  5,  0,-20,-40],
+     [-50,-40,-30,-30,-30,-30,-40,-50]],
+  B:[[-20,-10,-10,-10,-10,-10,-10,-20],
+     [-10,  0,  0,  0,  0,  0,  0,-10],
+     [-10,  0,  5, 10, 10,  5,  0,-10],
+     [-10,  5,  5, 10, 10,  5,  5,-10],
+     [-10,  0, 10, 10, 10, 10,  0,-10],
+     [-10, 10, 10, 10, 10, 10, 10,-10],
+     [-10,  5,  0,  0,  0,  0,  5,-10],
+     [-20,-10,-10,-10,-10,-10,-10,-20]],
+  R:[[ 0, 0, 0, 0, 0, 0, 0, 0],
+     [ 5,10,10,10,10,10,10, 5],
+     [-5, 0, 0, 0, 0, 0, 0,-5],
+     [-5, 0, 0, 0, 0, 0, 0,-5],
+     [-5, 0, 0, 0, 0, 0, 0,-5],
+     [-5, 0, 0, 0, 0, 0, 0,-5],
+     [-5, 0, 0, 0, 0, 0, 0,-5],
+     [ 0, 0, 0, 5, 5, 0, 0, 0]],
+  Q:[[-20,-10,-10,-5,-5,-10,-10,-20],
+     [-10,  0,  0, 0, 0,  0,  0,-10],
+     [-10,  0,  5, 5, 5,  5,  0,-10],
+     [ -5,  0,  5, 5, 5,  5,  0, -5],
+     [  0,  0,  5, 5, 5,  5,  0, -5],
+     [-10,  5,  5, 5, 5,  5,  0,-10],
+     [-10,  0,  5, 0, 0,  0,  0,-10],
+     [-20,-10,-10,-5,-5,-10,-10,-20]],
+  K:[[-30,-40,-40,-50,-50,-40,-40,-30],
+     [-30,-40,-40,-50,-50,-40,-40,-30],
+     [-30,-40,-40,-50,-50,-40,-40,-30],
+     [-30,-40,-40,-50,-50,-40,-40,-30],
+     [-20,-30,-30,-40,-40,-30,-30,-20],
+     [-10,-20,-20,-20,-20,-20,-20,-10],
+     [ 20, 20,  0,  0,  0,  0, 20, 20],
+     [ 20, 30, 10,  0,  0, 10, 30, 20]]
+};
+
+// ═══════════════════════════════════════════════════════════
+//  CORE HELPERS
+// ═══════════════════════════════════════════════════════════
+const pc = p => p ? p[0] : null; // color
+const pt = p => p ? p[1] : null; // type
+const op = c => c===W ? B : W;
+const cpB = b => b.map(r=>r.slice());
+const copyCR = cr => ({w:{k:cr.w.k,q:cr.w.q},b:{k:cr.b.k,q:cr.b.q}});
+
+function initBoard(){
+  const b = Array.from({length:8},()=>Array(8).fill(null));
+  const back = ['R','N','B','Q','K','B','N','R'];
+  for(let c=0;c<8;c++){
+    b[0][c]='b'+back[c]; b[1][c]='bP';
+    b[6][c]='wP';        b[7][c]='w'+back[c];
+  }
+  return b;
+}
+
+function findKing(board, c){
+  for(let r=0;r<8;r++) for(let cc=0;cc<8;cc++)
+    if(board[r][cc]===c+'K') return [r,cc];
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ATTACK DETECTION
+//  Does piece at (fr,fc) attack square (tr,tc)?
+// ═══════════════════════════════════════════════════════════
+function squareAttackedByPiece(board,fr,fc,tr,tc){
+  const p=board[fr][fc]; if(!p) return false;
+  const t=pt(p), c=pc(p);
+  const dr=tr-fr, dc=tc-fc;
+  if(t==='P'){
+    const dir = c===W ? -1 : 1;
+    return dr===dir && Math.abs(dc)===1;
+  }
+  if(t==='N') return Math.abs(dr)*Math.abs(dc)===2 && Math.abs(dr)+Math.abs(dc)===3;
+  if(t==='K') return Math.abs(dr)<=1 && Math.abs(dc)<=1 && (dr||dc);
+  // Sliders
+  const straight = dr===0||dc===0;
+  const diag     = Math.abs(dr)===Math.abs(dc);
+  if(t==='R'&&!straight) return false;
+  if(t==='B'&&!diag)     return false;
+  if(t==='Q'&&!straight&&!diag) return false;
+  if(!straight&&!diag) return false; // shouldn't happen
+  const sr=Math.sign(dr), sc=Math.sign(dc);
+  let nr=fr+sr, nc=fc+sc;
+  while(nr!==tr||nc!==tc){
+    if(board[nr][nc]) return false; // blocked
+    nr+=sr; nc+=sc;
+  }
+  return true;
+}
+
+// Is square (r,c) attacked by any piece of color byC?
+function isAttacked(board,r,c,byC){
+  for(let rr=0;rr<8;rr++) for(let cc=0;cc<8;cc++)
+    if(pc(board[rr][cc])===byC && squareAttackedByPiece(board,rr,cc,r,c))
+      return true;
+  return false;
+}
+
+// Is color c's king in check?
+function inCheck(board,c){
+  const k=findKing(board,c);
+  return k ? isAttacked(board,k[0],k[1],op(c)) : false;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PSEUDO-LEGAL MOVE GENERATION
+//  Returns [[r2,c2,flag], ...]
+//  flag: false=normal, true=en-passant capture,
+//        'ck'=castle-kingside, 'cq'=castle-queenside
+// ═══════════════════════════════════════════════════════════
+function pseudoMoves(board,r,c,ep){
+  const p=board[r][c]; if(!p) return [];
+  const t=pt(p), cu=pc(p);
+  const moves=[];
+  const add=(nr,nc,f=false)=>moves.push([nr,nc,f]);
+
+  if(t==='P'){
+    const dir = cu===W ? -1 : 1;
+    const startRow = cu===W ? 6 : 1;
+    const nr1=r+dir;
+    if(nr1>=0&&nr1<8){
+      if(!board[nr1][c]){
+        add(nr1,c);
+        const nr2=r+2*dir;
+        if(r===startRow && nr2>=0&&nr2<8 && !board[nr2][c]) add(nr2,c);
+      }
+      // Diagonal captures
+      for(const dc of[-1,1]){
+        const nc=c+dc;
+        if(nc>=0&&nc<8){
+          if(board[nr1][nc] && pc(board[nr1][nc])!==cu) add(nr1,nc);
+          // En passant: ep is the skipped square (between from & to positions of double-push)
+          if(ep && ep[0]===nr1 && ep[1]===nc) add(nr1,nc,true);
+        }
+      }
+    }
+    return moves;
+  }
+
+  if(t==='N'){
+    for(const[dr,dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]){
+      const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<8&&nc>=0&&nc<8 && pc(board[nr][nc])!==cu) add(nr,nc);
+    }
+    return moves;
+  }
+
+  if(t==='K'){
+    for(const[dr,dc] of [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]){
+      const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<8&&nc>=0&&nc<8 && pc(board[nr][nc])!==cu) add(nr,nc);
+    }
+    return moves;
+  }
+
+  // Sliding pieces
+  const RDIRS=[[0,1],[0,-1],[1,0],[-1,0]];
+  const BDIRS=[[1,1],[1,-1],[-1,1],[-1,-1]];
+  const dirs = t==='R'?RDIRS : t==='B'?BDIRS : [...RDIRS,...BDIRS];
+  for(const[dr,dc] of dirs){
+    let nr=r+dr,nc=c+dc;
+    while(nr>=0&&nr<8&&nc>=0&&nc<8){
+      if(board[nr][nc]){ if(pc(board[nr][nc])!==cu) add(nr,nc); break; }
+      add(nr,nc); nr+=dr; nc+=dc;
+    }
+  }
+  return moves;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  UNIFIED MOVE APPLICATION
+//  Handles all move types. Returns {board,captured,newEP,newCR}
+// ═══════════════════════════════════════════════════════════
+function applyMove(board,r1,c1,r2,c2,flag,ep,cr,promo='Q'){
+  const nb=cpB(board);
+  const p=nb[r1][c1], t=pt(p), cu=pc(p);
+  let captured=null, newEP=null;
+  const newCR=copyCR(cr);
+  const homeRow = cu===W ? 7 : 0;
+
+  if(flag==='ck'){
+    // ── Kingside castle ──
+    // King: e→g (col 4→6), Rook: h→f (col 7→5)
+    nb[r1][6]=nb[r1][4]; nb[r1][4]=null;
+    nb[r1][5]=nb[r1][7]; nb[r1][7]=null;
+    newCR[cu].k=false; newCR[cu].q=false;
+
+  } else if(flag==='cq'){
+    // ── Queenside castle ──
+    // King: e→c (col 4→2), Rook: a→d (col 0→3)
+    nb[r1][2]=nb[r1][4]; nb[r1][4]=null;
+    nb[r1][3]=nb[r1][0]; nb[r1][0]=null;
+    newCR[cu].k=false; newCR[cu].q=false;
+
+  } else {
+    // ── Regular move (including en passant) ──
+    if(flag===true){
+      // En passant: captured pawn is NOT at destination, but on same rank as moving pawn
+      const capRow = cu===W ? r2+1 : r2-1;
+      captured = nb[capRow][c2];
+      nb[capRow][c2] = null;
+    } else {
+      captured = nb[r2][c2];
+    }
+
+    // Double pawn push → set en-passant square (the skipped square)
+    if(t==='P' && Math.abs(r2-r1)===2) newEP=[(r1+r2)/2, c2];
+
+    // Promotion
+    if(t==='P' && (r2===0||r2===7)) nb[r2][c2] = cu+promo;
+    else nb[r2][c2] = p;
+    nb[r1][c1] = null;
+
+    // ── Castle rights bookkeeping ──
+    // King moves → loses both castling rights
+    if(t==='K'){ newCR[cu].k=false; newCR[cu].q=false; }
+    // Rook moves from its starting square
+    if(t==='R'){
+      if(r1===homeRow && c1===0) newCR[cu].q=false;
+      if(r1===homeRow && c1===7) newCR[cu].k=false;
+    }
+    // Opponent's rook captured on its starting square → they lose that castling right
+    if(captured && pt(captured)==='R'){
+      const capC=pc(captured), capHome=capC===W?7:0;
+      if(r2===capHome && c2===0) newCR[capC].q=false;
+      if(r2===capHome && c2===7) newCR[capC].k=false;
+    }
+  }
+
+  return {board:nb, captured, newEP, newCR};
+}
+
+// ═══════════════════════════════════════════════════════════
+//  LEGAL MOVE GENERATION
+//  Only returns moves that don't leave own king in check.
+//  Also generates castling moves (with full rule checking).
+// ═══════════════════════════════════════════════════════════
+function legalMoves(board,r,c,ep,cr){
+  const p=board[r][c]; if(!p) return [];
+  const t=pt(p), cu=pc(p);
+  const homeRow = cu===W ? 7 : 0;
+
+  const candidates = pseudoMoves(board,r,c,ep);
+
+  // ── Castling ──
+  // Rules: king hasn't moved, rook hasn't moved (or been captured),
+  //        king not in check, king doesn't pass through check,
+  //        all squares between king and rook are empty.
+  if(t==='K' && r===homeRow && c===4 && !inCheck(board,cu)){
+    // Kingside: king travels e1→f1→g1, rook h1→f1
+    if(cr[cu].k
+       && board[homeRow][7]===cu+'R'      // rook must still be there
+       && !board[homeRow][5]              // f1 empty
+       && !board[homeRow][6]              // g1 empty
+       && !isAttacked(board,homeRow,5,op(cu))  // f1 not attacked
+       && !isAttacked(board,homeRow,6,op(cu))) // g1 not attacked
+      candidates.push([homeRow,6,'ck']);
+
+    // Queenside: king travels e1→d1→c1, rook a1→d1; b1 just needs to be empty
+    if(cr[cu].q
+       && board[homeRow][0]===cu+'R'     // rook must still be there
+       && !board[homeRow][1]             // b1 empty
+       && !board[homeRow][2]             // c1 empty
+       && !board[homeRow][3]             // d1 empty
+       && !isAttacked(board,homeRow,3,op(cu))  // d1 not attacked (king passes through)
+       && !isAttacked(board,homeRow,2,op(cu))) // c1 not attacked (king's destination)
+      candidates.push([homeRow,2,'cq']);
+  }
+
+  // Filter: only moves that don't leave own king in check
+  const legal=[];
+  for(const[nr,nc,flag] of candidates){
+    const res=applyMove(board,r,c,nr,nc,flag,ep,cr);
+    if(!inCheck(res.board,cu)) legal.push([nr,nc,flag]);
+  }
+  return legal;
+}
+
+// All legal moves for a color
+function allLegal(board,cu,ep,cr){
+  const moves=[];
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++)
+    if(pc(board[r][c])===cu)
+      for(const to of legalMoves(board,r,c,ep,cr))
+        moves.push({from:[r,c],to});
+  return moves;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  AI ENGINE
+// ═══════════════════════════════════════════════════════════
+function pstScore(t,r,c,cu){
+  const tbl=PST[t]; if(!tbl) return 0;
+  return cu===W ? tbl[r][c] : tbl[7-r][c];
+}
+
+function evalBoard(board){
+  let score=0;
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+    const p=board[r][c]; if(!p) continue;
+    const t=pt(p), cu=pc(p);
+    const v=CVAL[t]+pstScore(t,r,c,cu);
+    score += cu===W ? v : -v;
+  }
+  return score;
+}
+
+// MVV-LVA move ordering: captures with highest-value victim first
+function orderMoves(board,moves){
+  return moves.slice().sort((a,b)=>{
+    const va=board[a.to[0]][a.to[1]] ? CVAL[pt(board[a.to[0]][a.to[1]])] : 0;
+    const vb=board[b.to[0]][b.to[1]] ? CVAL[pt(board[b.to[0]][b.to[1]])] : 0;
+    return vb-va;
+  });
+}
+
+function minimax(board,depth,alpha,beta,isMax,ep,cr){
+  const cu=isMax?W:B;
+  const moves=allLegal(board,cu,ep,cr);
+
+  // Terminal: no moves
+  if(moves.length===0){
+    // Depth bonus: prefer faster mates / avoid faster losses
+    if(inCheck(board,cu)) return isMax ? -90000-depth : 90000+depth;
+    return 0; // stalemate → draw
+  }
+  if(depth===0) return evalBoard(board);
+
+  const ordered=orderMoves(board,moves);
+
+  if(isMax){
+    let best=-Infinity;
+    for(const{from,to} of ordered){
+      const res=applyMove(board,from[0],from[1],to[0],to[1],to[2],ep,cr);
+      const v=minimax(res.board,depth-1,alpha,beta,false,res.newEP,res.newCR);
+      if(v>best) best=v;
+      if(v>alpha) alpha=v;
+      if(beta<=alpha) break; // β cut-off
+    }
+    return best;
+  } else {
+    let best=Infinity;
+    for(const{from,to} of ordered){
+      const res=applyMove(board,from[0],from[1],to[0],to[1],to[2],ep,cr);
+      const v=minimax(res.board,depth-1,alpha,beta,true,res.newEP,res.newCR);
+      if(v<best) best=v;
+      if(v<beta) beta=v;
+      if(beta<=alpha) break; // α cut-off
+    }
+    return best;
+  }
+}
+
+function getBestMove(board,depth,cpuC,ep,cr){
+  const isMax=cpuC===W;
+  const moves=orderMoves(board,allLegal(board,cpuC,ep,cr));
+  if(!moves.length) return null;
+  let bestVal=isMax?-Infinity:Infinity, bestMove=null;
+  for(const{from,to} of moves){
+    const res=applyMove(board,from[0],from[1],to[0],to[1],to[2],ep,cr);
+    const v=minimax(res.board,depth-1,-Infinity,Infinity,!isMax,res.newEP,res.newCR);
+    if(isMax ? v>bestVal : v<bestVal){ bestVal=v; bestMove={from,to}; }
+  }
+  return bestMove;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════════════════
+let G={};
+let menuSel={mode:null,diff:null};
+
+function makeState(){
+  return{
+    board:initBoard(), turn:W, ep:null,
+    cr:{w:{k:true,q:true},b:{k:true,q:true}},
+    selected:null, legal:[], lastMove:null,
+    capW:[], capB:[], // capW = pieces White captured (i.e. black pieces)
+    hist:[], notation:[],
+    status:'playing', thinking:false,
+    mode:'2p', cpuC:B, diff:'medium'
+  };
+}
+
+function newGame(){
+  const mode=menuSel.mode||'2p';
+  const diff=menuSel.diff||'medium';
+  G=makeState();
+  G.mode=mode; G.diff=diff; G.cpuC=B;
+  recalcStatus();
+  render(); updateUI();
+}
+
+// ── Execute a half-move ──
+function doMove(r1,c1,r2,c2,flag,promo){
+  // Snapshot for undo
+  G.hist.push({
+    board:cpB(G.board), turn:G.turn, ep:G.ep?[...G.ep]:null,
+    cr:copyCR(G.cr), capW:[...G.capW], capB:[...G.capB],
+    lastMove:G.lastMove?{...G.lastMove}:null,
+    notation:[...G.notation], status:G.status
+  });
+
+  const cu=G.turn;
+  const movingPiece=G.board[r1][c1]; // capture before board mutates
+
+  // For castling: also animate the rook
+  let anim2=null;
+  const homeRow=cu===W?7:0;
+  if(flag==='ck') anim2={piece:cu+'R',r1:homeRow,c1:7,r2:homeRow,c2:5};
+  if(flag==='cq') anim2={piece:cu+'R',r1:homeRow,c1:0,r2:homeRow,c2:3};
+
+  const note=buildNote(G.board,r1,c1,r2,c2,flag,promo);
+  const res=applyMove(G.board,r1,c1,r2,c2,flag,G.ep,G.cr,promo||'Q');
+
+  if(res.captured){
+    if(cu===W) G.capW.push(res.captured);
+    else       G.capB.push(res.captured);
+  }
+
+  G.board=res.board; G.ep=res.newEP; G.cr=res.newCR;
+  G.lastMove={r1,c1,r2,c2};
+  G.turn=op(cu);
+  G.selected=null; G.legal=[];
+  G.notation.push(note);
+
+  recalcStatus();
+  updateUI(); // update panels/badges immediately
+
+  // Fire animation — game-over / cpu scheduling happen after it completes
+  startAnim(movingPiece,r1,c1,r2,c2,()=>{
+    if(G.status==='checkmate'||G.status==='stalemate'){
+      setTimeout(showGameOver,440); return;
+    }
+    if(G.mode==='cpu'&&G.turn===G.cpuC&&!G.thinking) scheduleCpu();
+  }, anim2);
+}
+
+function undoMove(){
+  const steps = G.mode==='cpu' ? 2 : 1;
+  for(let i=0;i<steps;i++){
+    if(!G.hist.length) break;
+    const s=G.hist.pop();
+    G.board=s.board; G.turn=s.turn; G.ep=s.ep; G.cr=s.cr;
+    G.capW=s.capW; G.capB=s.capB; G.lastMove=s.lastMove;
+    G.notation=s.notation; G.status=s.status;
+  }
+  G.selected=null; G.legal=[]; G.thinking=false;
+  render(); updateUI();
+}
+
+function recalcStatus(){
+  const moves=allLegal(G.board,G.turn,G.ep,G.cr);
+  const chk=inCheck(G.board,G.turn);
+  if(moves.length===0) G.status=chk?'checkmate':'stalemate';
+  else G.status=chk?'check':'playing';
+}
+
+// ── CPU scheduling ──
+function scheduleCpu(){
+  G.thinking=true; updateUI();
+  setTimeout(runCpu, G.diff==='hard'?120:60);
+}
+
+function runCpu(){
+  if(G.mode!=='cpu'||G.turn!==G.cpuC){G.thinking=false;return;}
+  const moves=allLegal(G.board,G.cpuC,G.ep,G.cr);
+  if(!moves.length){G.thinking=false;return;}
+
+  let mv;
+  if(G.diff==='easy'){
+    // Random with mild capture preference
+    const caps=moves.filter(({to})=>G.board[to[0]][to[1]]);
+    const pool=(caps.length&&Math.random()>0.3)?caps:moves;
+    mv=pool[Math.floor(Math.random()*pool.length)];
+  } else {
+    const depth=G.diff==='hard'?4:3;
+    mv=getBestMove(G.board,depth,G.cpuC,G.ep,G.cr);
+  }
+
+  G.thinking=false;
+  if(mv){const{from,to}=mv; doMove(from[0],from[1],to[0],to[1],to[2],'Q');}
+}
+
+// ── Human input ──
+function handleSq(r,c){
+  if(G.status==='checkmate'||G.status==='stalemate') return;
+  if(G.thinking) return;
+  if(ANIM.active) return;
+  if(G.mode==='cpu'&&G.turn===G.cpuC) return;
+
+  const p=G.board[r][c];
+
+  if(G.selected){
+    const[sr,sc]=G.selected;
+    const hit=G.legal.find(([nr,nc])=>nr===r&&nc===c);
+    if(hit){
+      const[,,flag]=hit;
+      if(pt(G.board[sr][sc])==='P'&&(r===0||r===7)){
+        askPromo(pc(G.board[sr][sc]),pt=>doMove(sr,sc,r,c,flag,pt));
+      } else doMove(sr,sc,r,c,flag,null);
+      return;
+    }
+    if(p&&pc(p)===G.turn){
+      G.selected=[r,c];
+      G.legal=legalMoves(G.board,r,c,G.ep,G.cr);
+      render(); return;
+    }
+    G.selected=null; G.legal=[]; render(); return;
+  }
+
+  if(p&&pc(p)===G.turn){
+    G.selected=[r,c];
+    G.legal=legalMoves(G.board,r,c,G.ep,G.cr);
+    render();
+  }
+}
+
+// ── Promotion UI ──
+function askPromo(cu,cb){
+  const opts=cu===W
+    ?[{t:'Q',s:'♕'},{t:'R',s:'♖'},{t:'B',s:'♗'},{t:'N',s:'♘'}]
+    :[{t:'Q',s:'♛'},{t:'R',s:'♜'},{t:'B',s:'♝'},{t:'N',s:'♞'}];
+  const grid=document.getElementById('pgrid');
+  grid.innerHTML='';
+  for(const{t,s} of opts){
+    const btn=document.createElement('button');
+    btn.className='pbtn'; btn.textContent=s;
+    btn.onclick=()=>{document.getElementById('promoModal').classList.remove('show');cb(t);};
+    grid.appendChild(btn);
+  }
+  document.getElementById('promoModal').classList.add('show');
+}
+
+// ── Move notation ──
+const FILES='abcdefgh';
+function sqN(r,c){return FILES[c]+(8-r);}
+function buildNote(board,r1,c1,r2,c2,flag,promo){
+  if(flag==='ck') return 'O-O';
+  if(flag==='cq') return 'O-O-O';
+  const p=board[r1][c1], t=pt(p);
+  const cap=!!(board[r2][c2])||(flag===true);
+  let n = t==='P' ? '' : t;
+  if(cap) n += (t==='P' ? FILES[c1] : '')+'x';
+  n += sqN(r2,c2);
+  if(promo&&t==='P'&&(r2===0||r2===7)) n+='='+promo;
+  return n;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CANVAS RENDERING
+// ═══════════════════════════════════════════════════════════
+const canvas=document.getElementById('board');
+const ctx=canvas.getContext('2d');
+let SQ=64;
+
+// ── Piece slide animation ──
+let ANIM={active:false};
+const ANIM_MS=155; // total duration in ms
+
+function easeInOut(t){return t<0.5?2*t*t:-1+(4-2*t)*t;}
+
+function animFrame(ts){
+  if(!ANIM.active)return;
+  const raw=(ts-ANIM.t0)/ANIM_MS;
+  const t=easeInOut(Math.min(raw,1));
+  renderWithAnim(t);
+  if(raw<1) requestAnimationFrame(animFrame);
+  else finishAnim();
+}
+
+function finishAnim(){
+  ANIM.active=false;
+  render();
+  if(ANIM.onDone) ANIM.onDone();
+}
+
+// Start a slide for one piece (r1,c1)→(r2,c2).
+// preBoard = board state BEFORE move (for "ghost" source square).
+// postBoard = board state AFTER move (already in G.board).
+// For castling a second piece can also be animated: anim2={r1,c1,r2,c2,piece}.
+function startAnim(piece,r1,c1,r2,c2,onDone,anim2){
+  ANIM={
+    active:true, piece, r1,c1, r2,c2,
+    anim2:anim2||null,
+    t0:performance.now(), onDone
+  };
+  requestAnimationFrame(animFrame);
+}
+
+function resize(){
+  const avail=Math.min(window.innerWidth-56, window.innerHeight-220, 520);
+  SQ=Math.floor(avail/8);
+  const size=SQ*8;
+  canvas.width=canvas.height=size;
+  canvas.style.width=canvas.style.height=size+'px';
+  const cont=document.getElementById('bcont');
+  cont.style.width=size+'px'; cont.style.height=size+'px';
+  document.getElementById('ccoords').innerHTML='87654321'.split('').map(n=>`<span>${n}</span>`).join('');
+  document.getElementById('rcoords').innerHTML='abcdefgh'.split('').map(l=>`<span>${l}</span>`).join('');
+  render();
+}
+
+// Draw a single piece symbol at pixel coords (x,y)
+function drawPiece(sym,color,x,y){
+  const fs=Math.floor(SQ*0.80);
+  ctx.font=`${fs}px serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.shadowColor='rgba(0,0,0,0.55)';
+  ctx.shadowBlur=4; ctx.shadowOffsetX=1; ctx.shadowOffsetY=2;
+  if(color===W){
+    ctx.fillStyle='#ffffff';
+    ctx.strokeStyle='rgba(0,0,0,0.88)';
+    ctx.lineWidth=Math.max(1,SQ*0.042);
+    ctx.strokeText(sym,x,y); ctx.fillText(sym,x,y);
+  } else {
+    ctx.fillStyle='#1a1208';
+    ctx.strokeStyle='rgba(240,210,160,0.22)';
+    ctx.lineWidth=Math.max(1,SQ*0.028);
+    ctx.strokeText(sym,x,y); ctx.fillText(sym,x,y);
+  }
+  ctx.shadowColor='transparent'; ctx.shadowBlur=0;
+  ctx.shadowOffsetX=0; ctx.shadowOffsetY=0;
+}
+
+// Draw board squares + piece layer, skipping squares listed in skipSet
+// skipSet: Set of "r,c" strings to skip (the animated pieces)
+function drawBoard(skipSet){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+    const light=(r+c)%2===0;
+    let sq=light?'#f0d9b5':'#b58863';
+    if(G.lastMove){
+      const{r1,c1,r2,c2}=G.lastMove;
+      if((r===r1&&c===c1)||(r===r2&&c===c2)) sq=light?'#cdd36a':'#aaa23a';
+    }
+    ctx.fillStyle=sq;
+    ctx.fillRect(c*SQ,r*SQ,SQ,SQ);
+    if(G.selected&&G.selected[0]===r&&G.selected[1]===c){
+      ctx.fillStyle='rgba(20,100,200,0.42)';
+      ctx.fillRect(c*SQ,r*SQ,SQ,SQ);
+    }
+    const p=G.board[r][c];
+    if(p&&pt(p)==='K'&&pc(p)===G.turn
+       &&(G.status==='check'||G.status==='checkmate')){
+      ctx.fillStyle='rgba(210,28,28,0.72)';
+      ctx.fillRect(c*SQ,r*SQ,SQ,SQ);
+    }
+  }
+
+  // Legal move indicators
+  for(const[nr,nc] of G.legal){
+    const target=G.board[nr][nc];
+    if(target&&pc(target)!==G.turn){
+      const lw=Math.max(3,SQ*0.078);
+      ctx.strokeStyle='rgba(165,22,22,0.72)';
+      ctx.lineWidth=lw;
+      ctx.beginPath();
+      ctx.arc(nc*SQ+SQ/2,nr*SQ+SQ/2,SQ/2-lw/2,0,Math.PI*2);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle='rgba(0,0,0,0.20)';
+      ctx.beginPath();
+      ctx.arc(nc*SQ+SQ/2,nr*SQ+SQ/2,SQ*0.15,0,Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  // Static pieces (skip animated ones)
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+    if(skipSet&&skipSet.has(r+','+c)) continue;
+    const p=G.board[r][c]; if(!p) continue;
+    drawPiece(SYMS[p],pc(p),c*SQ+SQ/2,r*SQ+SQ/2);
+  }
+}
+
+function render(){ drawBoard(null); }
+
+// Animate frame at eased progress t (0→1)
+function renderWithAnim(t){
+  const a=ANIM;
+  // Build set of squares to skip so we draw them as the sliding overlay instead
+  const skip=new Set();
+  // Skip the destination square for main piece (it's drawn sliding)
+  skip.add(a.r2+','+a.c2);
+  if(a.anim2) skip.add(a.anim2.r2+','+a.anim2.c2);
+
+  drawBoard(skip);
+
+  // Draw main animated piece at lerped position
+  const x1=a.c1*SQ+SQ/2, y1=a.r1*SQ+SQ/2;
+  const x2=a.c2*SQ+SQ/2, y2=a.r2*SQ+SQ/2;
+  drawPiece(SYMS[a.piece],pc(a.piece), x1+(x2-x1)*t, y1+(y2-y1)*t);
+
+  // Draw second animated piece (rook in castling)
+  if(a.anim2){
+    const b=a.anim2;
+    const bx1=b.c1*SQ+SQ/2, by1=b.r1*SQ+SQ/2;
+    const bx2=b.c2*SQ+SQ/2, by2=b.r2*SQ+SQ/2;
+    drawPiece(SYMS[b.piece],pc(b.piece), bx1+(bx2-bx1)*t, by1+(by2-by1)*t);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  UI UPDATES
+// ═══════════════════════════════════════════════════════════
+function updateUI(){
+  const notOver = G.status!=='checkmate'&&G.status!=='stalemate';
+  const wTurn=G.turn===W&&notOver&&!G.thinking;
+  const bTurn=G.turn===B&&notOver&&!G.thinking;
+
+  document.getElementById('cardW').classList.toggle('active',wTurn);
+  document.getElementById('cardB').classList.toggle('active',bTurn);
+  document.getElementById('cardW').classList.toggle('incheck',G.status==='check'&&G.turn===W);
+  document.getElementById('cardB').classList.toggle('incheck',G.status==='check'&&G.turn===B);
+
+  // CPU badges
+  document.getElementById('cpuBadge').style.display=G.mode==='cpu'?'inline-block':'none';
+  document.getElementById('thinkBadge').style.display=(G.mode==='cpu'&&G.thinking)?'inline-block':'none';
+
+  // Captured — sort by descending value
+  const fmtCap=arr=>[...arr].sort((a,b)=>DVAL[pt(b)]-DVAL[pt(a)]).map(p=>SYMS[p]).join('');
+  document.getElementById('capW').textContent=fmtCap(G.capW);
+  document.getElementById('capB').textContent=fmtCap(G.capB);
+
+  const wMat=G.capW.reduce((s,p)=>s+DVAL[pt(p)],0);
+  const bMat=G.capB.reduce((s,p)=>s+DVAL[pt(p)],0);
+  document.getElementById('scoreW').textContent=wMat>bMat?'+'+(wMat-bMat):'';
+  document.getElementById('scoreB').textContent=bMat>wMat?'+'+(bMat-wMat):'';
+
+  // Status bar
+  const bar=document.getElementById('sbar');
+  if(G.thinking)
+    bar.innerHTML='CPU is <span class="ac">thinking…</span>';
+  else if(G.status==='checkmate')
+    bar.innerHTML=`<span class="ck">Checkmate</span> — ${G.turn===W?'Black':'White'} wins!`;
+  else if(G.status==='stalemate')
+    bar.innerHTML='<span class="ac">Stalemate</span> — Draw';
+  else if(G.status==='check')
+    bar.innerHTML=`<span class="ck">Check!</span> — ${G.turn===W?'White':'Black'} to move`;
+  else
+    bar.innerHTML=`${G.turn===W?'White':'Black'} to move`;
+
+  // Move history
+  const ml=document.getElementById('mlist');
+  ml.innerHTML='';
+  for(let i=0;i<G.notation.length;i+=2){
+    const div=document.createElement('div');
+    div.className='mrow'+(i>=G.notation.length-2?' lat':'');
+    div.innerHTML=`<span class="mn">${Math.floor(i/2)+1}.</span>`+
+      `<span class="mw">${G.notation[i]||''}</span>`+
+      `<span class="mb">${G.notation[i+1]||''}</span>`;
+    ml.appendChild(div);
+  }
+  ml.scrollTop=ml.scrollHeight;
+}
+
+function showGameOver(){
+  document.getElementById('goTitle').textContent=
+    G.status==='checkmate'?'Checkmate!':'Stalemate';
+  document.getElementById('goMsg').textContent=
+    G.status==='checkmate'
+      ?(G.turn===W?'Black wins!':'White wins!')
+      :"It's a draw!";
+  document.getElementById('goModal').classList.add('show');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MENU
+// ═══════════════════════════════════════════════════════════
+function selMode(mode){
+  menuSel.mode=mode;
+  document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
+  const ds=document.getElementById('diffsec');
+  if(mode==='cpu'){
+    ds.classList.add('open');
+    menuSel.diff=null;
+    document.querySelectorAll('[data-diff]').forEach(b=>b.classList.remove('on'));
+    document.getElementById('startBtn').disabled=true;
+  } else {
+    ds.classList.remove('open');
+    menuSel.diff=null;
+    document.getElementById('startBtn').disabled=false;
+  }
+}
+
+function selDiff(d){
+  menuSel.diff=d;
+  document.querySelectorAll('[data-diff]').forEach(b=>b.classList.toggle('on',b.dataset.diff===d));
+  document.getElementById('startBtn').disabled=false;
+}
+
+function startGame(){
+  document.getElementById('menuScreen').style.display='none';
+  document.getElementById('gameScreen').style.display='flex';
+  newGame(); resize();
+}
+
+function goMenu(){
+  document.getElementById('goModal').classList.remove('show');
+  document.getElementById('gameScreen').style.display='none';
+  document.getElementById('menuScreen').style.display='flex';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INPUT
+// ═══════════════════════════════════════════════════════════
+function sqFromEvt(evt){
+  const rect=canvas.getBoundingClientRect();
+  const cx=(evt.clientX??evt.touches[0].clientX)-rect.left;
+  const cy=(evt.clientY??evt.touches[0].clientY)-rect.top;
+  return[Math.floor(cy/rect.height*8), Math.floor(cx/rect.width*8)];
+}
+canvas.addEventListener('click',e=>{const[r,c]=sqFromEvt(e);handleSq(r,c);});
+canvas.addEventListener('touchend',e=>{
+  e.preventDefault();
+  const[r,c]=sqFromEvt(e.changedTouches[0]);handleSq(r,c);
+},{passive:false});
+
+window.addEventListener('resize',()=>{
+  if(document.getElementById('gameScreen').style.display!=='none') resize();
+});
+
+// ── Boot ──
+G=makeState();
+</script>
+</body>
+</html>
