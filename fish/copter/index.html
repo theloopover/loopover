@@ -1,341 +1,733 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Copter Classic</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background: #222;
-            color: #0f0;
-            font-family: 'Courier New', Courier, monospace;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            overflow: hidden;
-            touch-action: none;
-        }
-        #game-container {
-            position: relative;
-            width: 100%;
-            max-width: 800px;
-            aspect-ratio: 16 / 9;
-            background: #000;
-            border: 4px solid #333;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-        }
-        canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-        .ui-overlay {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            pointer-events: none;
-            text-shadow: 2px 2px #000;
-        }
-        #start-screen {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0,0,0,0.7);
-            cursor: pointer;
-            text-align: center;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Copter Classic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #04070a;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none; -webkit-user-select: none;
+  }
+  #gameCanvas {
+    display: block;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    cursor: pointer;
+  }
+  /* CRT phosphor scanlines overlay */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0.0) 0px,
+      rgba(0,0,0,0.0) 2px,
+      rgba(0,0,0,0.18) 2px,
+      rgba(0,0,0,0.18) 4px
+    );
+    z-index: 999;
+  }
+</style>
 </head>
 <body>
-
-<div id="game-container">
-    <canvas id="gameCanvas"></canvas>
-    <div class="ui-overlay">
-        <div>SCORE: <span id="score">0</span></div>
-        <div>BEST: <span id="highScore">0</span></div>
-    </div>
-    <div id="start-screen">
-        <h1 style="color: #0f0; margin-bottom: 5px;">COPTER CLASSIC</h1>
-        <p>CLICK, SPACE, or TAP to fly UP</p>
-        <p style="font-size: 0.8em; color: #888;">(Click to Start)</p>
-    </div>
-</div>
+<canvas id="gameCanvas"></canvas>
 
 <script>
-/** * GAME CONFIGURATION 
- */
+/* ============================================================
+   COPTER CLASSIC — Polished Edition
+   Faithful to the original Flash Copter game
+   ============================================================ */
+
 const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const scoreEl = document.getElementById('score');
-const highScoreEl = document.getElementById('highScore');
-const startScreen = document.getElementById('start-screen');
+const ctx    = canvas.getContext('2d');
 
-// Virtual Resolution
-const V_WIDTH = 800;
-const V_HEIGHT = 450;
-canvas.width = V_WIDTH;
-canvas.height = V_HEIGHT;
+// Virtual (internal) resolution
+const VW = 800, VH = 450;
+canvas.width = VW; canvas.height = VH;
 
-// Physics Constants
-const GRAVITY = 0.22;
-const LIFT = -0.45;
-const SPEED = 5;
-const CAVE_STEP = 20; // Width of wall segments
-
-let gameState = 'START'; // START, PLAYING, GAMEOVER
-let score = 0;
-let highScore = localStorage.getItem('copterHighScore') || 0;
-highScoreEl.innerText = highScore;
-
-/**
- * AUDIO ENGINE (Web Audio API)
- */
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let engineOsc, engineGain;
-
-function startEngineSound() {
-    if (engineOsc) return;
-    engineOsc = audioCtx.createOscillator();
-    engineGain = audioCtx.createGain();
-    
-    engineOsc.type = 'sawtooth';
-    engineOsc.frequency.setValueAtTime(50, audioCtx.currentTime); 
-    
-    // Modulation for the "thwop thwop" sound
-    const lfo = audioCtx.createOscillator();
-    const lfoGain = audioCtx.createGain();
-    lfo.frequency.setValueAtTime(12, audioCtx.currentTime);
-    lfoGain.gain.setValueAtTime(15, audioCtx.currentTime);
-    lfo.connect(lfoGain);
-    lfoGain.connect(engineOsc.frequency);
-    
-    engineGain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-    engineOsc.connect(engineGain);
-    engineGain.connect(audioCtx.destination);
-    
-    engineOsc.start();
-    lfo.start();
+// --- Responsive scaling ---
+function resize() {
+  const s = Math.min(window.innerWidth / VW, window.innerHeight / VH);
+  canvas.style.width  = Math.floor(VW * s) + 'px';
+  canvas.style.height = Math.floor(VH * s) + 'px';
 }
+resize();
+window.addEventListener('resize', resize);
 
-function stopEngineSound() {
-    if (engineOsc) {
-        engineOsc.stop();
-        engineOsc = null;
-    }
-}
+/* ============================================================
+   CONSTANTS / CONFIG
+   ============================================================ */
+const COPTER_FIXED_X  = 155;    // Copter's locked horizontal position
+const SEG_W           = 5;      // Cave segment width — lower = smoother walls
+const BASE_SPEED      = 3.8;    // px/frame starting speed
+const MAX_SPEED       = 11;     // px/frame cap
+const SPEED_RATE      = 0.00002;// Speed increase per px travelled
+const GRAVITY         = 0.295;
+const THRUST          = -0.58;
+const MAX_VY_UP       = -9;
+const MAX_VY_DOWN     = 11;
+const INIT_GAP        = 282;    // Cave opening height at start
+const MIN_GAP         = 128;    // Narrowest cave opening
+const GAP_SHRINK      = 0.009;  // Gap reduction per frame
+const CAVE_DRIFT_RATE = 0.05;   // How fast cave center follows target
+const CAVE_WANDER     = 22;     // Max px the cave center can shift at once
+const OBS_START_DIST  = 400;    // Distance before first obstacle can appear
+const OBS_INTERVAL    = 280;    // Min px between obstacles
 
-function playCrashSound() {
-    const noise = audioCtx.createBufferSource();
-    const bufferSize = audioCtx.sampleRate * 0.5;
-    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-    
-    noise.buffer = buffer;
-    const g = audioCtx.createGain();
-    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-    noise.connect(g);
-    g.connect(audioCtx.destination);
-    noise.start();
-}
-
-/**
- * GAME OBJECTS
- */
-let copter = {
-    x: 150,
-    y: V_HEIGHT / 2,
-    vy: 0,
-    w: 40,
-    h: 20,
-    thrust: false
+/* ============================================================
+   COLORS
+   ============================================================ */
+const C = {
+  bg:       '#04070a',
+  wall:     '#00b42a',
+  wallBrt:  '#00ff41',
+  wallDark: '#003810',
+  obs:      '#008a1e',
+  obsBrt:   '#00d030',
+  copter:   '#00ff41',
+  cockpit:  '#afffca',
+  skid:     '#007a18',
+  smoke:    '#1aff50',
+  textBrt:  '#00ff41',
+  textDim:  '#008a1e',
+  crash:    '#ff3300',
+  gold:     '#ffdd00',
 };
 
-let walls = [];
-let obstacles = [];
-let smoke = [];
+/* ============================================================
+   AUDIO ENGINE
+   ============================================================ */
+let audioCtx = null;
+let engineNodes = null;
 
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function startEngine() {
+  if (!audioCtx || engineNodes) return;
+  const osc  = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const lfo  = audioCtx.createOscillator();
+  const lfoG = audioCtx.createGain();
+
+  osc.type = 'sawtooth';
+  osc.frequency.value = 52;
+  lfo.frequency.value = 13;
+  lfoG.gain.value = 20;
+
+  lfo.connect(lfoG);
+  lfoG.connect(osc.frequency);
+  gain.gain.value = 0.07;
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(); lfo.start();
+  engineNodes = { osc, gain, lfo };
+}
+
+function stopEngine() {
+  if (!engineNodes) return;
+  try {
+    engineNodes.gain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
+    const n = engineNodes; engineNodes = null;
+    setTimeout(() => { try { n.osc.stop(); n.lfo.stop(); } catch(e){} }, 300);
+  } catch(e) { engineNodes = null; }
+}
+
+function playCrash() {
+  if (!audioCtx) return;
+  const sr = audioCtx.sampleRate;
+  const dur = 0.65;
+  const buf = audioCtx.createBuffer(1, sr * dur, sr);
+  const d   = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const flt = audioCtx.createBiquadFilter();
+  flt.type = 'lowpass'; flt.frequency.value = 700;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.45, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  src.connect(flt); flt.connect(g); g.connect(audioCtx.destination);
+  src.start();
+}
+
+/* ============================================================
+   GAME STATE
+   ============================================================ */
+let state     = 'MENU';   // MENU | PLAYING | DEAD
+let score     = 0;
+let best      = +localStorage.getItem('copterBest') || 0;
+let frame     = 0;        // Frame counter (menu / dead also ticks for blink)
+let dist      = 0;        // Total px scrolled (determines score & difficulty)
+let speed     = BASE_SPEED;
+let gapH      = INIT_GAP;
+
+// Screen shake
+let shakeTTL  = 0;
+let shakeAmp  = 0;
+
+// Copter
+let cp = {};
+
+// Rotor angle
+let rotA = 0;
+
+// Arrays
+let cave = [], obstacles = [], smoke = [], sparks = [];
+
+/* ============================================================
+   CAVE GENERATION
+   ============================================================ */
+let caveCenter  = VH / 2;
+let caveTgt     = VH / 2;
+
+function initCave() {
+  cave = [];
+  caveCenter = VH / 2;
+  caveTgt    = VH / 2;
+  gapH       = INIT_GAP;
+  const count = Math.ceil(VW / SEG_W) + 25;
+  for (let i = 0; i <= count; i++) {
+    cave.push({ x: i * SEG_W, cy: caveCenter - gapH / 2, fy: caveCenter + gapH / 2 });
+  }
+}
+
+function extendCave() {
+  const last = cave[cave.length - 1];
+  // Shrink gap slowly
+  gapH = Math.max(MIN_GAP, gapH - GAP_SHRINK);
+  // Wander center target
+  if (Math.random() < 0.25) caveTgt += (Math.random() - 0.5) * CAVE_WANDER;
+  const half = gapH / 2 + 12;
+  caveTgt = Math.max(half, Math.min(VH - half, caveTgt));
+  caveCenter += (caveTgt - caveCenter) * CAVE_DRIFT_RATE;
+  const jitter = (Math.random() - 0.5) * 3;
+  const cy = caveCenter + jitter - gapH / 2;
+  const fy = caveCenter + jitter + gapH / 2;
+  cave.push({ x: last.x + SEG_W, cy, fy });
+}
+
+/* ============================================================
+   OBSTACLE GENERATION
+   ============================================================ */
+let lastObsDist = -9999;
+
+function trySpawnObs() {
+  if (dist < OBS_START_DIST) return;
+  if (dist - lastObsDist < OBS_INTERVAL) return;
+  if (Math.random() > 0.007) return;
+  lastObsDist = dist;
+
+  // Sample cave at far right
+  const ref   = cave[cave.length - 1];
+  const cy    = ref.cy, fy = ref.fy;
+  const space = fy - cy;
+  const side  = Math.random();  // 0=ceiling, 0.5=floor, else pair
+  const obsW  = 26 + Math.floor(Math.random() * 8);
+
+  if (side < 0.35) {
+    // From ceiling
+    const h = space * (0.32 + Math.random() * 0.18);
+    obstacles.push({ x: VW + 10, y: cy, w: obsW, h });
+  } else if (side < 0.7) {
+    // From floor
+    const h = space * (0.32 + Math.random() * 0.18);
+    obstacles.push({ x: VW + 10, y: fy - h, w: obsW, h });
+  } else {
+    // Paired — gap in the middle
+    const gapSize  = space * (0.42 + Math.random() * 0.12);
+    const gapStart = cy + (space - gapSize) / 2 + (Math.random() - 0.5) * 20;
+    const topH     = gapStart - cy;
+    const botH     = fy - (gapStart + gapSize);
+    if (topH > 8)  obstacles.push({ x: VW + 10, y: cy,              w: obsW, h: topH });
+    if (botH > 8)  obstacles.push({ x: VW + 10, y: gapStart + gapSize, w: obsW, h: botH });
+  }
+}
+
+/* ============================================================
+   INIT GAME
+   ============================================================ */
 function initGame() {
-    score = 0;
-    scoreEl.innerText = score;
-    copter.y = V_HEIGHT / 2;
-    copter.vy = 0;
-    walls = [];
-    obstacles = [];
-    smoke = [];
-    
-    // Initial flat cave
-    for (let x = 0; x <= V_WIDTH + CAVE_STEP; x += CAVE_STEP) {
-        walls.push({ x, top: 50, bot: 50 });
-    }
+  score = 0; dist = 0; frame = 0;
+  speed = BASE_SPEED;
+  smoke = []; sparks = []; obstacles = [];
+  lastObsDist = -9999;
+  shakeTTL = 0; rotA = 0;
+
+  cp = {
+    x: COPTER_FIXED_X, y: VH / 2,
+    vy: 0, thrust: false,
+    w: 50, h: 22,
+    // Hitbox (slightly forgiving vs. visual)
+    hox: 8, hoy: 4, how: 36, hoh: 15
+  };
+
+  initCave();
 }
 
-function createObstacle() {
-    const lastWall = walls[walls.length - 1];
-    const gapTop = lastWall.top + 20;
-    const gapBot = V_HEIGHT - lastWall.bot - 20;
-    const obsH = 60;
-    const obsY = gapTop + Math.random() * (gapBot - gapTop - obsH);
-    obstacles.push({ x: V_WIDTH, y: obsY, w: 30, h: obsH });
+/* ============================================================
+   COLLISION HELPERS
+   ============================================================ */
+function hitbox() {
+  return {
+    l: cp.x + cp.hox,          t: cp.y + cp.hoy,
+    r: cp.x + cp.hox + cp.how, b: cp.y + cp.hoy + cp.hoh
+  };
 }
 
-/**
- * INPUT HANDLING
- */
-function handleInput(e) {
-    if (e.type === 'mousedown' || e.type === 'touchstart' || (e.type === 'keydown' && e.code === 'Space')) {
-        if (gameState === 'START' || gameState === 'GAMEOVER') {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            initGame();
-            gameState = 'PLAYING';
-            startScreen.style.display = 'none';
-            startEngineSound();
-        }
-        copter.thrust = true;
-    }
-}
-
-function handleRelease(e) {
-    copter.thrust = false;
-}
-
-window.addEventListener('mousedown', handleInput);
-window.addEventListener('mouseup', handleRelease);
-window.addEventListener('touchstart', handleInput);
-window.addEventListener('touchend', handleRelease);
-window.addEventListener('keydown', handleInput);
-window.addEventListener('keyup', handleRelease);
-
-/**
- * CORE LOOP
- */
+/* ============================================================
+   UPDATE
+   ============================================================ */
 function update() {
-    if (gameState !== 'PLAYING') return;
+  // Shake ticks down regardless of game state
+  if (shakeTTL > 0) shakeTTL--;
 
-    // Copter Physics
-    if (copter.thrust) copter.vy += LIFT;
-    copter.vy += GRAVITY;
-    copter.y += copter.vy;
+  if (state !== 'PLAYING') return;
+  frame++;
 
-    // Smoke particles
-    if (Math.random() > 0.7) {
-        smoke.push({ x: copter.x, y: copter.y + 10, size: 4 + Math.random() * 6, life: 1 });
-    }
-    smoke.forEach(p => { p.x -= SPEED; p.life -= 0.02; });
-    smoke = smoke.filter(p => p.life > 0);
+  // -- Speed ramp --
+  speed = Math.min(MAX_SPEED, BASE_SPEED + dist * SPEED_RATE * BASE_SPEED * 10);
 
-    // Wall movement
-    walls.forEach(w => w.x -= SPEED);
-    if (walls[0].x <= -CAVE_STEP) {
-        walls.shift();
-        const last = walls[walls.length - 1];
-        const change = (Math.random() - 0.5) * 20;
-        let newTop = Math.max(20, Math.min(150, last.top + change));
-        let newBot = Math.max(20, Math.min(150, last.bot - change));
-        walls.push({ x: last.x + CAVE_STEP, top: newTop, bot: newBot });
-        score++;
-        scoreEl.innerText = score;
-    }
+  // -- Distance & score --
+  dist += speed;
+  score = Math.floor(dist / 8);
 
-    // Obstacles
-    if (score > 100 && score % 100 === 0) createObstacle();
-    obstacles.forEach(o => o.x -= SPEED);
-    obstacles = obstacles.filter(o => o.x > -50);
+  // -- Copter physics --
+  cp.vy += cp.thrust ? THRUST : 0;
+  cp.vy += GRAVITY;
+  cp.vy  = Math.max(MAX_VY_UP, Math.min(MAX_VY_DOWN, cp.vy));
+  cp.y  += cp.vy;
+  rotA  += 0.38 + Math.abs(cp.vy) * 0.04;
 
-    // Collision Detection
-    const hitWall = walls.some(w => {
-        if (copter.x + copter.w > w.x && copter.x < w.x + CAVE_STEP) {
-            return copter.y < w.top || copter.y + copter.h > V_HEIGHT - w.bot;
-        }
-        return false;
+  // -- Smoke trail --
+  if (frame % 2 === 0) {
+    smoke.push({
+      x: cp.x + 3,
+      y: cp.y + cp.h * 0.5 + (Math.random() - 0.5) * 5,
+      vx: -speed * 0.35 - 1,
+      vy: (Math.random() - 0.5) * 0.6,
+      sz: 2.5 + Math.random() * 4,
+      life: 1,
+      dec: 0.022 + Math.random() * 0.018
     });
+  }
+  smoke.forEach(p => { p.x += p.vx; p.y += p.vy; p.life -= p.dec; p.sz *= 1.015; });
+  smoke = smoke.filter(p => p.life > 0);
 
-    const hitObs = obstacles.some(o => (
-        copter.x < o.x + o.w &&
-        copter.x + copter.w > o.x &&
-        copter.y < o.y + o.h &&
-        copter.y + copter.h > o.y
-    ));
+  // -- Cave scroll --
+  for (const s of cave) s.x -= speed;
+  while (cave.length && cave[0].x < -SEG_W * 3) cave.shift();
+  while (cave[cave.length - 1].x < VW + SEG_W * 6) extendCave();
+  trySpawnObs();
 
-    if (hitWall || hitObs || copter.y < 0 || copter.y > V_HEIGHT) {
-        gameOver();
-    }
+  // -- Obstacles --
+  for (const o of obstacles) o.x -= speed;
+  obstacles = obstacles.filter(o => o.x + o.w > -5);
+
+  // -- Sparks / particles --
+  sparks.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.18;
+    p.life -= p.dec;
+    p.sz *= 0.96;
+  });
+  sparks = sparks.filter(p => p.life > 0);
+
+  // -- Collision --
+  doCollision();
 }
 
-function gameOver() {
-    gameState = 'GAMEOVER';
-    stopEngineSound();
-    playCrashSound();
-    if (score > highScore) {
-        highScore = score;
-        localStorage.setItem('copterHighScore', highScore);
-        highScoreEl.innerText = highScore;
+function doCollision() {
+  const h = hitbox();
+
+  if (h.t < 0 || h.b > VH) { die(); return; }
+
+  // Cave walls — only check segments that overlap the hitbox horizontally
+  for (const s of cave) {
+    if (s.x + SEG_W < h.l || s.x > h.r) continue;
+    if (h.t < s.cy || h.b > s.fy) { die(); return; }
+  }
+
+  // Obstacles
+  for (const o of obstacles) {
+    if (h.l < o.x + o.w && h.r > o.x && h.t < o.y + o.h && h.b > o.y) {
+      die(); return;
     }
-    startScreen.style.display = 'flex';
-    startScreen.innerHTML = `<h1 style="color:red">CRASHED!</h1><p>Score: ${score}</p><p>Tap to Retry</p>`;
+  }
 }
 
+function die() {
+  if (state !== 'PLAYING') return;
+  state = 'DEAD';
+  stopEngine();
+  playCrash();
+
+  if (score > best) {
+    best = score;
+    localStorage.setItem('copterBest', best);
+  }
+
+  // Burst of sparks
+  for (let i = 0; i < 55; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const spd = 1.5 + Math.random() * 7;
+    sparks.push({
+      x: cp.x + cp.w / 2, y: cp.y + cp.h / 2,
+      vx: Math.cos(ang) * spd,
+      vy: Math.sin(ang) * spd - 2.5,
+      sz: 2 + Math.random() * 6,
+      life: 1,
+      dec: 0.018 + Math.random() * 0.025,
+      col: Math.random() < 0.5 ? C.wallBrt : (Math.random() < 0.5 ? C.gold : '#ffffff')
+    });
+  }
+
+  shakeTTL = 24; shakeAmp = 9;
+}
+
+/* ============================================================
+   DRAW
+   ============================================================ */
 function draw() {
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
+  ctx.save();
 
-    // Draw Smoke
-    ctx.fillStyle = 'rgba(100, 100, 100, 0.5)';
-    smoke.forEach(p => {
-        ctx.globalAlpha = p.life;
-        ctx.fillRect(p.x, p.y, p.size, p.size);
-    });
-    ctx.globalAlpha = 1;
+  // Screen shake
+  if (shakeTTL > 0) {
+    const s = shakeAmp * (shakeTTL / 24);
+    ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+  }
 
-    // Draw Walls
-    ctx.fillStyle = '#0f0';
-    ctx.beginPath();
-    walls.forEach((w, i) => {
-        if (i === 0) ctx.moveTo(w.x, 0);
-        ctx.lineTo(w.x, w.top);
-    });
-    ctx.lineTo(V_WIDTH, 0);
-    ctx.fill();
+  // Background
+  ctx.fillStyle = C.bg;
+  ctx.fillRect(0, 0, VW, VH);
 
-    ctx.beginPath();
-    walls.forEach((w, i) => {
-        if (i === 0) ctx.moveTo(w.x, V_HEIGHT);
-        ctx.lineTo(w.x, V_HEIGHT - w.bot);
-    });
-    ctx.lineTo(V_WIDTH, V_HEIGHT);
-    ctx.fill();
+  drawCave();
+  drawObstacles();
+  drawSmoke();
+  if (state !== 'DEAD') drawCopter();
+  drawSparks();
+  drawHUD();
 
-    // Draw Obstacles
-    obstacles.forEach(o => ctx.fillRect(o.x, o.y, o.w, o.h));
+  if (state === 'MENU') drawMenu();
+  else if (state === 'DEAD') drawDead();
 
-    // Draw Copter (Retro look)
-    ctx.fillStyle = '#0f0';
-    // Body
-    ctx.fillRect(copter.x, copter.y, copter.w, copter.h);
-    // Tail
-    ctx.fillRect(copter.x - 15, copter.y + 5, 15, 5);
-    ctx.fillRect(copter.x - 15, copter.y, 5, 10);
-    // Rotor
-    const rotorOffset = (Date.now() % 100 < 50) ? 0 : 5;
-    ctx.fillRect(copter.x + 5, copter.y - 5, copter.w - 10, 2);
-    ctx.fillRect(copter.x + 20 - rotorOffset, copter.y - 8, 2, 5);
+  ctx.restore();
 }
 
-function loop() {
+/* ---- Cave ---- */
+function drawCave() {
+  if (cave.length < 2) return;
+
+  const first = cave[0], last = cave[cave.length - 1];
+
+  // Ceiling fill
+  ctx.beginPath();
+  ctx.moveTo(first.x, 0);
+  for (const s of cave) ctx.lineTo(s.x, s.cy);
+  ctx.lineTo(last.x, 0);
+  ctx.closePath();
+  const cg = ctx.createLinearGradient(0, 0, 0, 100);
+  cg.addColorStop(0,   C.wallDark);
+  cg.addColorStop(0.7, C.wall);
+  cg.addColorStop(1,   C.wallBrt);
+  ctx.fillStyle = cg;
+  ctx.fill();
+
+  // Floor fill
+  ctx.beginPath();
+  ctx.moveTo(first.x, VH);
+  for (const s of cave) ctx.lineTo(s.x, s.fy);
+  ctx.lineTo(last.x, VH);
+  ctx.closePath();
+  const fg = ctx.createLinearGradient(0, VH - 100, 0, VH);
+  fg.addColorStop(0,   C.wallBrt);
+  fg.addColorStop(0.3, C.wall);
+  fg.addColorStop(1,   C.wallDark);
+  ctx.fillStyle = fg;
+  ctx.fill();
+
+  // Glowing edge lines
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = C.wallBrt;
+  ctx.shadowColor  = C.wallBrt;
+  ctx.shadowBlur   = 7;
+
+  ctx.beginPath();
+  cave.forEach((s, i) => i === 0 ? ctx.moveTo(s.x, s.cy) : ctx.lineTo(s.x, s.cy));
+  ctx.stroke();
+
+  ctx.beginPath();
+  cave.forEach((s, i) => i === 0 ? ctx.moveTo(s.x, s.fy) : ctx.lineTo(s.x, s.fy));
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+}
+
+/* ---- Obstacles ---- */
+function drawObstacles() {
+  for (const o of obstacles) {
+    // Body gradient
+    const og = ctx.createLinearGradient(o.x, 0, o.x + o.w, 0);
+    og.addColorStop(0,    C.wallDark);
+    og.addColorStop(0.35, C.obs);
+    og.addColorStop(0.65, C.obs);
+    og.addColorStop(1,    C.wallDark);
+    ctx.fillStyle = og;
+    ctx.fillRect(o.x, o.y, o.w, o.h);
+
+    // Border glow
+    ctx.strokeStyle = C.obsBrt;
+    ctx.lineWidth   = 1.5;
+    ctx.shadowColor = C.wallBrt;
+    ctx.shadowBlur  = 5;
+    ctx.strokeRect(o.x + 0.75, o.y + 0.75, o.w - 1.5, o.h - 1.5);
+    ctx.shadowBlur  = 0;
+  }
+}
+
+/* ---- Engine smoke ---- */
+function drawSmoke() {
+  smoke.forEach(p => {
+    ctx.globalAlpha = p.life * 0.38;
+    ctx.fillStyle   = C.smoke;
+    ctx.fillRect(p.x - p.sz / 2, p.y - p.sz / 2, p.sz, p.sz);
+  });
+  ctx.globalAlpha = 1;
+}
+
+/* ---- Helicopter ---- */
+function drawCopter() {
+  const x = cp.x, y = cp.y;
+
+  ctx.shadowColor = C.wallBrt;
+  ctx.shadowBlur  = 10;
+
+  // --- Main body ---
+  ctx.fillStyle = C.copter;
+  ctx.fillRect(x + 10, y + 5, 32, cp.h - 9);   // fuselage
+
+  // Cockpit bubble (lighter)
+  ctx.fillStyle = C.cockpit;
+  ctx.fillRect(x + 33, y + 5, 15, cp.h - 10);
+
+  // Nose bump
+  ctx.fillRect(x + 46, y + 7, 4, cp.h - 14);
+
+  // --- Tail boom ---
+  ctx.fillStyle = C.copter;
+  ctx.fillRect(x,      y + 9,  18, 5);           // horizontal boom
+  ctx.fillRect(x,      y + 5,  4,  13);           // vertical fin
+  ctx.fillRect(x + 1,  y + 3,  3,  3);            // fin tip
+
+  // --- Skids ---
+  ctx.fillStyle = C.skid;
+  ctx.fillRect(x + 13, y + cp.h - 3, 29, 3);     // skid bar
+  ctx.fillRect(x + 16, y + cp.h - 7, 3,  5);     // front strut
+  ctx.fillRect(x + 35, y + cp.h - 7, 3,  5);     // rear strut
+
+  // --- Main rotor (spinning) ---
+  const rotCX = x + 25, rotCY = y + 3;
+  ctx.shadowBlur = 14;
+  ctx.fillStyle  = C.wallBrt;
+
+  // Rotor hub
+  ctx.fillRect(rotCX - 2, rotCY - 2, 4, 4);
+
+  // Two blade passes at different opacity to simulate blur
+  for (let b = 0; b < 2; b++) {
+    ctx.save();
+    ctx.translate(rotCX, rotCY);
+    ctx.rotate(rotA + b * Math.PI / 2);
+    ctx.globalAlpha = b === 0 ? 1 : 0.5;
+    ctx.fillRect(-30, -1.5, 60, 3);
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+
+  // --- Tail rotor (small) ---
+  ctx.save();
+  ctx.translate(x + 2, y + 11);
+  ctx.rotate(-rotA * 2.2);
+  ctx.fillStyle  = C.copter;
+  ctx.shadowBlur = 6;
+  ctx.fillRect(-7, -1, 14, 2);
+  ctx.restore();
+
+  ctx.shadowBlur = 0;
+}
+
+/* ---- Explosion sparks ---- */
+function drawSparks() {
+  sparks.forEach(p => {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle   = p.col;
+    ctx.shadowColor = p.col;
+    ctx.shadowBlur  = 6;
+    ctx.fillRect(p.x - p.sz / 2, p.y - p.sz / 2, p.sz, p.sz);
+  });
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur  = 0;
+}
+
+/* ---- HUD ---- */
+function drawHUD() {
+  ctx.font      = '14px "Press Start 2P", monospace';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = C.textBrt;
+  ctx.shadowColor = C.wallBrt;
+  ctx.shadowBlur  = 7;
+  ctx.fillText('SCORE ' + score, 14, 30);
+  ctx.font       = '10px "Press Start 2P", monospace';
+  ctx.fillStyle  = C.textDim;
+  ctx.shadowBlur = 4;
+  ctx.fillText('BEST  ' + best,  14, 52);
+  ctx.shadowBlur = 0;
+}
+
+/* ---- Menu screen ---- */
+function drawMenu() {
+  ctx.fillStyle = 'rgba(0,6,2, 0.78)';
+  ctx.fillRect(0, 0, VW, VH);
+
+  ctx.textAlign   = 'center';
+  ctx.shadowColor = C.wallBrt;
+
+  ctx.shadowBlur = 30;
+  ctx.fillStyle  = C.wallBrt;
+  ctx.font = '40px "Press Start 2P", monospace';
+  ctx.fillText('COPTER', VW / 2, VH / 2 - 65);
+  ctx.font = '18px "Press Start 2P", monospace';
+  ctx.fillStyle = '#88ffaa';
+  ctx.shadowBlur = 12;
+  ctx.fillText('CLASSIC', VW / 2, VH / 2 - 30);
+
+  ctx.shadowBlur = 6;
+  ctx.font = '10px "Press Start 2P", monospace';
+
+  if (Math.floor(frame / 28) % 2 === 0) {
+    ctx.fillStyle = C.wallBrt;
+    ctx.fillText('CLICK  /  TAP  /  SPACE  TO  START', VW / 2, VH / 2 + 20);
+  }
+
+  ctx.fillStyle  = C.textDim;
+  ctx.font = '8px "Press Start 2P", monospace';
+  ctx.fillText('HOLD TO FLY UP — RELEASE TO FALL', VW / 2, VH / 2 + 55);
+
+  if (best > 0) {
+    ctx.fillStyle  = '#88ffaa';
+    ctx.shadowBlur = 4;
+    ctx.fillText('BEST SCORE: ' + best, VW / 2, VH / 2 + 82);
+  }
+
+  ctx.shadowBlur = 0;
+}
+
+/* ---- Game over screen ---- */
+function drawDead() {
+  ctx.fillStyle = 'rgba(0,4,1, 0.88)';
+  ctx.fillRect(0, 0, VW, VH);
+
+  ctx.textAlign = 'center';
+
+  ctx.shadowColor = C.crash;
+  ctx.shadowBlur  = 24;
+  ctx.fillStyle   = C.crash;
+  ctx.font = '32px "Press Start 2P", monospace';
+  ctx.fillText('CRASHED!', VW / 2, VH / 2 - 65);
+
+  ctx.shadowColor = C.wallBrt;
+  ctx.shadowBlur  = 10;
+  ctx.fillStyle   = C.wallBrt;
+  ctx.font = '13px "Press Start 2P", monospace';
+  ctx.fillText('SCORE:  ' + score, VW / 2, VH / 2 - 15);
+
+  if (score > 0 && score >= best) {
+    ctx.shadowColor = C.gold;
+    ctx.shadowBlur  = 16;
+    ctx.fillStyle   = C.gold;
+    ctx.font = '11px "Press Start 2P", monospace';
+    ctx.fillText('✦  NEW BEST!  ✦', VW / 2, VH / 2 + 18);
+  } else {
+    ctx.fillStyle  = C.textDim;
+    ctx.shadowBlur = 4;
+    ctx.font = '10px "Press Start 2P", monospace';
+    ctx.fillText('BEST:   ' + best, VW / 2, VH / 2 + 18);
+  }
+
+  ctx.shadowBlur = 5;
+  ctx.font       = '9px "Press Start 2P", monospace';
+  if (Math.floor(frame / 28) % 2 === 0) {
+    ctx.fillStyle = '#88ffaa';
+    ctx.fillText('TAP  OR  CLICK  TO  RETRY', VW / 2, VH / 2 + 60);
+  }
+  ctx.shadowBlur = 0;
+}
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+function pressDown(e) {
+  if (e.cancelable) e.preventDefault();
+  initAudio();
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+  if (state === 'MENU' || state === 'DEAD') {
+    state = 'PLAYING';
+    initGame();
+    startEngine();
+  }
+  if (cp) cp.thrust = true;
+}
+
+function pressUp(e) {
+  if (e && e.cancelable) e.preventDefault();
+  if (cp) cp.thrust = false;
+}
+
+canvas.addEventListener('mousedown',   pressDown);
+canvas.addEventListener('mouseup',     pressUp);
+canvas.addEventListener('mouseleave',  pressUp);
+canvas.addEventListener('touchstart',  pressDown, { passive: false });
+canvas.addEventListener('touchend',    pressUp,   { passive: false });
+canvas.addEventListener('touchcancel', pressUp,   { passive: false });
+
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); pressDown(e); }
+});
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space' || e.code === 'ArrowUp') pressUp(e);
+});
+
+/* ============================================================
+   GAME LOOP
+   ============================================================ */
+let lastT = 0;
+
+function loop(t) {
+  // Cap to ~60fps equivalent regardless of display refresh
+  if (t - lastT >= 14) {
+    lastT = t;
+    frame++;
     update();
     draw();
-    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
 }
 
 initGame();
-loop();
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>
