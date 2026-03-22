@@ -212,7 +212,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <div class="bat-wrap">
       <div class="bat-lbl"><span>&#x1F50B; BATTERY</span><span class="bat-kwh" id="bat-txt">0 / 500 kWh</span></div>
       <div class="bat-out"><div class="bat-in" id="bat-fill" style="width:0%"></div></div>
-      <div class="bat-warn" id="bat-warn">&#x26A0; BATTERY FULL &#x2014; dumping at 70% price</div>
+      <div class="bat-warn" id="bat-warn"></div>
     </div>
     <div class="mkt-card">
       <div class="mkt-head">
@@ -308,13 +308,13 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 // ---- STATIC DATA -----------------------------------------------
 
 const GEN_DEFS = [
-  {id:0,name:'Solar Panel',   emoji:'\u2600\uFE0F', baseCost:20,       baseKwh:0.5   },
-  {id:1,name:'Wind Turbine',  emoji:'\u1F300',       baseCost:150,      baseKwh:3     },
-  {id:2,name:'Coal Plant',    emoji:'\u1F3ED',       baseCost:2000,     baseKwh:30    },
-  {id:3,name:'Gas Turbine',   emoji:'\u1F525',       baseCost:25000,    baseKwh:300   },
-  {id:4,name:'Hydro Dam',     emoji:'\u1F4A7',       baseCost:300000,   baseKwh:3000  },
-  {id:5,name:'Nuclear Plant', emoji:'\u2622\uFE0F',  baseCost:4000000,  baseKwh:30000 },
-  {id:6,name:'Fusion Reactor',emoji:'\u269B\uFE0F',  baseCost:60000000, baseKwh:300000},
+  {id:0,name:'Solar Panel',   emoji:'☀️', baseCost:20,       baseKwh:0.5   },
+  {id:1,name:'Wind Turbine',  emoji:'🌀',       baseCost:150,      baseKwh:3     },
+  {id:2,name:'Coal Plant',    emoji:'🏭',       baseCost:2000,     baseKwh:30    },
+  {id:3,name:'Gas Turbine',   emoji:'🔥',       baseCost:25000,    baseKwh:300   },
+  {id:4,name:'Hydro Dam',     emoji:'💧',       baseCost:300000,   baseKwh:3000  },
+  {id:5,name:'Nuclear Plant', emoji:'☢️',  baseCost:4000000,  baseKwh:30000 },
+  {id:6,name:'Fusion Reactor',emoji:'⚛️',  baseCost:60000000, baseKwh:300000},
 ];
 
 const UPG_DEFS = [
@@ -355,7 +355,7 @@ const DESTAB_DEFS = [
   {id:1,emoji:'\u{1F6E2}\uFE0F',name:'Corner Oil Markets',   desc:'Buy futures aggressively, raising global energy costs.',        cost:50000,  cooldown:150,mult:1.40,dur:80, warChance:0   },
   {id:2,emoji:'\u{1F4F0}',      name:'Media Fear Campaign',  desc:'Flood global media with scarcity panic stories.',              cost:180000, cooldown:220,mult:1.65,dur:65, warChance:0.12},
   {id:3,emoji:'\u26A1',         name:'Trigger Energy Crisis', desc:'Engineer a regional blackout. Spike prices. Risk war.',        cost:900000, cooldown:400,mult:2.40,dur:90, warChance:0.45},
-  {id:4,emoji:'\u2622\uFE0F',   name:'Nuclear Brinkmanship', desc:'Threaten nuclear escalation. Extreme spike. Very high war risk.',cost:8000000,cooldown:700,mult:4.00,dur:70, warChance:0.80},
+  {id:4,emoji:'☢️',   name:'Nuclear Brinkmanship', desc:'Threaten nuclear escalation. Extreme spike. Very high war risk.',cost:8000000,cooldown:700,mult:4.00,dur:70, warChance:0.80},
 ];
 
 const EVENT_DEFS = [
@@ -477,10 +477,14 @@ function sellAll(){
 }
 function processAutoSell(dt){
   if(!G.upg[7]||!G.autoSellOn||G.kwh<0.01)return;
-  const cap=batteryCap(),pct=G.kwh/cap,full=pct>=0.92,above=!G.upg[8]||G.marketPrice>=G.smartThreshold;
-  if(!above&&!full)return;
-  const pm=(full&&!above)?0.70:(1+sellBonus());
-  const toSell=G.kwh*autoSellRate()*dt,earned=toSell*G.marketPrice*pm;
+  const cap=batteryCap(),pct=G.kwh/cap;
+  const smartHolding=G.upg[8]&&G.marketPrice<G.smartThreshold;
+  const emergencyDump=smartHolding&&pct>=0.92; // battery full while smart-sell is holding
+  if(smartHolding&&!emergencyDump)return; // holding, not yet critical
+  // Emergency dump penalty: 70% price — you're forced to sell below your target
+  // Normal auto-sell: full market price + sell bonus
+  const priceMult=emergencyDump?0.70:(1+sellBonus());
+  const toSell=G.kwh*autoSellRate()*dt,earned=toSell*G.marketPrice*priceMult;
   G.kwh-=toSell;G.money+=earned;G.totalEarned+=earned;
   checkMS();
 }
@@ -517,14 +521,47 @@ function hud(){
   bf.style.width=(pct*100).toFixed(1)+'%';
   bf.className='bat-in'+(pct>=0.92?' full':pct>=0.75?' high':'');
   $('bat-txt').textContent=fmtK(G.kwh)+' / '+fmtK(cap);
-  $('bat-warn').style.display=pct>=0.92?'block':'none';
+  // Battery warning: message depends on what mode we're in
+  const bw=document.getElementById('bat-warn');
+  if(pct>=0.92){
+    bw.style.display='block';
+    const smartHolding=G.upg[8]&&G.autoSellOn&&G.marketPrice<G.smartThreshold;
+    if(smartHolding){
+      bw.textContent='\u26A0 SMART-SELL HOLDING — EMERGENCY DUMP AT 70% PRICE ACTIVE';
+      bw.style.color='var(--red)';
+    } else if(G.upg[7]&&G.autoSellOn){
+      bw.textContent='\u26A0 BATTERY ALMOST FULL — auto-selling at full price';
+      bw.style.color='var(--orange)';
+    } else {
+      bw.textContent='\u26A0 BATTERY NEARLY FULL — hit SELL now to get full price!';
+      bw.style.color='var(--yellow)';
+    }
+  } else if(pct>=0.75&&!(G.upg[7]&&G.autoSellOn)){
+    // Early nudge for manual sellers only
+    bw.style.display='block';
+    bw.textContent='\u26A1 Battery 75%+ — consider selling soon';
+    bw.style.color='var(--dim)';
+  } else {
+    bw.style.display='none';
+  }
   $('sv2').textContent=fmt(storedVal());
   if(G.upg[7]){$('auto-row').style.display='flex';$('auto-st').textContent=G.autoSellOn?'ON':'OFF';}
   if(G.upg[8]){$('smart-row').style.display='block';$('tval').textContent='$'+G.smartThreshold.toFixed(2);}
   const info=$('sell-info');
-  if(G.upg[7]&&G.autoSellOn){if(G.upg[8]&&G.marketPrice<G.smartThreshold)info.textContent='\u23F3 Holding \u2014 waiting for \u2265 $'+G.smartThreshold.toFixed(2)+'/kWh';else info.textContent='\u26A1 Auto-selling ~'+fmt(totalKwh()*G.marketPrice*(1+sellBonus()))+'/s';}
-  else if(G.upg[7])info.textContent='\u23F8 Auto-sell paused';
-  else info.textContent='';
+  const smartHold2=G.upg[8]&&G.autoSellOn&&G.marketPrice<G.smartThreshold;
+  const cap2=batteryCap(),pct2=G.kwh/cap2;
+  if(G.upg[7]&&G.autoSellOn){
+    if(smartHold2){
+      if(pct2>=0.92) info.textContent='\u{1F4A5} Emergency dump active \u2014 selling at 70% price (battery full!)';
+      else info.textContent='\u23F3 Holding \u2014 waiting for \u2265 $'+G.smartThreshold.toFixed(2)+'/kWh ('+fmtK(G.kwh)+' stored)';
+    } else {
+      info.textContent='\u26A1 Auto-selling ~'+fmt(totalKwh()*G.marketPrice*(1+sellBonus()))+'/s at full price';
+    }
+  } else if(G.upg[7]){
+    info.textContent='\u23F8 Auto-sell paused \u2014 manual sell gets full price';
+  } else {
+    info.textContent='Manual sell always gets full market price + bonuses';
+  }
   $('hdr-r').textContent=G.prestigeRuns>0?'\u{1F31F} Run #'+(G.prestigeRuns+1)+' \u00B7 '+G.wpBanked+'WP':G.wpBanked>0?G.wpBanked+' WP':'';
   if(_ht%10===0)badges();
   if(_ht%30===0)presPreview();
