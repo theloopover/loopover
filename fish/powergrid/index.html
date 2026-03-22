@@ -13,10 +13,10 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .header{position:relative;z-index:10;background:var(--panel);border-bottom:1px solid var(--border);padding:10px 14px 9px;display:flex;align-items:center;justify-content:space-between;}
 .header h1{font-family:'Orbitron',sans-serif;font-size:.95rem;font-weight:900;color:var(--yellow);text-shadow:var(--gy);letter-spacing:.18em;}
 .hdr-r{font-size:.53rem;color:var(--purple);text-align:right;line-height:1.5;}
-.stats-bar{position:relative;z-index:10;background:var(--panel2);border-bottom:1px solid var(--border);padding:8px 10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;}
-.stat{display:flex;flex-direction:column;align-items:center;gap:1px;}
+.stats-bar{position:relative;z-index:10;background:var(--panel2);border-bottom:1px solid var(--border);padding:8px 10px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;}
+.stat{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:0;overflow:hidden;}
 .slbl{font-size:.44rem;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;}
-.sv{font-family:'Orbitron',sans-serif;font-size:.73rem;font-weight:700;color:var(--yellow);text-shadow:var(--gy);}
+.sv{font-family:'Orbitron',sans-serif;font-size:.73rem;font-weight:700;color:var(--yellow);text-shadow:var(--gy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
 .sv.c{color:var(--cyan);text-shadow:var(--gc);}
 .sv.g{color:var(--green);text-shadow:var(--gg);}
 .ticker{position:relative;z-index:9;background:rgba(0,0,0,.35);border-bottom:1px solid var(--border);padding:5px 10px;display:flex;gap:6px;overflow-x:auto;align-items:center;-webkit-overflow-scrolling:touch;}
@@ -196,6 +196,11 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 <div class="stats-bar">
   <div class="stat"><span class="slbl">Balance</span><span class="sv" id="s-money">$0</span></div>
   <div class="stat"><span class="slbl">Generating</span><span class="sv c" id="s-kw">0 kW/s</span></div>
+  <div class="stat">
+    <span class="slbl">Battery</span>
+    <span class="sv c" id="s-bat" style="font-size:0.84rem">0%</span>
+    <span style="font-size:0.5rem;color:var(--dim);font-family:'Share Tech Mono',monospace;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="s-bat-kwh">0 kWh</span>
+  </div>
   <div class="stat"><span class="slbl">Market</span><span class="sv g" id="s-pr">$0.150</span></div>
 </div>
 <div class="ticker hidden" id="ticker"></div>
@@ -259,6 +264,8 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   <div class="tab-pane" id="pane-research">
     <div style="padding:8px 8px 2px"><div class="sec-t" style="padding-left:4px;border:none;margin:0">&#x1F527; Research &amp; Technology</div></div>
     <div class="upg-list" id="upg-list"></div>
+    <div class="sec-t" style="margin:4px 8px 0">&#x1F4CA; Run Statistics</div>
+    <div id="run-stats" style="padding:4px 10px 80px;display:grid;grid-template-columns:1fr 1fr;gap:5px;"></div>
   </div>
   <!-- PRESTIGE TAB -->
   <div class="tab-pane" id="pane-prestige">
@@ -270,6 +277,14 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
         <div class="wp-earn" id="wp-earn">0 WP</div>
         <div class="wp-brk" id="wp-brk"></div>
         <div class="wp-bank" id="wp-bank">Banked: 0 WP</div>
+        <div style="margin:8px 0 4px;padding:10px;background:rgba(0,0,0,.25);border-radius:8px;border:1px solid var(--border);">
+          <div style="font-size:0.52rem;color:var(--dim);margin-bottom:4px;letter-spacing:.1em;">LIFETIME SALES THIS RUN</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:1.05rem;font-weight:700;color:var(--yellow);text-shadow:var(--gy)" id="p-lifetime">$0</div>
+          <div style="margin-top:6px;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+            <div id="p-prog-bar" style="height:100%;border-radius:3px;background:linear-gradient(90deg,var(--yellow),var(--green));width:0%;transition:width .5s;box-shadow:0 0 6px rgba(245,200,66,.4)"></div>
+          </div>
+          <div id="p-prog-lbl" style="font-size:0.5rem;color:var(--dim);margin-top:3px;text-align:right">0% of $1B goal</div>
+        </div>
         <button class="btn-pres" id="btn-pres">&#x1F31F; GO PUBLIC</button>
         <div class="pres-hint" id="pres-hint"></div>
       </div>
@@ -309,14 +324,16 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 
 const GEN_DEFS = [
   // Cost × 1.15^owned per purchase.  baseKwh × count × upgrades = total kWh/s.
-  // Ratio between tiers ~×10 cost, ~×6 output — standard incremental game pacing.
+  // 9 tiers: early game has 3 cheap generators to keep momentum going sub-$1K
   {id:0, name:'Solar Panel',    emoji:'☀️',  baseCost:15,        baseKwh:0.4   },
-  {id:1, name:'Wind Turbine',   emoji:'🌀',  baseCost:110,       baseKwh:3     },
-  {id:2, name:'Coal Plant',     emoji:'🏭',  baseCost:1400,      baseKwh:28    },
-  {id:3, name:'Gas Turbine',    emoji:'🔥',  baseCost:18000,     baseKwh:260   },
-  {id:4, name:'Hydro Dam',      emoji:'💧',  baseCost:220000,    baseKwh:2400  },
-  {id:5, name:'Nuclear Plant',  emoji:'☢️',  baseCost:3200000,   baseKwh:24000 },
-  {id:6, name:'Fusion Reactor', emoji:'⚛️',  baseCost:50000000,  baseKwh:250000},
+  {id:1, name:'Hand Crank',     emoji:'🔧',  baseCost:55,        baseKwh:1.2   },
+  {id:2, name:'Diesel Gen',     emoji:'⛽',  baseCost:350,       baseKwh:6     },
+  {id:3, name:'Wind Turbine',   emoji:'🌀',  baseCost:2200,      baseKwh:35    },
+  {id:4, name:'Coal Plant',     emoji:'🏭',  baseCost:22000,     baseKwh:280   },
+  {id:5, name:'Gas Turbine',    emoji:'🔥',  baseCost:200000,    baseKwh:2200  },
+  {id:6, name:'Hydro Dam',      emoji:'💧',  baseCost:2000000,   baseKwh:20000 },
+  {id:7, name:'Nuclear Plant',  emoji:'☢️',  baseCost:30000000,  baseKwh:200000},
+  {id:8, name:'Fusion Reactor', emoji:'⚛️',  baseCost:500000000, baseKwh:2500000},
 ];
 
 const UPG_DEFS = [
@@ -341,17 +358,21 @@ const UPG_DEFS = [
   {id:12, icon:'📈', name:'Market Intelligence',  desc:'Always sell at +10% above market',  cost:400000,    type:'sellbonus', bonus:0.10},
   // ── Generator-specific multipliers ─────────────────────────────────────
   // Placed to unlock after owning enough of that generator type
-  {id:13, icon:'☀️', name:'Solar Coating',        desc:'Solar Panels ×2',                   cost:200,       type:'gen', genId:0, mult:2},
-  {id:14, icon:'🌞', name:'Solar Array',          desc:'Solar Panels ×5',                   cost:10000,     type:'gen', genId:0, mult:5,  req:{genId:0, count:10}},
-  {id:15, icon:'💨', name:'Gale Force Blades',    desc:'Wind Turbines ×2',                  cost:2500,      type:'gen', genId:1, mult:2},
-  {id:16, icon:'🌪️', name:'Wind Wall',            desc:'Wind Turbines ×4',                  cost:100000,    type:'gen', genId:1, mult:4,  req:{genId:1, count:10}},
-  {id:17, icon:'⛏️', name:'Clean Coal Tech',      desc:'Coal Plants ×2',                    cost:35000,     type:'gen', genId:2, mult:2},
-  {id:18, icon:'🔥', name:'Gas Optimisation',     desc:'Gas Turbines ×2',                   cost:380000,    type:'gen', genId:3, mult:2},
-  {id:19, icon:'💧', name:'Hydro Efficiency',     desc:'Hydro Dams ×2',                     cost:6000000,   type:'gen', genId:4, mult:2},
-  {id:20, icon:'☢️', name:'Nuclear Upgrade',      desc:'Nuclear Plants ×3',                 cost:60000000,  type:'gen', genId:5, mult:3},
+  // Early sub-$1K upgrades to keep pace — genId matches new 9-gen layout
+  {id:13, icon:'☀️', name:'Solar Coating',        desc:'Solar Panels ×2',                   cost:100,       type:'gen', genId:0, mult:2},
+  {id:14, icon:'🌞', name:'Solar Array',          desc:'Solar Panels ×4',                   cost:6000,      type:'gen', genId:0, mult:4,  req:{genId:0, count:10}},
+  {id:15, icon:'🔧', name:'Ergonomic Handle',     desc:'Hand Cranks ×2',                    cost:240,       type:'gen', genId:1, mult:2},
+  {id:16, icon:'⚙️', name:'Turbo Crank',          desc:'Hand Cranks ×3',                    cost:700,       type:'gen', genId:1, mult:3,  req:{genId:1, count:5}},
+  {id:17, icon:'⛽', name:'Fuel Injection',       desc:'Diesel Gens ×2',                    cost:1600,      type:'gen', genId:2, mult:2},
+  {id:18, icon:'💨', name:'Gale Force Blades',    desc:'Wind Turbines ×2',                  cost:8000,      type:'gen', genId:3, mult:2},
+  {id:19, icon:'🌪️', name:'Wind Wall',            desc:'Wind Turbines ×4',                  cost:100000,    type:'gen', genId:3, mult:4,  req:{genId:3, count:10}},
+  {id:20, icon:'⛏️', name:'Clean Coal Tech',      desc:'Coal Plants ×2',                    cost:80000,     type:'gen', genId:4, mult:2},
+  {id:21, icon:'🔥', name:'Gas Optimisation',     desc:'Gas Turbines ×2',                   cost:750000,    type:'gen', genId:5, mult:2},
+  {id:22, icon:'💧', name:'Hydro Efficiency',     desc:'Hydro Dams ×2',                     cost:9000000,   type:'gen', genId:6, mult:2},
+  {id:23, icon:'☢️', name:'Nuclear Upgrade',      desc:'Nuclear Plants ×3',                 cost:90000000,  type:'gen', genId:7, mult:3},
   // ── Global multipliers — expensive, transformative ─────────────────────
-  {id:21, icon:'🌐', name:'Smart Grid',           desc:'All generators ×1.5',               cost:1200000,   type:'all',  mult:1.5},
-  {id:22, icon:'🏆', name:'Mega Grid',            desc:'All generators ×2',                 cost:650000000, type:'all',  mult:2},
+  {id:24, icon:'🌐', name:'Smart Grid',           desc:'All generators ×1.5',               cost:1200000,   type:'all',  mult:1.5},
+  {id:25, icon:'🏆', name:'Mega Grid',            desc:'All generators ×2',                 cost:650000000, type:'all',  mult:2},
 ];
 
 const REGION_DEFS = [
@@ -417,6 +438,8 @@ let G = {
 // ---- COMPUTED --------------------------------------------------
 function clickKwh(){let m=1;UPG_DEFS.forEach((u,i)=>{if(G.upg[i]&&u.type==='click')m*=u.mult;});PERM_DEFS.forEach((u,i)=>{if(G.perm[i]&&u.type==='click')m*=u.mult;});return m;}
 function batteryCap(){let c=150;UPG_DEFS.forEach((u,i)=>{if(u.type==='battery'&&G.upg[i])c=Math.max(c,u.cap);});return c;}
+// kWh/s for a SINGLE unit of generator id (with all multipliers)
+function genKwh_unit(id){let m=1;UPG_DEFS.forEach((u,i)=>{if(!G.upg[i])return;if(u.type==='gen'&&u.genId===id)m*=u.mult;if(u.type==='all')m*=u.mult;});PERM_DEFS.forEach((u,i)=>{if(!G.perm[i])return;if(u.type==='gen'&&u.genId===id)m*=u.mult;if(u.type==='all')m*=u.mult;});return GEN_DEFS[id].baseKwh*m;}
 function genKwh(id){if(!G.gen[id])return 0;let m=1;UPG_DEFS.forEach((u,i)=>{if(!G.upg[i])return;if(u.type==='gen'&&u.genId===id)m*=u.mult;if(u.type==='all')m*=u.mult;});PERM_DEFS.forEach((u,i)=>{if(!G.perm[i])return;if(u.type==='gen'&&u.genId===id)m*=u.mult;if(u.type==='all')m*=u.mult;});return GEN_DEFS[id].baseKwh*G.gen[id]*m;}
 function totalKwh(){return GEN_DEFS.reduce((s,_,i)=>s+genKwh(i),0);}
 function genCost(id){return Math.floor(GEN_DEFS[id].baseCost*Math.pow(1.15,G.gen[id]));}
@@ -524,7 +547,7 @@ function hud(){
   const $=id=>document.getElementById(id);
   $('s-money').textContent=fmt(G.money);
   $('s-kw').textContent=fmtR(totalKwh());
-  $('s-pr').textContent='$'+G.marketPrice.toFixed(3);
+  $('s-pr').textContent='$'+(G.marketPrice>=10?G.marketPrice.toFixed(1):G.marketPrice.toFixed(3));
   const same=Math.abs(G.marketPrice-G.prevPrice)<0.0005,up=G.marketPrice>G.prevPrice;
   const pd=$('mkt-p');pd.textContent='$'+G.marketPrice.toFixed(3)+'/kWh';pd.className='mkt-p'+(same?'':up?' up':' dn');
   $('mkt-tr').textContent=same?'\u2192':up?'\u2191':'\u2193';
@@ -534,6 +557,19 @@ function hud(){
   bf.style.width=(pct*100).toFixed(1)+'%';
   bf.className='bat-in'+(pct>=0.92?' full':pct>=0.75?' high':'');
   $('bat-txt').textContent=fmtK(G.kwh)+' / '+fmtK(cap);
+  // Top-bar battery: show % + kWh if small enough, else just %
+  const batPctNum=Math.round(pct*100);
+  const batTopEl=$('s-bat');
+  const batKwhEl=$('s-bat-kwh');
+  if(batTopEl){
+    batTopEl.textContent=batPctNum+'%';
+    // Colour: red = critical full, orange = getting full, cyan = normal
+    const batCol=pct>=0.92?'var(--red)':pct>=0.75?'var(--orange)':'var(--cyan)';
+    batTopEl.style.color=batCol;
+    batTopEl.style.textShadow=pct>=0.92?'var(--gr)':pct>=0.75?'0 0 8px #ff8c4280':'var(--gc)';
+  }
+  // Sub-line shows compact kWh amount — fmtK already handles K/M/G/T/P suffixes
+  if(batKwhEl){batKwhEl.textContent=fmtK(G.kwh);} // sub-line: current kWh only, full X/Y shown in battery bar below
   // Battery warning: message depends on what mode we're in
   const bw=document.getElementById('bat-warn');
   if(pct>=0.92){
@@ -579,7 +615,7 @@ function hud(){
   if(_ht%10===0)badges();
   if(_ht%30===0)presPreview();
   if(_ht%60===0){drawGraph();refreshGens();refreshRegs();refreshDestab();renderEvList();renderTicker();}
-  if(_ht%120===0){renderUpgrades();} // refresh upgrade list so smart-sell appears after auto-sell purchase
+  if(_ht%120===0){renderUpgrades();renderRunStats();} // refresh upgrade list + run stats
 }
 
 function badges(){
@@ -621,7 +657,7 @@ function renderGens(){
     const div=document.createElement('div');div.className='gi '+(G.money>=cost?'af':'pr');
     div.innerHTML='<div class="gem">'+g.emoji+'</div>'
       +'<div><div class="gn">'+g.name+'</div>'
-      +'<div class="gps">'+(own>0?fmtR(ps)+' total':fmtR(g.baseKwh)+'/unit')+'</div>'
+      +'<div class="gps">'+fmtR(genKwh_unit(i))+'/unit'+(own>0?' · '+fmtR(ps)+' total':'')+'</div>'
       +'<div class="gol">'+own+' owned</div></div>'
       +'<div class="gr2"><div class="gcost">'+fmt(cost)+'</div><div class="gcnt">'+own+'</div></div>';
     div.addEventListener('click',()=>buyGen(i));
@@ -634,7 +670,7 @@ function refreshGens(){
     el.className='gi '+(G.money>=cost?'af':'pr');
     el.querySelector('.gcost').textContent=fmt(cost);
     el.querySelector('.gcnt').textContent=own;
-    el.querySelector('.gps').textContent=own>0?fmtR(ps)+' total':fmtR(GEN_DEFS[i].baseKwh)+'/unit';
+    el.querySelector('.gps').textContent=fmtR(genKwh_unit(i))+'/unit'+(own>0?' · '+fmtR(ps)+' total':'');
     el.querySelector('.gol').textContent=own+' owned';
   });
 }
@@ -645,6 +681,26 @@ function meetsReq(u){
   if(u.req.genId!==undefined)return G.gen[u.req.genId]>=u.req.count;
   if(u.req.upgId!==undefined)return G.upg[u.req.upgId];
   return true;
+}
+function renderRunStats(){
+  const el=document.getElementById('run-stats');if(!el)return;
+  const cap=batteryCap();
+  const stats=[
+    {lbl:'Total kWh/s',val:fmtR(totalKwh()),col:'var(--cyan)'},
+    {lbl:'Click kWh',val:clickKwh().toFixed(1)+' kWh',col:'var(--yellow)'},
+    {lbl:'Battery Cap',val:fmtK(cap),col:'var(--cyan)'},
+    {lbl:'Battery Used',val:Math.round(G.kwh/cap*100)+'%',col:G.kwh/cap>0.85?'var(--red)':'var(--green)'},
+    {lbl:'Market Price',val:'$'+G.marketPrice.toFixed(3),col:'var(--green)'},
+    {lbl:'Sell Bonus',val:'+'+(sellBonus()*100).toFixed(0)+'%',col:'var(--purple)'},
+    {lbl:'World Share',val:worldShare()+'%',col:'var(--cyan)'},
+    {lbl:'Lifetime Sales',val:fmt(G.totalEarned),col:'var(--yellow)'},
+    {lbl:'Prestige Runs',val:G.prestigeRuns+'',col:'var(--purple)'},
+    {lbl:'WP Banked',val:G.wpBanked+' WP',col:'var(--purple)'},
+  ];
+  el.innerHTML=stats.map(s=>'<div style="background:var(--panel2);border:1px solid var(--border);border-radius:7px;padding:8px 10px">'
+    +'<div style="font-size:0.5rem;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px">'+s.lbl+'</div>'
+    +'<div style="font-family:Orbitron,sans-serif;font-size:0.72rem;font-weight:700;color:'+s.col+'">'+s.val+'</div>'
+    +'</div>').join('');
 }
 function renderUpgrades(){
   const list=document.getElementById('upg-list');list.innerHTML='';let vis=0,infraHdr=false;
@@ -763,6 +819,14 @@ function presPreview(){
   document.getElementById('wp-brk').textContent=wp>0?'Base: '+base+' WP  +  Monopoly: '+mono+' WP':'';
   document.getElementById('wp-bank').textContent='Banked: '+G.wpBanked+' WP';
   document.getElementById('btn-pres').disabled=!can;
+  // Lifetime sales display
+  const ltEl=document.getElementById('p-lifetime');
+  if(ltEl){
+    ltEl.textContent=fmt(G.totalEarned);
+    const progPct=Math.min(100,(G.totalEarned/PRESTIGE_REQ)*100);
+    document.getElementById('p-prog-bar').style.width=progPct.toFixed(2)+'%';
+    document.getElementById('p-prog-lbl').textContent=progPct.toFixed(1)+'% of $1B goal';
+  }
   const h=document.getElementById('pres-hint');
   if(can){h.textContent='\u2714 Ready to Go Public!';h.className='pres-hint rdy';}
   else{h.textContent='Need '+fmt(PRESTIGE_REQ-G.totalEarned)+' more in lifetime sales.';h.className='pres-hint';}
@@ -849,7 +913,7 @@ function switchTab(name){
   document.querySelectorAll('.tbtn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.toggle('active',p.id==='pane-'+name));
   document.getElementById('main').scrollTop=0;
-  if(name==='research')renderUpgrades();
+  if(name==='research'){renderUpgrades();renderRunStats();}
   if(name==='world')renderWorldTab();
   if(name==='prestige'){presPreview();renderPerms();}
 }
@@ -899,7 +963,7 @@ function _repositionToasts(){
 }
 
 // ---- SAVE/LOAD -------------------------------------------------
-const SK='pg_v3',TK='pg_v3_t';
+const SK='pg_v4',TK='pg_v4_t';
 function save(){localStorage.setItem(SK,JSON.stringify(G));localStorage.setItem(TK,Date.now());}
 function load(){
   try{const raw=localStorage.getItem(SK);if(!raw)return;const sv=JSON.parse(raw);Object.keys(sv).forEach(k=>{if(k in G)G[k]=sv[k];});
