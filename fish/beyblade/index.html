@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Spinning Top Arena: Free For All</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: #0f172a; overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none;
+            user-select: none;
+        }
+        #gameCanvas { display: block; width: 100%; height: 100%; }
+        #ui {
+            position: absolute; top: 20px; left: 20px; color: white;
+            pointer-events: none; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        .stat-box {
+            background: rgba(0,0,0,0.5); padding: 10px 20px;
+            border-radius: 8px; margin-bottom: 10px; border: 1px solid #334155;
+        }
+        h2, h3, p { margin: 5px 0; }
+        #staminaBar {
+            width: 200px; height: 10px; background: #333;
+            border-radius: 5px; overflow: hidden; margin-top: 5px;
+        }
+        #staminaFill {
+            width: 100%; height: 100%; background: #10b981;
+            transition: width 0.1s;
+        }
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center;
+            align-items: center; background: rgba(15, 23, 42, 0.85); color: white;
+            text-align: center;
+        }
+        button {
+            padding: 15px 40px; font-size: 24px; font-weight: bold;
+            background: #3b82f6; color: white; border: none;
+            border-radius: 50px; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.5); transition: 0.2s;
+            margin-top: 20px;
+        }
+        button:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <div class="stat-box">
+            <h2>Score: <span id="scoreVal">0</span></h2>
+            <h3>High Score: <span id="highScoreVal">0</span></h3>
+        </div>
+        <div class="stat-box">
+            <p><strong>Your Stamina</strong></p>
+            <div id="staminaBar"><div id="staminaFill"></div></div>
+            <p id="instruction" style="font-size: 0.9em; margin-top: 8px; color: #94a3b8;">Hold & drag to move!</p>
+        </div>
+    </div>
+
+    <div id="overlay">
+        <h1 style="font-size: 4rem; margin: 0; color: #60a5fa; text-shadow: 0 0 20px rgba(96,165,250,0.5);">BEY-ARENA</h1>
+        <h2 style="color: #cbd5e1; margin-bottom: 5px;">FREE FOR ALL</h2>
+        <p style="max-width: 400px; line-height: 1.5; color: #94a3b8;">
+            Hold the screen to steer your top. Knock opponents out of the ring! Moving actively drains stamina faster.
+        </p>
+        <button id="startBtn">LET IT RIP!</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('scoreVal');
+        const highScoreEl = document.getElementById('highScoreVal');
+        const overlay = document.getElementById('overlay');
+        const startBtn = document.getElementById('startBtn');
+        const staminaFill = document.getElementById('staminaFill');
+
+        // Resize Canvas
+        let cx, cy, arenaRadius;
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            cx = canvas.width / 2;
+            cy = canvas.height / 2;
+            arenaRadius = Math.min(canvas.width, canvas.height) * 0.45;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Game State
+        let score = 0;
+        let highScore = localStorage.getItem('beyHighScoreFFA') || 0;
+        highScoreEl.innerText = highScore;
+        let gameState = 'menu'; // menu, playing, gameover
+        let audioCtx;
+        
+        // Inputs
+        let pointer = { x: cx, y: cy, active: false };
+
+        // Audio System
+        function initAudio() {
+            if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playSound(type) {
+            if(!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            if (type === 'clash') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(800 + Math.random()*400, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'fall') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.5);
+                gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+            } else if (type === 'spawn') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(600, audioCtx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+            }
+        }
+
+        // Entities
+        let tops = [];
+        let player;
+
+        class Top {
+            constructor(x, y, isPlayer, color) {
+                this.x = x; this.y = y;
+                this.vx = (Math.random() - 0.5) * 5; 
+                this.vy = (Math.random() - 0.5) * 5;
+                this.baseRadius = 22;
+                this.radius = 22;
+                this.mass = isPlayer ? 1.5 : 1.2;
+                this.isPlayer = isPlayer;
+                this.color = color;
+                this.spin = 1.0; // 1.0 is 100%
+                this.angle = 0;
+                this.active = true;
+                this.falling = false;
+                this.fallScale = 1.0;
+            }
+
+            draw() {
+                if(!this.active && !this.falling) return;
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                ctx.scale(this.fallScale, this.fallScale);
+
+                // Body
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = this.isPlayer ? '#60a5fa' : '#f87171';
+                ctx.stroke();
+
+                // Spin visual
+                ctx.beginPath();
+                ctx.moveTo(0, -this.radius); ctx.lineTo(0, this.radius);
+                ctx.moveTo(-this.radius, 0); ctx.lineTo(this.radius, 0);
+                ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+                ctx.stroke();
+
+                // Core
+                ctx.beginPath();
+                ctx.arc(0, 0, 6, 0, Math.PI * 2);
+                ctx.fillStyle = '#1e293b';
+                ctx.fill();
+
+                // Player Indicator
+                if (this.isPlayer && !this.falling) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius + 8, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(96, 165, 250, 0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+
+            update() {
+                if(!this.active) return;
+
+                if (this.falling) {
+                    this.fallScale *= 0.9;
+                    this.angle += 0.2;
+                    if (this.fallScale < 0.1) {
+                        this.active = false;
+                        this.falling = false;
+                        if(this.isPlayer) endGame();
+                    }
+                    return; // Stop physics if falling
+                }
+
+                // AI / Player Input Control
+                if (this.isPlayer) {
+                    if (pointer.active) {
+                        const dx = pointer.x - this.x;
+                        const dy = pointer.y - this.y;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        if (dist > 5) {
+                            // Move towards pointer
+                            this.vx += (dx / dist) * 0.15;
+                            this.vy += (dy / dist) * 0.15;
+                            this.spin -= 0.0005; // Active moving costs stamina!
+                        }
+                    }
+                    // Update UI
+                    staminaFill.style.width = Math.max(0, this.spin * 100) + '%';
+                    staminaFill.style.background = this.spin > 0.5 ? '#10b981' : (this.spin > 0.2 ? '#f59e0b' : '#ef4444');
+                } else {
+                    // CPU Logic: Find closest target and attack
+                    let target = null;
+                    let minDist = Infinity;
+                    tops.forEach(t => {
+                        if (t !== this && t.active && !t.falling) {
+                            let d = Math.hypot(t.x - this.x, t.y - this.y);
+                            if (d < minDist) { minDist = d; target = t; }
+                        }
+                    });
+
+                    if (target) {
+                        const dx = target.x - this.x;
+                        const dy = target.y - this.y;
+                        this.vx += (dx / minDist) * 0.08; // Slightly slower than player
+                        this.vy += (dy / minDist) * 0.08;
+                    }
+                }
+
+                // Apply velocities
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Stadium Physics: Slight gravity towards center (bowl shape)
+                const distToCenter = Math.hypot(cx - this.x, cy - this.y);
+                if (distToCenter > 0) {
+                    this.vx -= ((this.x - cx) / distToCenter) * 0.02;
+                    this.vy -= ((this.y - cy) / distToCenter) * 0.02;
+                }
+
+                // Friction & Spin decay
+                this.vx *= 0.98;
+                this.vy *= 0.98;
+                this.spin -= 0.0002; // Natural decay
+                this.angle += this.spin * 0.5;
+
+                // Check Ring Out
+                if (distToCenter > arenaRadius) {
+                    this.falling = true;
+                    playSound('fall');
+                    if (!this.isPlayer) {
+                        addScore(500); // Big points for ring out!
+                        setTimeout(spawnEnemy, 2000); // Respawn new enemy after delay
+                    }
+                }
+
+                // Spin out death
+                if (this.spin <= 0 && !this.falling) {
+                    this.active = false;
+                    if (this.isPlayer) {
+                        endGame();
+                    } else {
+                        addScore(200);
+                        setTimeout(spawnEnemy, 2000);
+                    }
+                }
+            }
+        }
+
+        function initGame() {
+            initAudio();
+            score = 0; updateScore();
+            tops = [];
+            
+            // Spawn Player
+            player = new Top(cx, cy, true, '#1e40af');
+            tops.push(player);
+
+            // Spawn 3 Enemies
+            for(let i=0; i<3; i++) spawnEnemy();
+
+            gameState = 'playing';
+        }
+
+        function spawnEnemy() {
+            if (gameState !== 'playing') return;
+            playSound('spawn');
+            // Spawn near the edge to avoid immediate middle collisions
+            const angle = Math.random() * Math.PI * 2;
+            const spawnRadius = arenaRadius * 0.8;
+            const ex = cx + Math.cos(angle) * spawnRadius;
+            const ey = cy + Math.sin(angle) * spawnRadius;
+            const enemy = new Top(ex, ey, false, '#b91c1c');
+            tops.push(enemy);
+        }
+
+        // Input Handling
+        function updatePointer(e) {
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            pointer.x = clientX;
+            pointer.y = clientY;
+        }
+
+        window.addEventListener('pointerdown', e => {
+            if(gameState !== 'playing') return;
+            initAudio();
+            pointer.active = true;
+            updatePointer(e);
+        });
+        window.addEventListener('pointermove', e => {
+            if(pointer.active) updatePointer(e);
+        });
+        window.addEventListener('pointerup', () => pointer.active = false);
+        window.addEventListener('pointercancel', () => pointer.active = false);
+
+        // UI & Flow
+        startBtn.addEventListener('click', () => {
+            overlay.style.display = 'none';
+            initGame();
+        });
+
+        function resolveCollisions() {
+            for (let i = 0; i < tops.length; i++) {
+                for (let j = i + 1; j < tops.length; j++) {
+                    let t1 = tops[i]; let t2 = tops[j];
+                    if (!t1.active || !t2.active || t1.falling || t2.falling) continue;
+
+                    const dx = t2.x - t1.x;
+                    const dy = t2.y - t1.y;
+                    const distance = Math.hypot(dx, dy);
+                    
+                    if (distance < t1.radius + t2.radius) {
+                        playSound('clash');
+                        const nx = dx / distance; const ny = dy / distance;
+                        const vx = t1.vx - t2.vx; const vy = t1.vy - t2.vy;
+                        const velAlongNormal = vx * nx + vy * ny;
+
+                        if (velAlongNormal < 0) continue; // separating
+
+                        const e = 0.9; // Bounciness
+                        let jImpulse = -(1 + e) * velAlongNormal;
+                        jImpulse /= (1 / t1.mass + 1 / t2.mass);
+
+                        const ix = jImpulse * nx; const iy = jImpulse * ny;
+                        t1.vx -= ix / t1.mass; t1.vy -= iy / t1.mass;
+                        t2.vx += ix / t2.mass; t2.vy += iy / t2.mass;
+
+                        // Spin damage based on impact
+                        const impact = Math.abs(jImpulse);
+                        t1.spin -= impact * 0.005;
+                        t2.spin -= impact * 0.005;
+                        
+                        // Score for player involvement
+                        if (t1.isPlayer || t2.isPlayer) addScore(10);
+
+                        // Separation to prevent sticking
+                        const overlap = (t1.radius + t2.radius) - distance;
+                        t1.x -= nx * (overlap/2); t1.y -= ny * (overlap/2);
+                        t2.x += nx * (overlap/2); t2.y += ny * (overlap/2);
+                    }
+                }
+            }
+        }
+
+        function addScore(points) {
+            if (gameState !== 'playing') return;
+            score += points;
+            updateScore();
+        }
+
+        function updateScore() {
+            scoreEl.innerText = score;
+            if(score > highScore) {
+                highScore = score;
+                highScoreEl.innerText = highScore;
+                localStorage.setItem('beyHighScoreFFA', highScore);
+            }
+        }
+
+        function endGame() {
+            gameState = 'gameover';
+            pointer.active = false;
+            overlay.style.display = 'flex';
+            overlay.querySelector('h1').innerText = "KNOCKED OUT!";
+            overlay.querySelector('h2').innerText = `Final Score: ${score}`;
+            startBtn.innerText = "PLAY AGAIN";
+        }
+
+        // Render Loop
+        function loop() {
+            // Draw background
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Stadium Bowl
+            const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, arenaRadius);
+            gradient.addColorStop(0, '#1e293b');
+            gradient.addColorStop(1, '#0f172a');
+            
+            ctx.beginPath();
+            ctx.arc(cx, cy, arenaRadius, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // Stadium outer rim
+            ctx.lineWidth = 6;
+            ctx.strokeStyle = '#334155';
+            ctx.stroke();
+
+            // Center logo/mark
+            ctx.beginPath();
+            ctx.arc(cx, cy, arenaRadius * 0.2, 0, Math.PI * 2);
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 15]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            if (gameState === 'playing' || gameState === 'gameover') {
+                resolveCollisions();
+                
+                // Update & Draw Tops (sort so falling ones render under active ones)
+                tops.sort((a,b) => (a.falling ? -1 : 1)).forEach(t => {
+                    t.update();
+                    t.draw();
+                });
+
+                // Draw aiming indicator for player
+                if (pointer.active && player && !player.falling && player.active) {
+                    ctx.beginPath();
+                    ctx.moveTo(player.x, player.y);
+                    ctx.lineTo(pointer.x, pointer.y);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    // Crosshair at pointer
+                    ctx.beginPath();
+                    ctx.arc(pointer.x, pointer.y, 10, 0, Math.PI*2);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                    ctx.stroke();
+                }
+
+                // Cleanup inactive enemies
+                tops = tops.filter(t => t.active || t.falling);
+            }
+
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+</html>
