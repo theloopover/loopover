@@ -1369,13 +1369,14 @@ function initGame() {
     });
     tops.push(player);
 
+    gameState = 'playing';
+
     // Spawn initial enemies staggered around arena
     for (let i = 0; i < MAX_ENEMIES; i++) {
         spawnEnemy();
     }
 
     aliveEl.textContent = countActiveEnemies();
-    gameState = 'playing';
 }
 
 
