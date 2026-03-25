@@ -3,477 +3,1463 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Spinning Top Arena: Free For All</title>
+    <title>BEY-ARENA: Free For All</title>
+
+    <!-- Orbitron for titles, Rajdhani for HUD — both fit the Beyblade sci-fi feel -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+
     <style>
+        /* ── RESET & BASE ─────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
         body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%;
-            background-color: #0f172a; overflow: hidden;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            touch-action: none;
+            width: 100%; height: 100%;
+            background: #03060e;
+            overflow: hidden;
+            font-family: 'Rajdhani', 'Segoe UI', sans-serif;
+            touch-action: none;       /* disable browser pan/zoom on canvas */
             user-select: none;
         }
-        #gameCanvas { display: block; width: 100%; height: 100%; }
-        #ui {
-            position: absolute; top: 20px; left: 20px; color: white;
-            pointer-events: none; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+
+        #gameCanvas {
+            display: block;
+            width: 100%; height: 100%;
         }
-        .stat-box {
-            background: rgba(0,0,0,0.5); padding: 10px 20px;
-            border-radius: 8px; margin-bottom: 10px; border: 1px solid #334155;
+
+        /* ── HUD (non-interactive overlay on top of canvas) ────────── */
+        #hud {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;   /* let clicks pass through to canvas */
         }
-        h2, h3, p { margin: 5px 0; }
-        #staminaBar {
-            width: 200px; height: 10px; background: #333;
-            border-radius: 5px; overflow: hidden; margin-top: 5px;
+
+        /* Reusable glass-panel style */
+        .panel {
+            position: absolute;
+            background: linear-gradient(135deg,
+                rgba(8, 12, 28, 0.85),
+                rgba(15, 23, 55, 0.75));
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            border-radius: 14px;
+            padding: 10px 16px;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
         }
+
+        #scorePanel  { top: 14px; left: 14px; }
+        #enemyPanel  { top: 14px; right: 14px; text-align: right; }
+        #staminaPanel { bottom: 14px; left: 14px; }
+
+        .p-label {
+            font-size: clamp(0.58rem, 1.5vw, 0.68rem);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #6366f1;
+            font-weight: 600;
+        }
+
+        .p-value {
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(1.3rem, 3.5vw, 1.8rem);
+            font-weight: 700;
+            color: #f1f5f9;
+            line-height: 1;
+            margin-top: 2px;
+        }
+
+        .p-sub {
+            font-size: clamp(0.7rem, 1.8vw, 0.85rem);
+            color: #64748b;
+            margin-top: 3px;
+        }
+
+        /* Stamina bar */
+        #staminaTrack {
+            width: clamp(140px, 25vw, 200px);
+            height: 9px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 6px;
+        }
+
         #staminaFill {
-            width: 100%; height: 100%; background: #10b981;
-            transition: width 0.1s;
+            height: 100%;
+            width: 100%;
+            border-radius: 5px;
+            background: linear-gradient(90deg, #10b981, #34d399);
+            transition: width 0.08s linear, background 0.4s ease;
         }
+
+        /* ── NOTIFICATION POPUP ───────────────────────────────────── */
+        #notif {
+            position: absolute;
+            top: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(0.9rem, 2.8vw, 1.15rem);
+            font-weight: 700;
+            color: #fbbf24;
+            text-shadow: 0 0 18px rgba(251,191,36,0.7), 0 0 40px rgba(251,191,36,0.3);
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        /* ── MAIN OVERLAY (menu + game-over) ──────────────────────── */
         #overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; flex-direction: column; justify-content: center;
-            align-items: center; background: rgba(15, 23, 42, 0.85); color: white;
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(180deg,
+                rgba(3, 6, 14, 0.92) 0%,
+                rgba(10, 5, 30, 0.88) 100%);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: white;
             text-align: center;
+            padding: 24px;
+            transition: opacity 0.3s ease;
         }
-        button {
-            padding: 15px 40px; font-size: 24px; font-weight: bold;
-            background: #3b82f6; color: white; border: none;
-            border-radius: 50px; cursor: pointer;
-            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.5); transition: 0.2s;
-            margin-top: 20px;
+
+        #overlay.hidden { display: none; }
+
+        /* Animated title gradient */
+        .o-title {
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(2.8rem, 9vw, 5.5rem);
+            font-weight: 900;
+            letter-spacing: 3px;
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 40%, #f472b6 70%, #fb923c 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1;
+            margin-bottom: 4px;
+            /* Subtle shimmer animation */
+            background-size: 200% 200%;
+            animation: shimmer 4s ease-in-out infinite;
         }
-        button:active { transform: scale(0.95); }
+
+        @keyframes shimmer {
+            0%, 100% { background-position: 0% 50%; }
+            50%       { background-position: 100% 50%; }
+        }
+
+        .o-sub {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: clamp(0.85rem, 2.5vw, 1.1rem);
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            color: #94a3b8;
+            margin-bottom: 22px;
+        }
+
+        .o-desc {
+            max-width: 440px;
+            font-size: clamp(0.85rem, 2.2vw, 0.98rem);
+            line-height: 1.7;
+            color: #64748b;
+            margin-bottom: 6px;
+        }
+
+        /* Controls legend */
+        .ctrl-row {
+            display: flex;
+            gap: 12px;
+            margin: 12px 0 22px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .ctrl-tag {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 6px 14px;
+            font-size: clamp(0.72rem, 1.8vw, 0.82rem);
+            color: #94a3b8;
+            letter-spacing: 0.5px;
+        }
+
+        .ctrl-tag span {
+            color: #c7d2fe;
+            font-weight: 600;
+        }
+
+        /* Stats row shown on game-over */
+        .stat-row {
+            display: none;
+            gap: 14px;
+            margin: 0 0 22px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .stat-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 12px 22px;
+            min-width: 90px;
+        }
+
+        .s-label {
+            font-size: 0.65rem;
+            letter-spacing: 2px;
+            color: #64748b;
+            text-transform: uppercase;
+        }
+
+        .s-value {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #f1f5f9;
+            margin-top: 2px;
+        }
+
+        /* Big CTA button */
+        #startBtn {
+            padding: 14px 50px;
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(0.9rem, 2.8vw, 1.15rem);
+            font-weight: 700;
+            letter-spacing: 2px;
+            color: white;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            pointer-events: all;  /* override hud none */
+            box-shadow: 0 0 30px rgba(124,58,237,0.5), 0 0 60px rgba(79,70,229,0.2);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+
+        #startBtn:hover {
+            transform: scale(1.05) translateY(-2px);
+            box-shadow: 0 0 40px rgba(124,58,237,0.7), 0 0 80px rgba(79,70,229,0.3);
+        }
+
+        #startBtn:active { transform: scale(0.97); }
+
+        /* PC hint line below button */
+        .pc-hint {
+            margin-top: 14px;
+            font-size: 0.72rem;
+            color: #334155;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
 
-    <div id="ui">
-        <div class="stat-box">
-            <h2>Score: <span id="scoreVal">0</span></h2>
-            <h3>High Score: <span id="highScoreVal">0</span></h3>
+<!-- ── CANVAS (game renders here) ──────────────────────────── -->
+<canvas id="gameCanvas"></canvas>
+
+<!-- ── HUD (always on top, non-interactive) ─────────────────── -->
+<div id="hud">
+    <!-- Score & High Score (top-left) -->
+    <div class="panel" id="scorePanel">
+        <div class="p-label">Score</div>
+        <div class="p-value" id="scoreVal">0</div>
+        <div class="p-sub">Best: <span id="highScoreVal">0</span></div>
+    </div>
+
+    <!-- K.O. counter + alive enemies (top-right) -->
+    <div class="panel" id="enemyPanel">
+        <div class="p-label">K.O.'s</div>
+        <div class="p-value" id="koVal">0</div>
+        <div class="p-sub">In play: <span id="aliveVal">0</span></div>
+    </div>
+
+    <!-- Stamina bar (bottom-left) -->
+    <div class="panel" id="staminaPanel">
+        <div class="p-label">⚡ Your Stamina</div>
+        <div id="staminaTrack"><div id="staminaFill"></div></div>
+    </div>
+</div>
+
+<!-- Kill / ring-out popup notification -->
+<div id="notif"></div>
+
+<!-- ── OVERLAY (menu + game-over) ──────────────────────────── -->
+<div id="overlay">
+    <h1 class="o-title" id="oTitle">BEY-ARENA</h1>
+    <p  class="o-sub"   id="oSub">FREE FOR ALL</p>
+
+    <!-- Description shown only on menu -->
+    <p class="o-desc" id="oDesc">
+        Drag anywhere to steer your Beyblade.<br>
+        Knock rivals out of the ring or drain their stamina.<br>
+        Defeating enemies <strong style="color:#a78bfa">restores your stamina!</strong>
+    </p>
+
+    <!-- Control legend -->
+    <div class="ctrl-row" id="ctrlRow">
+        <div class="ctrl-tag">📱 <span>Touch &amp; Drag</span> to steer</div>
+        <div class="ctrl-tag">🖱 <span>Click &amp; Drag</span> anywhere</div>
+        <div class="ctrl-tag">⌨️ <span>WASD / ↑↓←→</span> keys</div>
+    </div>
+
+    <!-- Stats cards shown on game-over -->
+    <div class="stat-row" id="statRow">
+        <div class="stat-card">
+            <div class="s-label">Score</div>
+            <div class="s-value" id="fScore">0</div>
         </div>
-        <div class="stat-box">
-            <p><strong>Your Stamina</strong></p>
-            <div id="staminaBar"><div id="staminaFill"></div></div>
-            <p id="instruction" style="font-size: 0.9em; margin-top: 8px; color: #94a3b8;">Hold & drag to move!</p>
+        <div class="stat-card">
+            <div class="s-label">K.O.'s</div>
+            <div class="s-value" id="fKO">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="s-label">Best</div>
+            <div class="s-value" id="fBest">0</div>
         </div>
     </div>
 
-    <div id="overlay">
-        <h1 style="font-size: 4rem; margin: 0; color: #60a5fa; text-shadow: 0 0 20px rgba(96,165,250,0.5);">BEY-ARENA</h1>
-        <h2 style="color: #cbd5e1; margin-bottom: 5px;">FREE FOR ALL</h2>
-        <p style="max-width: 400px; line-height: 1.5; color: #94a3b8;">
-            Hold the screen to steer your top. Knock opponents out of the ring! Moving actively drains stamina faster.
-        </p>
-        <button id="startBtn">LET IT RIP!</button>
-    </div>
+    <button id="startBtn">LET IT RIP! 🌀</button>
+    <p class="pc-hint">PC: WASD or Arrow Keys also work</p>
+</div>
 
-    <canvas id="gameCanvas"></canvas>
+<script>
+/* ============================================================
+   BEY-ARENA: FREE FOR ALL
+   ============================================================
+   Architecture overview
+   ---------------------
+   • Constants        — tuning numbers in one place
+   • State            — game-wide variables
+   • Resize           — fits canvas to viewport
+   • Screen Shake     — trauma-decay shake system
+   • Particles        — spark / explosion effects
+   • Audio            — Web Audio API sound effects
+   • Input            — virtual joystick + keyboard
+   • Helpers          — utility functions
+   • drawArena()      — stadium background each frame
+   • drawJoystick()   — on-canvas joystick visual
+   • Beyblade class   — entity (draw + update + AI)
+   • Collision        — elastic physics between beys
+   • Spawning         — enemy spawn / scheduling
+   • Score / UI       — points, HUD, notification
+   • Init / End       — start and stop game
+   • Loop             — requestAnimationFrame render
+   ============================================================ */
 
-    <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const scoreEl = document.getElementById('scoreVal');
-        const highScoreEl = document.getElementById('highScoreVal');
-        const overlay = document.getElementById('overlay');
-        const startBtn = document.getElementById('startBtn');
-        const staminaFill = document.getElementById('staminaFill');
 
-        // Resize Canvas
-        let cx, cy, arenaRadius;
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            cx = canvas.width / 2;
-            cy = canvas.height / 2;
-            arenaRadius = Math.min(canvas.width, canvas.height) * 0.45;
-        }
-        window.addEventListener('resize', resize);
-        resize();
+/* ─── CONSTANTS ─────────────────────────────────────────────── */
 
-        // Game State
-        let score = 0;
-        let highScore = localStorage.getItem('beyHighScoreFFA') || 0;
-        highScoreEl.innerText = highScore;
-        let gameState = 'menu'; // menu, playing, gameover
-        let audioCtx;
-        
-        // Inputs
-        let pointer = { x: cx, y: cy, active: false };
+const MAX_ENEMIES        = 5;     // max CPU beys alive at once
+const PLAYER_RADIUS      = 26;    // px
+const ENEMY_RADIUS       = 22;    // px
+const FRICTION           = 0.977; // velocity damping per frame (1 = no friction)
+const BOWL_PULL          = 0.024; // arena bowl "gravity" — pulls towards center
+const STAMINA_DECAY      = 0.00016; // passive drain per frame
+const STAMINA_MOVE_COST  = 0.00037; // extra drain when actively moving
+const STAMINA_RING_REC   = 0.23;  // stamina gained when YOU ring-out an enemy
+const STAMINA_SPIN_REC   = 0.15;  // stamina gained when enemy spins out
+const MAX_SPEED          = 13;    // velocity cap (px/frame)
+const PLAYER_ACCEL       = 0.17;  // acceleration per frame
+const CPU_ACCEL          = 0.063; // CPU acceleration
+const JOYSTICK_RADIUS    = 62;    // visual joystick radius (px)
+const BOUNCINESS         = 0.87;  // collision restitution (0=dead, 1=elastic)
+const SPAWN_DELAY_MS     = 2400;  // ms before a dead enemy respawns
 
-        // Audio System
-        function initAudio() {
-            if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if(audioCtx.state === 'suspended') audioCtx.resume();
-        }
+/* CPU palette — each enemy has its own color scheme and AI personality */
+const CPU_CONFIGS = [
+    { color:'#7f1d1d', trim:'#f87171', glow:'rgba(248,113,113,0.45)', blades:3, mode:'hunter'     },
+    { color:'#4c1d95', trim:'#a78bfa', glow:'rgba(167,139,250,0.45)', blades:4, mode:'aggressive' },
+    { color:'#78350f', trim:'#fbbf24', glow:'rgba(251,191,36,0.45)',  blades:3, mode:'aggressive' },
+    { color:'#064e3b', trim:'#34d399', glow:'rgba(52,211,153,0.45)',  blades:3, mode:'chaotic'    },
+    { color:'#831843', trim:'#f472b6', glow:'rgba(244,114,182,0.45)', blades:4, mode:'hunter'     },
+];
 
-        function playSound(type) {
-            if(!audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            
-            if (type === 'clash') {
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(800 + Math.random()*400, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
-                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-            } else if (type === 'fall') {
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(300, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.5);
-                gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.5);
-            } else if (type === 'spawn') {
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-                osc.frequency.linearRampToValueAtTime(600, audioCtx.currentTime + 0.2);
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.2);
-                osc.start(); osc.stop(audioCtx.currentTime + 0.2);
-            }
-        }
 
-        // Entities
-        let tops = [];
-        let player;
+/* ─── GAME STATE ─────────────────────────────────────────────── */
 
-        class Top {
-            constructor(x, y, isPlayer, color) {
-                this.x = x; this.y = y;
-                this.vx = (Math.random() - 0.5) * 5; 
-                this.vy = (Math.random() - 0.5) * 5;
-                this.baseRadius = 22;
-                this.radius = 22;
-                this.mass = isPlayer ? 1.5 : 1.2;
-                this.isPlayer = isPlayer;
-                this.color = color;
-                this.spin = 1.0; // 1.0 is 100%
-                this.angle = 0;
-                this.active = true;
-                this.falling = false;
-                this.fallScale = 1.0;
-            }
+const canvas = document.getElementById('gameCanvas');
+const ctx    = canvas.getContext('2d');
 
-            draw() {
-                if(!this.active && !this.falling) return;
-                ctx.save();
-                ctx.translate(this.x, this.y);
-                ctx.rotate(this.angle);
-                ctx.scale(this.fallScale, this.fallScale);
+// UI element refs
+const staminaFill  = document.getElementById('staminaFill');
+const scoreEl      = document.getElementById('scoreVal');
+const highScoreEl  = document.getElementById('highScoreVal');
+const koEl         = document.getElementById('koVal');
+const aliveEl      = document.getElementById('aliveVal');
+const notif        = document.getElementById('notif');
+const overlay      = document.getElementById('overlay');
+const oTitle       = document.getElementById('oTitle');
+const oSub         = document.getElementById('oSub');
+const oDesc        = document.getElementById('oDesc');
+const ctrlRow      = document.getElementById('ctrlRow');
+const statRow      = document.getElementById('statRow');
+const startBtn     = document.getElementById('startBtn');
+const fScore       = document.getElementById('fScore');
+const fKO          = document.getElementById('fKO');
+const fBest        = document.getElementById('fBest');
 
-                // Body
-                ctx.beginPath();
-                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.fill();
-                ctx.lineWidth = 4;
-                ctx.strokeStyle = this.isPlayer ? '#60a5fa' : '#f87171';
-                ctx.stroke();
+let gameState = 'menu';  // 'menu' | 'playing' | 'gameover'
+let score     = 0;
+let koCount   = 0;
+let highScore = parseInt(localStorage.getItem('beyArena_hs') || '0');
+highScoreEl.textContent = highScore;
 
-                // Spin visual
-                ctx.beginPath();
-                ctx.moveTo(0, -this.radius); ctx.lineTo(0, this.radius);
-                ctx.moveTo(-this.radius, 0); ctx.lineTo(this.radius, 0);
-                ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-                ctx.stroke();
+let tops   = [];  // all Beyblade entities
+let player = null; // reference to the player's Beyblade
 
-                // Core
-                ctx.beginPath();
-                ctx.arc(0, 0, 6, 0, Math.PI * 2);
-                ctx.fillStyle = '#1e293b';
-                ctx.fill();
+/* centre of arena — recalculated on resize */
+let cx, cy, arenaRadius;
 
-                // Player Indicator
-                if (this.isPlayer && !this.falling) {
-                    ctx.beginPath();
-                    ctx.arc(0, 0, this.radius + 8, 0, Math.PI * 2);
-                    ctx.strokeStyle = 'rgba(96, 165, 250, 0.5)';
-                    ctx.lineWidth = 2;
-                    ctx.setLineDash([5, 5]);
-                    ctx.stroke();
-                }
 
-                ctx.restore();
-            }
+/* ─── RESIZE ─────────────────────────────────────────────────── */
 
-            update() {
-                if(!this.active) return;
+function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    cx          = canvas.width  / 2;
+    cy          = canvas.height / 2;
+    arenaRadius = Math.min(canvas.width, canvas.height) * 0.44;
+}
+window.addEventListener('resize', resize);
+resize();
 
-                if (this.falling) {
-                    this.fallScale *= 0.9;
-                    this.angle += 0.2;
-                    if (this.fallScale < 0.1) {
-                        this.active = false;
-                        this.falling = false;
-                        if(this.isPlayer) endGame();
-                    }
-                    return; // Stop physics if falling
-                }
 
-                // AI / Player Input Control
-                if (this.isPlayer) {
-                    if (pointer.active) {
-                        const dx = pointer.x - this.x;
-                        const dy = pointer.y - this.y;
-                        const dist = Math.sqrt(dx*dx + dy*dy);
-                        if (dist > 5) {
-                            // Move towards pointer
-                            this.vx += (dx / dist) * 0.15;
-                            this.vy += (dy / dist) * 0.15;
-                            this.spin -= 0.0005; // Active moving costs stamina!
-                        }
-                    }
-                    // Update UI
-                    staminaFill.style.width = Math.max(0, this.spin * 100) + '%';
-                    staminaFill.style.background = this.spin > 0.5 ? '#10b981' : (this.spin > 0.2 ? '#f59e0b' : '#ef4444');
-                } else {
-                    // CPU Logic: Find closest target and attack
-                    let target = null;
-                    let minDist = Infinity;
-                    tops.forEach(t => {
-                        if (t !== this && t.active && !t.falling) {
-                            let d = Math.hypot(t.x - this.x, t.y - this.y);
-                            if (d < minDist) { minDist = d; target = t; }
-                        }
-                    });
+/* ─── SCREEN SHAKE ───────────────────────────────────────────── */
 
-                    if (target) {
-                        const dx = target.x - this.x;
-                        const dy = target.y - this.y;
-                        this.vx += (dx / minDist) * 0.08; // Slightly slower than player
-                        this.vy += (dy / minDist) * 0.08;
-                    }
-                }
+/* Trauma model: set trauma (0–1), shake decays each frame */
+let trauma = 0;
 
-                // Apply velocities
-                this.x += this.vx;
-                this.y += this.vy;
+function addTrauma(amount) {
+    trauma = Math.min(1, trauma + amount);
+}
 
-                // Stadium Physics: Slight gravity towards center (bowl shape)
-                const distToCenter = Math.hypot(cx - this.x, cy - this.y);
-                if (distToCenter > 0) {
-                    this.vx -= ((this.x - cx) / distToCenter) * 0.02;
-                    this.vy -= ((this.y - cy) / distToCenter) * 0.02;
-                }
+function applyShake() {
+    if (trauma < 0.01) { trauma = 0; return; }
+    const mag = trauma * trauma * 14; // square for feel
+    ctx.translate(
+        (Math.random() - 0.5) * 2 * mag,
+        (Math.random() - 0.5) * 2 * mag
+    );
+    trauma *= 0.82; // decay
+}
 
-                // Friction & Spin decay
-                this.vx *= 0.98;
-                this.vy *= 0.98;
-                this.spin -= 0.0002; // Natural decay
-                this.angle += this.spin * 0.5;
 
-                // Check Ring Out
-                if (distToCenter > arenaRadius) {
-                    this.falling = true;
-                    playSound('fall');
-                    if (!this.isPlayer) {
-                        addScore(500); // Big points for ring out!
-                        setTimeout(spawnEnemy, 2000); // Respawn new enemy after delay
-                    }
-                }
+/* ─── PARTICLE SYSTEM ────────────────────────────────────────── */
 
-                // Spin out death
-                if (this.spin <= 0 && !this.falling) {
-                    this.active = false;
-                    if (this.isPlayer) {
-                        endGame();
-                    } else {
-                        addScore(200);
-                        setTimeout(spawnEnemy, 2000);
-                    }
-                }
-            }
-        }
+const particles = [];
 
-        function initGame() {
-            initAudio();
-            score = 0; updateScore();
-            tops = [];
-            
-            // Spawn Player
-            player = new Top(cx, cy, true, '#1e40af');
-            tops.push(player);
-
-            // Spawn 3 Enemies
-            for(let i=0; i<3; i++) spawnEnemy();
-
-            gameState = 'playing';
-        }
-
-        function spawnEnemy() {
-            if (gameState !== 'playing') return;
-            playSound('spawn');
-            // Spawn near the edge to avoid immediate middle collisions
-            const angle = Math.random() * Math.PI * 2;
-            const spawnRadius = arenaRadius * 0.8;
-            const ex = cx + Math.cos(angle) * spawnRadius;
-            const ey = cy + Math.sin(angle) * spawnRadius;
-            const enemy = new Top(ex, ey, false, '#b91c1c');
-            tops.push(enemy);
-        }
-
-        // Input Handling
-        function updatePointer(e) {
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            pointer.x = clientX;
-            pointer.y = clientY;
-        }
-
-        window.addEventListener('pointerdown', e => {
-            if(gameState !== 'playing') return;
-            initAudio();
-            pointer.active = true;
-            updatePointer(e);
+/**
+ * Emit spark particles at (x, y).
+ * @param {number} x
+ * @param {number} y
+ * @param {string} color  – CSS color string
+ * @param {number} count  – number of sparks
+ * @param {number} speed  – max initial speed
+ */
+function spawnParticles(x, y, color, count, speed) {
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd   = speed * (0.3 + Math.random() * 0.7);
+        particles.push({
+            x, y,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd,
+            life: 1,
+            decay: 0.035 + Math.random() * 0.045,
+            size: 1.5 + Math.random() * 3,
+            color
         });
-        window.addEventListener('pointermove', e => {
-            if(pointer.active) updatePointer(e);
-        });
-        window.addEventListener('pointerup', () => pointer.active = false);
-        window.addEventListener('pointercancel', () => pointer.active = false);
+    }
+}
 
-        // UI & Flow
-        startBtn.addEventListener('click', () => {
-            overlay.style.display = 'none';
-            initGame();
-        });
+function updateParticles() {
+    // Iterate backwards so splice doesn't skip items
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.92;
+        p.vy *= 0.92;
+        p.life -= p.decay;
+        if (p.life <= 0) particles.splice(i, 1);
+    }
+}
 
-        function resolveCollisions() {
-            for (let i = 0; i < tops.length; i++) {
-                for (let j = i + 1; j < tops.length; j++) {
-                    let t1 = tops[i]; let t2 = tops[j];
-                    if (!t1.active || !t2.active || t1.falling || t2.falling) continue;
+function drawParticles() {
+    particles.forEach(p => {
+        ctx.globalAlpha = p.life * p.life; // quadratic fade
+        ctx.fillStyle   = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+}
 
-                    const dx = t2.x - t1.x;
-                    const dy = t2.y - t1.y;
-                    const distance = Math.hypot(dx, dy);
-                    
-                    if (distance < t1.radius + t2.radius) {
-                        playSound('clash');
-                        const nx = dx / distance; const ny = dy / distance;
-                        const vx = t1.vx - t2.vx; const vy = t1.vy - t2.vy;
-                        const velAlongNormal = vx * nx + vy * ny;
 
-                        if (velAlongNormal < 0) continue; // separating
+/* ─── AUDIO ──────────────────────────────────────────────────── */
 
-                        const e = 0.9; // Bounciness
-                        let jImpulse = -(1 + e) * velAlongNormal;
-                        jImpulse /= (1 / t1.mass + 1 / t2.mass);
+let audioCtx = null;
 
-                        const ix = jImpulse * nx; const iy = jImpulse * ny;
-                        t1.vx -= ix / t1.mass; t1.vy -= iy / t1.mass;
-                        t2.vx += ix / t2.mass; t2.vy += iy / t2.mass;
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+}
 
-                        // Spin damage based on impact
-                        const impact = Math.abs(jImpulse);
-                        t1.spin -= impact * 0.005;
-                        t2.spin -= impact * 0.005;
-                        
-                        // Score for player involvement
-                        if (t1.isPlayer || t2.isPlayer) addScore(10);
+/**
+ * Play a short synthesized sound effect.
+ * @param {'clash'|'ringout'|'spinout'|'spawn'|'recover'} type
+ */
+function playSound(type) {
+    if (!audioCtx) return;
+    const osc  = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    const t = audioCtx.currentTime;
 
-                        // Separation to prevent sticking
-                        const overlap = (t1.radius + t2.radius) - distance;
-                        t1.x -= nx * (overlap/2); t1.y -= ny * (overlap/2);
-                        t2.x += nx * (overlap/2); t2.y += ny * (overlap/2);
-                    }
-                }
-            }
+    switch (type) {
+        case 'clash':
+            // Metallic clang — sawtooth dropping fast
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(700 + Math.random() * 500, t);
+            osc.frequency.exponentialRampToValueAtTime(80, t + 0.15);
+            gain.gain.setValueAtTime(0.22, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+            osc.start(t); osc.stop(t + 0.15);
+            break;
+
+        case 'ringout':
+            // Dramatic descending tone
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(450, t);
+            osc.frequency.exponentialRampToValueAtTime(40, t + 0.7);
+            gain.gain.setValueAtTime(0.4, t);
+            gain.gain.linearRampToValueAtTime(0, t + 0.7);
+            osc.start(t); osc.stop(t + 0.7);
+            break;
+
+        case 'spinout':
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(220, t);
+            osc.frequency.exponentialRampToValueAtTime(55, t + 0.45);
+            gain.gain.setValueAtTime(0.3, t);
+            gain.gain.linearRampToValueAtTime(0, t + 0.45);
+            osc.start(t); osc.stop(t + 0.45);
+            break;
+
+        case 'spawn':
+            // Rising blip
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(180, t);
+            osc.frequency.linearRampToValueAtTime(750, t + 0.2);
+            gain.gain.setValueAtTime(0.07, t);
+            gain.gain.linearRampToValueAtTime(0, t + 0.2);
+            osc.start(t); osc.stop(t + 0.2);
+            break;
+
+        case 'recover':
+            // Positive chime
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, t);
+            osc.frequency.linearRampToValueAtTime(880, t + 0.18);
+            gain.gain.setValueAtTime(0.14, t);
+            gain.gain.linearRampToValueAtTime(0, t + 0.28);
+            osc.start(t); osc.stop(t + 0.28);
+            break;
+    }
+}
+
+
+/* ─── INPUT — VIRTUAL JOYSTICK + KEYBOARD ────────────────────── */
+
+/*
+ * Joystick state. The joystick "origin" is where you first press/click.
+ * dx/dy are normalized direction [-1,1]; magnitude is 0–1 strength.
+ */
+const joystick = {
+    active: false,
+    originX: 0, originY: 0,
+    dx: 0, dy: 0,
+    magnitude: 0
+};
+
+// Keyboard state (held keys)
+const keys = {};
+window.addEventListener('keydown', e => { keys[e.code] = true; });
+window.addEventListener('keyup',   e => { keys[e.code] = false; });
+
+function onPointerDown(clientX, clientY) {
+    if (gameState !== 'playing') return;
+    initAudio();
+    joystick.active  = true;
+    joystick.originX = clientX;
+    joystick.originY = clientY;
+    joystick.dx = 0; joystick.dy = 0; joystick.magnitude = 0;
+}
+
+function onPointerMove(clientX, clientY) {
+    if (!joystick.active) return;
+    const rawDx = clientX - joystick.originX;
+    const rawDy = clientY - joystick.originY;
+    const dist  = Math.hypot(rawDx, rawDy);
+    joystick.magnitude = Math.min(1, dist / JOYSTICK_RADIUS);
+    if (dist > 1) {
+        joystick.dx = rawDx / dist;
+        joystick.dy = rawDy / dist;
+    }
+}
+
+function onPointerUp() {
+    joystick.active    = false;
+    joystick.magnitude = 0;
+    joystick.dx = 0; joystick.dy = 0;
+}
+
+// Use pointer events — handles both mouse and touch in one API
+canvas.addEventListener('pointerdown',  e => { e.preventDefault(); onPointerDown(e.clientX, e.clientY); });
+canvas.addEventListener('pointermove',  e => { e.preventDefault(); onPointerMove(e.clientX, e.clientY); });
+canvas.addEventListener('pointerup',    e => { e.preventDefault(); onPointerUp(); });
+canvas.addEventListener('pointercancel',e => { e.preventDefault(); onPointerUp(); });
+// Prevent browser pull-to-refresh on mobile
+canvas.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+
+/* ─── HELPERS ────────────────────────────────────────────────── */
+
+/**
+ * Darken or lighten a hex colour by 'amount' (negative = darker).
+ */
+function shadeColor(hex, amount) {
+    const num = parseInt(hex.replace('#', ''), 16);
+    const r   = Math.max(0, Math.min(255, (num >> 16) + amount));
+    const g   = Math.max(0, Math.min(255, ((num >> 8) & 0xff) + amount));
+    const b   = Math.max(0, Math.min(255, (num & 0xff) + amount));
+    return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
+}
+
+/**
+ * Draw a rounded rectangle path (for mini stamina bars).
+ */
+function roundRectPath(x, y, w, h, r) {
+    if (w <= 0) { ctx.rect(0, 0, 0, 0); return; }
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+}
+
+
+/* ─── ARENA DRAW ─────────────────────────────────────────────── */
+
+function drawArena() {
+    // Far background
+    ctx.fillStyle = '#03060e';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    /* ── Main dish (radial gradient bowl) ── */
+    const dishGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, arenaRadius);
+    dishGrad.addColorStop(0,    '#1a2240');
+    dishGrad.addColorStop(0.6,  '#111828');
+    dishGrad.addColorStop(1,    '#080e1a');
+    ctx.beginPath();
+    ctx.arc(cx, cy, arenaRadius, 0, Math.PI * 2);
+    ctx.fillStyle = dishGrad;
+    ctx.fill();
+
+    /* ── Diagonal stripe texture on arena floor ── */
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, arenaRadius - 5, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.strokeStyle = 'rgba(255,255,255,0.022)';
+    ctx.lineWidth   = 1;
+    for (let i = -arenaRadius * 2; i < arenaRadius * 2; i += 22) {
+        ctx.beginPath();
+        ctx.moveTo(cx + i, cy - arenaRadius);
+        ctx.lineTo(cx + i + arenaRadius * 1.4, cy + arenaRadius);
+        ctx.stroke();
+    }
+    ctx.restore();
+
+    /* ── Concentric ring markings ── */
+    [0.33, 0.6].forEach(pct => {
+        ctx.beginPath();
+        ctx.arc(cx, cy, arenaRadius * pct, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(99,102,241,0.2)';
+        ctx.lineWidth   = 1;
+        ctx.stroke();
+    });
+
+    /* ── Danger zone — outer 18% glows red ── */
+    const dangerR    = arenaRadius * 0.82;
+    const dangerGrad = ctx.createRadialGradient(cx, cy, dangerR, cx, cy, arenaRadius);
+    dangerGrad.addColorStop(0, 'rgba(220,38,38,0)');
+    dangerGrad.addColorStop(1, 'rgba(220,38,38,0.14)');
+    ctx.beginPath();
+    ctx.arc(cx, cy, arenaRadius, 0, Math.PI * 2);
+    ctx.fillStyle = dangerGrad;
+    ctx.fill();
+
+    /* ── Center logo — small starburst ── */
+    ctx.save();
+    ctx.translate(cx, cy);
+    const spokeR = arenaRadius * 0.09;
+    for (let i = 0; i < 6; i++) {
+        ctx.save();
+        ctx.rotate(i * Math.PI / 3);
+        ctx.beginPath();
+        ctx.moveTo(0, arenaRadius * 0.025);
+        ctx.lineTo(0, spokeR);
+        ctx.strokeStyle = 'rgba(99,102,241,0.35)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, arenaRadius * 0.04, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(99,102,241,0.4)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+
+    /* ── Outer rim — raised edge effect ── */
+    // Thick dark border
+    ctx.beginPath();
+    ctx.arc(cx, cy, arenaRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth   = 10;
+    ctx.stroke();
+    // Bright inner highlight
+    ctx.beginPath();
+    ctx.arc(cx, cy, arenaRadius - 4, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(148,163,184,0.35)';
+    ctx.lineWidth   = 2;
+    ctx.stroke();
+    // Outer glow
+    ctx.beginPath();
+    ctx.arc(cx, cy, arenaRadius + 2, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(99,102,241,0.15)';
+    ctx.lineWidth   = 4;
+    ctx.stroke();
+}
+
+
+/* ─── JOYSTICK DRAW ──────────────────────────────────────────── */
+
+function drawJoystick() {
+    if (!joystick.active) return;
+
+    const ox = joystick.originX;
+    const oy = joystick.originY;
+    // Thumb position (clamped inside JOYSTICK_RADIUS)
+    const tx = ox + joystick.dx * joystick.magnitude * JOYSTICK_RADIUS;
+    const ty = oy + joystick.dy * joystick.magnitude * JOYSTICK_RADIUS;
+
+    // Base circle
+    ctx.beginPath();
+    ctx.arc(ox, oy, JOYSTICK_RADIUS, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth   = 2;
+    ctx.stroke();
+    ctx.fillStyle   = 'rgba(99,102,241,0.06)';
+    ctx.fill();
+
+    // Line from base to thumb
+    ctx.beginPath();
+    ctx.moveTo(ox, oy);
+    ctx.lineTo(tx, ty);
+    ctx.strokeStyle = 'rgba(99,102,241,0.35)';
+    ctx.lineWidth   = 2;
+    ctx.stroke();
+
+    // Thumb knob
+    ctx.beginPath();
+    ctx.arc(tx, ty, 24, 0, Math.PI * 2);
+    ctx.fillStyle   = 'rgba(99,102,241,0.28)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(165,180,252,0.7)';
+    ctx.lineWidth   = 2;
+    ctx.stroke();
+}
+
+
+/* ─── BEYBLADE CLASS ─────────────────────────────────────────── */
+
+class Beyblade {
+    /**
+     * @param {number} x
+     * @param {number} y
+     * @param {boolean} isPlayer
+     * @param {{ color, trim, glow, blades, mode }} config
+     */
+    constructor(x, y, isPlayer, config) {
+        /* Position & velocity */
+        this.x  = x;
+        this.y  = y;
+        this.vx = (Math.random() - 0.5) * 4;
+        this.vy = (Math.random() - 0.5) * 4;
+
+        /* Identity */
+        this.isPlayer  = isPlayer;
+        this.color     = config.color;
+        this.trimColor = config.trim;
+        this.glowColor = config.glow;
+        this.bladeCount= config.blades || 3;
+        this.aiMode    = config.mode   || 'aggressive';
+        this.radius    = isPlayer ? PLAYER_RADIUS : ENEMY_RADIUS;
+        this.mass      = isPlayer ? 1.6 : 1.2;
+
+        /* Game properties */
+        this.spin      = 1.0;   // stamina (0–1)
+        this.angle     = 0;     // draw rotation angle (radians)
+        this.active    = true;  // alive in game
+        this.falling   = false; // ring-out animation in progress
+        this.fallScale = 1;     // shrinks to 0 during ring-out
+        this.wobble    = Math.random() * Math.PI * 2; // phase offset for low-stamina wobble
+
+        /* CPU AI state */
+        this.chaosTimer = 0;
+        this.chaosAngle = Math.random() * Math.PI * 2;
+    }
+
+    /* ── DRAW ──────────────────────────────────────────────────── */
+    draw() {
+        if (!this.active && !this.falling) return;
+
+        const r    = this.radius;
+        const spin = Math.max(0, this.spin);
+
+        /* ── ROTATED BLOCK (main bey body) ─── */
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Low-stamina wobble effect (visible jitter when near death)
+        if (spin < 0.2 && !this.falling) {
+            const wobbleMag = (1 - spin / 0.2) * 3.5;
+            ctx.translate(
+                Math.sin(performance.now() * 0.022 + this.wobble)       * wobbleMag,
+                Math.cos(performance.now() * 0.017 + this.wobble + 1.2) * wobbleMag
+            );
         }
 
-        function addScore(points) {
-            if (gameState !== 'playing') return;
-            score += points;
-            updateScore();
-        }
+        ctx.scale(this.fallScale, this.fallScale);
+        ctx.rotate(this.angle);
 
-        function updateScore() {
-            scoreEl.innerText = score;
-            if(score > highScore) {
-                highScore = score;
-                highScoreEl.innerText = highScore;
-                localStorage.setItem('beyHighScoreFFA', highScore);
-            }
-        }
-
-        function endGame() {
-            gameState = 'gameover';
-            pointer.active = false;
-            overlay.style.display = 'flex';
-            overlay.querySelector('h1').innerText = "KNOCKED OUT!";
-            overlay.querySelector('h2').innerText = `Final Score: ${score}`;
-            startBtn.innerText = "PLAY AGAIN";
-        }
-
-        // Render Loop
-        function loop() {
-            // Draw background
-            ctx.fillStyle = '#0f172a';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Draw Stadium Bowl
-            const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, arenaRadius);
-            gradient.addColorStop(0, '#1e293b');
-            gradient.addColorStop(1, '#0f172a');
-            
+        /* 1. Soft glow aura (cheap gradient, no shadowBlur for perf) */
+        if (spin > 0.12) {
+            const glowR    = r * 1.55;
+            const glowGrad = ctx.createRadialGradient(0, 0, r * 0.6, 0, 0, glowR);
+            glowGrad.addColorStop(0, this.glowColor);
+            glowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.globalAlpha = spin * 0.75;
             ctx.beginPath();
-            ctx.arc(cx, cy, arenaRadius, 0, Math.PI * 2);
-            ctx.fillStyle = gradient;
+            ctx.arc(0, 0, glowR, 0, Math.PI * 2);
+            ctx.fillStyle = glowGrad;
             ctx.fill();
-            
-            // Stadium outer rim
-            ctx.lineWidth = 6;
-            ctx.strokeStyle = '#334155';
-            ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
 
-            // Center logo/mark
+        /* 2. Main body — metallic 3-D gradient */
+        const bodyGrad = ctx.createRadialGradient(-r * 0.25, -r * 0.22, r * 0.05, 0, 0, r);
+        bodyGrad.addColorStop(0,   this.trimColor);
+        bodyGrad.addColorStop(0.45, this.color);
+        bodyGrad.addColorStop(1,   shadeColor(this.color, -45));
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fillStyle = bodyGrad;
+        ctx.fill();
+
+        // Outer rim stroke
+        ctx.strokeStyle = this.trimColor;
+        ctx.lineWidth   = 2.5;
+        ctx.stroke();
+
+        /* 3. Blade fins — curved swept shapes (the "attack ring" look) */
+        for (let b = 0; b < this.bladeCount; b++) {
+            ctx.save();
+            ctx.rotate(b * (Math.PI * 2 / this.bladeCount));
+
             ctx.beginPath();
-            ctx.arc(cx, cy, arenaRadius * 0.2, 0, Math.PI * 2);
-            ctx.strokeStyle = '#334155';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([10, 15]);
+            ctx.moveTo(r * 0.28, 0);
+            // Forward sweep to outer edge
+            ctx.bezierCurveTo(r * 0.58, -r * 0.52, r * 0.95, -r * 0.22, r * 0.84, r * 0.06);
+            // Trailing edge back to center
+            ctx.bezierCurveTo(r * 0.95,  r * 0.25, r * 0.58,  r * 0.35, r * 0.28, 0);
+
+            ctx.fillStyle   = 'rgba(255,255,255,0.17)';
+            ctx.fill();
+            ctx.globalAlpha = 0.5;
+            ctx.strokeStyle = this.trimColor;
+            ctx.lineWidth   = 1;
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+            ctx.restore();
+        }
+
+        /* 4. Inner performance disc (dark ring) */
+        const discGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.44);
+        discGrad.addColorStop(0, '#2d3a5a');
+        discGrad.addColorStop(1, '#0d1220');
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.44, 0, Math.PI * 2);
+        ctx.fillStyle = discGrad;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+        ctx.lineWidth   = 1;
+        ctx.stroke();
+
+        /* 5. Performance tip (centre nub) */
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.16, 0, Math.PI * 2);
+        ctx.fillStyle = '#050a15';
+        ctx.fill();
+        // Shine highlight on tip
+        ctx.beginPath();
+        ctx.arc(-r * 0.05, -r * 0.05, r * 0.07, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.fill();
+
+        ctx.restore(); // end rotated block
+
+        /* ── NON-ROTATED BLOCK (overlays that don't spin) ─── */
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.scale(this.fallScale, this.fallScale);
+
+        /* 6. Player animated dashed ring */
+        if (this.isPlayer && !this.falling) {
+            const dashOffset = -(performance.now() / 75);
+            ctx.beginPath();
+            ctx.arc(0, 0, r + 11, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(99,102,241,${0.4 + 0.3 * Math.sin(performance.now() / 400)})`;
+            ctx.lineWidth   = 2;
+            ctx.setLineDash([7, 5]);
+            ctx.lineDashOffset = dashOffset;
             ctx.stroke();
             ctx.setLineDash([]);
-
-            if (gameState === 'playing' || gameState === 'gameover') {
-                resolveCollisions();
-                
-                // Update & Draw Tops (sort so falling ones render under active ones)
-                tops.sort((a,b) => (a.falling ? -1 : 1)).forEach(t => {
-                    t.update();
-                    t.draw();
-                });
-
-                // Draw aiming indicator for player
-                if (pointer.active && player && !player.falling && player.active) {
-                    ctx.beginPath();
-                    ctx.moveTo(player.x, player.y);
-                    ctx.lineTo(pointer.x, pointer.y);
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                    
-                    // Crosshair at pointer
-                    ctx.beginPath();
-                    ctx.arc(pointer.x, pointer.y, 10, 0, Math.PI*2);
-                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-                    ctx.stroke();
-                }
-
-                // Cleanup inactive enemies
-                tops = tops.filter(t => t.active || t.falling);
-            }
-
-            requestAnimationFrame(loop);
         }
 
-        loop();
-    </script>
+        /* 7. Enemy mini stamina bar (shown above each CPU bey) */
+        if (!this.isPlayer && !this.falling) {
+            const barW = r * 2.3;
+            const barH = 5;
+            const barX = -barW / 2;
+            const barY = -r - 13;
+            const pct  = Math.max(0, spin);
+
+            // Track background
+            roundRectPath(barX, barY, barW, barH, 3);
+            ctx.fillStyle = 'rgba(0,0,0,0.65)';
+            ctx.fill();
+
+            // Fill
+            if (pct > 0) {
+                roundRectPath(barX, barY, barW * pct, barH, 3);
+                ctx.fillStyle = pct > 0.5 ? '#10b981' : pct > 0.25 ? '#f59e0b' : '#ef4444';
+                ctx.fill();
+            }
+        }
+
+        ctx.restore(); // end non-rotated block
+    }
+
+    /* ── UPDATE ────────────────────────────────────────────────── */
+    update() {
+        if (!this.active) return;
+
+        /* Ring-out fall animation */
+        if (this.falling) {
+            this.fallScale *= 0.87;
+            this.angle     += 0.3;
+            if (this.fallScale < 0.07) {
+                this.active  = false;
+                this.falling = false;
+                if (this.isPlayer) endGame();
+            }
+            return; // skip physics while falling
+        }
+
+        /* ── Input / AI ── */
+        if (this.isPlayer) {
+            this._handlePlayerInput();
+        } else {
+            this._runCPUAI();
+        }
+
+        /* ── Physics ── */
+
+        // Cap velocity
+        const spd = Math.hypot(this.vx, this.vy);
+        if (spd > MAX_SPEED) {
+            this.vx = (this.vx / spd) * MAX_SPEED;
+            this.vy = (this.vy / spd) * MAX_SPEED;
+        }
+
+        // Move
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Bowl pull — stronger near the edge, creates the dish shape feel
+        const dCenter = Math.hypot(this.x - cx, this.y - cy);
+        if (dCenter > 0) {
+            const pull = BOWL_PULL * (dCenter / arenaRadius);
+            this.vx += ((cx - this.x) / dCenter) * pull;
+            this.vy += ((cy - this.y) / dCenter) * pull;
+        }
+
+        // Friction
+        this.vx *= FRICTION;
+        this.vy *= FRICTION;
+
+        // Passive stamina drain + visual spin angle
+        this.spin  -= STAMINA_DECAY;
+        this.spin   = Math.max(0, this.spin);
+        this.angle += 0.055 + spd * 0.022; // faster spin when moving fast
+
+        /* ── Player stamina HUD ── */
+        if (this.isPlayer) {
+            const pct = Math.max(0, this.spin);
+            staminaFill.style.width = (pct * 100) + '%';
+            staminaFill.style.background =
+                pct > 0.55 ? 'linear-gradient(90deg,#10b981,#34d399)' :
+                pct > 0.28 ? 'linear-gradient(90deg,#d97706,#fbbf24)' :
+                             'linear-gradient(90deg,#dc2626,#ef4444)';
+        }
+
+        /* ── Ring-out check ── */
+        if (dCenter >= arenaRadius - 4) this._triggerRingOut();
+
+        /* ── Spin-out check ── */
+        if (this.spin <= 0) this._triggerSpinOut();
+    }
+
+    /* ── PLAYER INPUT ─────────────────────────────────────────── */
+    _handlePlayerInput() {
+        let inputDx = 0, inputDy = 0, hasInput = false;
+
+        // Virtual joystick (touch / mouse drag)
+        if (joystick.active && joystick.magnitude > 0.05) {
+            inputDx += joystick.dx;
+            inputDy += joystick.dy;
+            hasInput = true;
+        }
+
+        // Keyboard — WASD and Arrow Keys
+        let kx = 0, ky = 0;
+        if (keys['ArrowUp']    || keys['KeyW']) ky -= 1;
+        if (keys['ArrowDown']  || keys['KeyS']) ky += 1;
+        if (keys['ArrowLeft']  || keys['KeyA']) kx -= 1;
+        if (keys['ArrowRight'] || keys['KeyD']) kx += 1;
+        if (kx !== 0 || ky !== 0) {
+            const km = Math.hypot(kx, ky);
+            inputDx += kx / km;
+            inputDy += ky / km;
+            hasInput = true;
+        }
+
+        // Normalise combined input and apply acceleration
+        if (hasInput) {
+            const mag = Math.hypot(inputDx, inputDy);
+            if (mag > 0) { inputDx /= mag; inputDy /= mag; }
+            this.vx   += inputDx * PLAYER_ACCEL;
+            this.vy   += inputDy * PLAYER_ACCEL;
+            this.spin -= STAMINA_MOVE_COST; // active movement costs stamina
+        }
+    }
+
+    /* ── CPU AI ───────────────────────────────────────────────── */
+    /*
+     * Three AI personalities — all fight each other AND the player
+     * (true free-for-all).
+     *
+     * 'hunter'     — specifically targets the player when alive
+     * 'aggressive' — charges nearest active bey
+     * 'chaotic'    — random direction with burst charges
+     */
+    _runCPUAI() {
+        const dCenter = Math.hypot(this.x - cx, this.y - cy);
+
+        if (this.aiMode === 'chaotic') {
+            // Update chaos direction periodically
+            this.chaosTimer--;
+            if (this.chaosTimer <= 0) {
+                this.chaosTimer = 55 + Math.floor(Math.random() * 80);
+                const allTargets = tops.filter(t => t !== this && t.active && !t.falling);
+                if (allTargets.length > 0 && Math.random() < 0.55) {
+                    // Aim at a random target
+                    const tgt = allTargets[Math.floor(Math.random() * allTargets.length)];
+                    this.chaosAngle = Math.atan2(tgt.y - this.y, tgt.x - this.x);
+                } else {
+                    this.chaosAngle = Math.random() * Math.PI * 2;
+                }
+            }
+
+            // Pull back from edge for chaotic beys
+            if (dCenter > arenaRadius * 0.78) {
+                this.chaosAngle = Math.atan2(cy - this.y, cx - this.x);
+            }
+
+            this.vx += Math.cos(this.chaosAngle) * CPU_ACCEL;
+            this.vy += Math.sin(this.chaosAngle) * CPU_ACCEL;
+
+        } else {
+            // Find best target
+            let target = null;
+
+            if (this.aiMode === 'hunter' && player && player.active && !player.falling) {
+                // Hunter always goes for the player first
+                target = player;
+            } else {
+                // Aggressive: nearest active bey (could be another CPU!)
+                let minD = Infinity;
+                tops.forEach(t => {
+                    if (t === this || !t.active || t.falling) return;
+                    const d = Math.hypot(t.x - this.x, t.y - this.y);
+                    if (d < minD) { minD = d; target = t; }
+                });
+            }
+
+            if (target) {
+                const dx = target.x - this.x;
+                const dy = target.y - this.y;
+                const d  = Math.hypot(dx, dy);
+                if (d > 0) {
+                    this.vx += (dx / d) * CPU_ACCEL;
+                    this.vy += (dy / d) * CPU_ACCEL;
+                }
+            }
+
+            // All non-chaotic CPUs also avoid the rim
+            if (dCenter > arenaRadius * 0.76) {
+                const pullStr = 0.045;
+                this.vx += ((cx - this.x) / dCenter) * pullStr;
+                this.vy += ((cy - this.y) / dCenter) * pullStr;
+            }
+        }
+    }
+
+    /* ── RING-OUT ─────────────────────────────────────────────── */
+    _triggerRingOut() {
+        if (this.falling) return;
+        this.falling = true;
+        playSound('ringout');
+        addTrauma(0.55);
+        spawnParticles(this.x, this.y, this.trimColor, 35, 9);
+        spawnParticles(this.x, this.y, '#ffffff',      15, 6);
+
+        if (!this.isPlayer) {
+            const pts = 500;
+            addScore(pts, `💥 RING OUT! +${pts}`);
+            koCount++;
+            koEl.textContent = koCount;
+
+            // Reward the player with stamina recovery
+            if (player && player.active) {
+                player.spin = Math.min(1, player.spin + STAMINA_RING_REC);
+                playSound('recover');
+            }
+            scheduleEnemyRespawn();
+        }
+    }
+
+    /* ── SPIN-OUT ─────────────────────────────────────────────── */
+    _triggerSpinOut() {
+        if (!this.active || this.falling) return;
+        this.active = false;
+        playSound('spinout');
+        addTrauma(0.3);
+        spawnParticles(this.x, this.y, this.trimColor, 20, 5);
+
+        if (this.isPlayer) {
+            endGame();
+        } else {
+            const pts = 200;
+            addScore(pts, `⚡ SPIN OUT! +${pts}`);
+            koCount++;
+            koEl.textContent = koCount;
+
+            if (player && player.active) {
+                player.spin = Math.min(1, player.spin + STAMINA_SPIN_REC);
+                playSound('recover');
+            }
+            scheduleEnemyRespawn();
+        }
+    }
+}
+
+
+/* ─── COLLISION RESOLUTION ───────────────────────────────────── */
+/*
+ * O(n²) elastic collision — fine for 6 beys.
+ * Uses impulse-based physics with mass weighting and
+ * overlap correction to prevent beys from sticking together.
+ */
+function resolveCollisions() {
+    for (let i = 0; i < tops.length; i++) {
+        for (let j = i + 1; j < tops.length; j++) {
+            const a = tops[i];
+            const b = tops[j];
+
+            // Skip if either is not solid
+            if (!a.active || !b.active || a.falling || b.falling) continue;
+
+            const dx   = b.x - a.x;
+            const dy   = b.y - a.y;
+            const dist = Math.hypot(dx, dy);
+            const minD = a.radius + b.radius;
+
+            if (dist >= minD || dist < 0.001) continue;
+
+            // Collision normal
+            const nx = dx / dist;
+            const ny = dy / dist;
+
+            // Relative velocity along normal
+            const rvx          = a.vx - b.vx;
+            const rvy          = a.vy - b.vy;
+            const velAlongNorm = rvx * nx + rvy * ny;
+
+            // Already separating — skip
+            if (velAlongNorm < 0) continue;
+
+            // Impulse scalar
+            let J  = -(1 + BOUNCINESS) * velAlongNorm;
+            J     /= (1 / a.mass + 1 / b.mass);
+
+            const ix = J * nx;
+            const iy = J * ny;
+            a.vx -= ix / a.mass;
+            a.vy -= iy / a.mass;
+            b.vx += ix / b.mass;
+            b.vy += iy / b.mass;
+
+            // Stamina damage proportional to impact force
+            const impact = Math.abs(J);
+            a.spin -= impact * 0.004;
+            b.spin -= impact * 0.004;
+
+            // Screen shake on heavy impacts
+            if (impact > 4.5) addTrauma(impact * 0.04);
+
+            // Spark particles at midpoint
+            const mx = (a.x + b.x) / 2;
+            const my = (a.y + b.y) / 2;
+            playSound('clash');
+            spawnParticles(mx, my, a.trimColor, 10, 5);
+            spawnParticles(mx, my, b.trimColor, 10, 5);
+            spawnParticles(mx, my, '#ffffff',    5, 7);
+
+            // Score when player is involved in a hit
+            if (a.isPlayer || b.isPlayer) addScore(10);
+
+            // Positional correction — push apart to prevent sinking/overlap
+            const overlap = (minD - dist) * 0.52;
+            a.x -= nx * overlap;
+            a.y -= ny * overlap;
+            b.x += nx * overlap;
+            b.y += ny * overlap;
+        }
+    }
+}
+
+
+/* ─── SPAWNING ───────────────────────────────────────────────── */
+
+let spawnTimers = []; // track pending setTimeout handles
+
+function countActiveEnemies() {
+    return tops.filter(t => !t.isPlayer && (t.active || t.falling)).length;
+}
+
+function scheduleEnemyRespawn(delay = SPAWN_DELAY_MS) {
+    const tid = setTimeout(() => {
+        if (gameState === 'playing' && countActiveEnemies() < MAX_ENEMIES) {
+            spawnEnemy();
+        }
+    }, delay);
+    spawnTimers.push(tid);
+}
+
+function spawnEnemy() {
+    if (gameState !== 'playing') return;
+    playSound('spawn');
+
+    // Pick a random config from the CPU palette
+    const cfg   = CPU_CONFIGS[Math.floor(Math.random() * CPU_CONFIGS.length)];
+    const angle = Math.random() * Math.PI * 2;
+    const spawnR = arenaRadius * 0.72;
+
+    tops.push(new Beyblade(
+        cx + Math.cos(angle) * spawnR,
+        cy + Math.sin(angle) * spawnR,
+        false, cfg
+    ));
+
+    aliveEl.textContent = countActiveEnemies();
+}
+
+
+/* ─── SCORE & NOTIFICATION ───────────────────────────────────── */
+
+let notifTimeout = null;
+
+function addScore(pts, label) {
+    if (gameState !== 'playing') return;
+    score += pts;
+    scoreEl.textContent = score;
+    if (score > highScore) {
+        highScore = score;
+        highScoreEl.textContent = highScore;
+        localStorage.setItem('beyArena_hs', highScore);
+    }
+    if (label) showNotif(label);
+}
+
+function showNotif(text) {
+    notif.textContent = text;
+    notif.style.opacity = '1';
+    clearTimeout(notifTimeout);
+    notifTimeout = setTimeout(() => { notif.style.opacity = '0'; }, 1500);
+}
+
+
+/* ─── GAME INIT ──────────────────────────────────────────────── */
+
+function initGame() {
+    initAudio();
+
+    // Reset state
+    score    = 0;
+    koCount  = 0;
+    scoreEl.textContent = '0';
+    koEl.textContent    = '0';
+    notif.style.opacity = '0';
+
+    // Clear arrays and pending timers
+    tops           = [];
+    particles.length = 0;
+    spawnTimers.forEach(clearTimeout);
+    spawnTimers    = [];
+    trauma         = 0;
+
+    // Spawn player at centre
+    player = new Beyblade(cx, cy, true, {
+        color: '#1e3a8a',
+        trim:  '#60a5fa',
+        glow:  'rgba(96,165,250,0.5)',
+        blades: 3,
+        mode: 'player'
+    });
+    tops.push(player);
+
+    // Spawn initial enemies staggered around arena
+    for (let i = 0; i < MAX_ENEMIES; i++) {
+        spawnEnemy();
+    }
+
+    aliveEl.textContent = countActiveEnemies();
+    gameState = 'playing';
+}
+
+
+/* ─── GAME OVER ──────────────────────────────────────────────── */
+
+function endGame() {
+    if (gameState === 'gameover') return; // prevent duplicate calls
+    gameState = 'gameover';
+    onPointerUp(); // release joystick
+
+    setTimeout(() => {
+        // Update overlay to game-over mode
+        oTitle.textContent      = 'KNOCKED OUT';
+        oSub.textContent        = 'Game Over';
+        oDesc.style.display     = 'none';
+        ctrlRow.style.display   = 'none';
+        statRow.style.display   = 'flex';
+        fScore.textContent      = score;
+        fKO.textContent         = koCount;
+        fBest.textContent       = highScore;
+        startBtn.textContent    = '🌀 PLAY AGAIN';
+        overlay.classList.remove('hidden');
+    }, 950); // slight delay so you see the fall-out animation
+}
+
+
+/* ─── MAIN RENDER LOOP ───────────────────────────────────────── */
+
+function loop() {
+    requestAnimationFrame(loop);
+
+    ctx.save();
+    applyShake(); // translate by shake offset this frame
+
+    /* Arena background */
+    drawArena();
+
+    /* Game active / cooling down after game-over */
+    if (gameState === 'playing' || gameState === 'gameover') {
+
+        /* Resolve physics collisions between all active beys */
+        resolveCollisions();
+
+        /* Sort so falling beys render below living ones */
+        tops.sort((a, b) => (a.falling ? -1 : 1));
+
+        /* Update physics + draw each bey */
+        tops.forEach(bey => {
+            bey.update();
+            bey.draw();
+        });
+
+        /* Remove fully dead beys (not active AND not mid-animation) */
+        tops = tops.filter(t => t.active || t.falling);
+
+        /* Update "In play" enemy count */
+        aliveEl.textContent = countActiveEnemies();
+
+        /* Particle system */
+        updateParticles();
+        drawParticles();
+
+        /* On-canvas joystick visual */
+        drawJoystick();
+    }
+
+    ctx.restore();
+}
+
+
+/* ─── BUTTON HANDLER ─────────────────────────────────────────── */
+
+startBtn.addEventListener('click', () => {
+    initAudio();
+    // Reset overlay to menu state for next time
+    oDesc.style.display   = '';
+    ctrlRow.style.display = '';
+    overlay.classList.add('hidden');
+    initGame();
+});
+
+
+/* ─── KICK OFF ───────────────────────────────────────────────── */
+loop();
+</script>
 </body>
 </html>
