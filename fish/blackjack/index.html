@@ -11,12 +11,51 @@
             background: #12372A; color: #FBFADA; text-align: center; margin: 0; 
             touch-action: manipulation; overflow-x: hidden;
         }
-        #game-container { 
-            display: flex; flex-direction: column; min-height: 100vh; justify-content: space-between; padding: 15px; box-sizing: border-box; max-width: 1000px; margin: 0 auto;
+        
+        /* Screens */
+        .screen { display: none; flex-direction: column; min-height: 100vh; padding: 20px; box-sizing: border-box; justify-content: space-between; max-width: 1000px; margin: 0 auto; }
+        
+        /* Menu Centering Fixes */
+        #menu-screen { display: flex; justify-content: center; align-items: center; flex-direction: column; }
+        .menu-content { display: flex; flex-direction: column; align-items: center; width: 100%; text-align: center; }
+        
+        #pass-screen { justify-content: center; align-items: center; background: #12372A; }
+        #rules-screen { 
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.95); z-index: 2000; overflow-y: auto; text-align: left; 
+            padding: 30px; box-sizing: border-box; color: white;
         }
-        #status-bar { 
-            background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; font-size: 1.1rem; font-weight: bold; min-height: 24px; color: #ADBC9F; 
+        .rules-content { max-width: 600px; margin: 0 auto; line-height: 1.6; }
+        .rules-content li { margin-bottom: 15px; }
+
+        /* UI Elements */
+        h1 { font-size: 3rem; margin: 0 0 10px 0; color: #FBFADA; text-align: center; }
+        #status-bar { background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; font-size: 1.1rem; font-weight: bold; min-height: 24px; color: #ADBC9F; }
+        
+        #opponents-area { margin: 15px 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; min-height: 35px; }
+        .opponent-info { font-weight: bold; background: rgba(0,0,0,0.3); padding: 10px 15px; border-radius: 8px; border: 2px solid transparent; display: flex; flex-direction: column; align-items: center; }
+        
+        /* Mini Cards for Opponents */
+        .mini-hand { display: flex; margin-top: 8px; justify-content: center; min-height: 40px; }
+        .mini-card { 
+            width: 25px; height: 38px; background: radial-gradient(#4361ee, #3f37c9); 
+            border: 1px solid white; border-radius: 4px; margin-left: -15px; box-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
+        .mini-card:first-child { margin-left: 0; }
+        
+        .btn { 
+            background: #ADBC9F; color: #12372A; border: none; padding: 15px 30px; 
+            border-radius: 30px; font-size: 1.1rem; font-weight: bold; width: 100%; max-width: 300px;
+            margin: 10px auto; display: block; box-shadow: 0 4px #436850; cursor: pointer; transition: transform 0.1s;
+        }
+        .btn:active { transform: scale(0.95); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .menu-btn { margin: 10px auto; max-width: 350px; }
+        
+        .cpu-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; max-width: 300px; margin: 20px auto; }
+        .cpu-btn { padding: 15px; font-size: 1.2rem; margin: 0; }
+
+        /* Cards */
         .hand { 
             display: flex; gap: 10px; overflow-x: auto; padding: 20px 10px; min-height: var(--card-height);
             -webkit-overflow-scrolling: touch; scrollbar-width: none; align-items: center;
@@ -24,17 +63,17 @@
         .hand::-webkit-scrollbar { display: none; }
         @media (min-width: 768px) {
             .hand { flex-wrap: wrap; justify-content: center; overflow-x: visible; }
-            .card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
             .card:hover { transform: translateY(-15px) scale(1.05); box-shadow: 0 10px 15px rgba(0,0,0,0.4); z-index: 10; }
         }
         .card { 
             flex: 0 0 var(--card-width); height: var(--card-height); background: white; color: black; 
             border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            font-weight: bold; font-size: 1.5rem; border: 2px solid #333; box-shadow: 0 4px 6px rgba(0,0,0,0.3); cursor: pointer; position: relative;
+            font-weight: bold; font-size: 1.5rem; border: 2px solid #333; box-shadow: 0 4px 6px rgba(0,0,0,0.3); cursor: pointer; transition: transform 0.2s;
         }
         .card.red { color: #d32f2f; }
         .card.back { background: radial-gradient(#4361ee, #3f37c9); border: 2px solid white; color: transparent; cursor: pointer; }
         .card.hidden { visibility: hidden; pointer-events: none; }
+        
         #center-area { display: flex; justify-content: center; align-items: center; gap: 30px; margin: 20px 0; }
         .deck-info { display: flex; flex-direction: column; align-items: center; gap: 5px; font-weight: bold; color: #ADBC9F; }
         .active-card { 
@@ -43,25 +82,14 @@
             border: 5px solid #ADBC9F; box-shadow: 0 0 20px rgba(173, 188, 159, 0.6);
         }
         .active-card.red { color: #d32f2f; } 
-        .btn { 
-            background: #ADBC9F; color: #12372A; border: none; padding: 15px 30px; 
-            border-radius: 30px; font-size: 1.1rem; font-weight: bold; width: 100%; max-width: 300px;
-            margin: 10px auto; display: block; box-shadow: 0 4px #436850; cursor: pointer;
-        }
 
-        @keyframes shuffleAnim {
-            0% { transform: translate(0,0); }
-            25% { transform: translate(-15px, 10px) rotate(-5deg); }
-            50% { transform: translate(15px, -10px) rotate(5deg); }
-            75% { transform: translate(-10px, -5px) rotate(-3deg); }
-            100% { transform: translate(0,0); }
-        }
+        /* Animations */
+        @keyframes shuffleAnim { 0%, 100% { transform: translate(0,0); } 25% { transform: translate(-15px, 10px) rotate(-5deg); } 50% { transform: translate(15px, -10px) rotate(5deg); } 75% { transform: translate(-10px, -5px) rotate(-3deg); } }
         .shuffling { animation: shuffleAnim 0.6s ease-in-out; }
         @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        @keyframes slideDown { 0% { transform: translateY(-50px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
         .anim-pop { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-        .anim-draw { animation: slideDown 0.3s ease-out forwards; }
 
+        /* Suit Picker Overlay */
         #suit-picker { 
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(5px);
@@ -72,10 +100,65 @@
 </head>
 <body>
 
-<div id="game-container">
-    <div id="status-bar">GAME START</div>
-    <div>CPU Cards: <span id="cpu-count">7</span></div>
-    <div class="hand" id="cpu-hand"></div>
+<div id="menu-screen" class="screen">
+    <div class="menu-content">
+        <h1>BLACKJACK SWITCH</h1>
+        <p style="margin-bottom: 40px; color: #ADBC9F;">Choose your game mode</p>
+        
+        <div id="main-options" style="width: 100%;">
+            <button class="btn menu-btn" onclick="showCPUMenu()">Play against CPU</button>
+            <button class="btn menu-btn" style="background:#f6b93b" onclick="setupGame('2p')">Local 2-Player (Pass & Play)</button>
+            <button class="btn menu-btn" style="background:#436850; color:white; margin-top: 40px;" onclick="toggleRules(true)">How to Play & Rules</button>
+        </div>
+
+        <div id="cpu-options" style="display: none; width: 100%;">
+            <h2 style="color: #FBFADA; margin-bottom: 5px;">How many CPUs?</h2>
+            <p style="color: #ADBC9F; font-size: 0.9rem; margin-top: 0;">(Games with 5+ players use 2 decks)</p>
+            <div class="cpu-grid">
+                <button class="btn cpu-btn" onclick="setupGame('cpu', 1)">1</button>
+                <button class="btn cpu-btn" onclick="setupGame('cpu', 2)">2</button>
+                <button class="btn cpu-btn" onclick="setupGame('cpu', 3)">3</button>
+                <button class="btn cpu-btn" onclick="setupGame('cpu', 4)">4</button>
+                <button class="btn cpu-btn" onclick="setupGame('cpu', 5)">5</button>
+                <button class="btn cpu-btn" onclick="setupGame('cpu', 6)">6</button>
+                <button class="btn cpu-btn" onclick="setupGame('cpu', 7)">7</button>
+            </div>
+            <button class="btn menu-btn" style="background:transparent; color:#ADBC9F; box-shadow:none; margin-top:20px;" onclick="hideCPUMenu()">← Back</button>
+        </div>
+    </div>
+</div>
+
+<div id="rules-screen">
+    <div class="rules-content">
+        <h2 style="font-size: 2rem; color: #f6b93b; text-align:center;">Rules & Card Effects</h2>
+        <p><strong>Objective:</strong> Be the first player to empty your hand. Match the center card's <strong>Suit</strong> or <strong>Number/Rank</strong> to play.</p>
+        <hr style="border-color:#436850; margin: 20px 0;">
+        <h3>Special Cards:</h3>
+        <ul>
+            <li><strong style="color:#f6b93b">2:</strong> The next player must pick up 2 cards. (These stack!)</li>
+            <li><strong style="color:#f6b93b">8:</strong> Skips the next player's turn.</li>
+            <li><strong style="color:#f6b93b">Black Jack (♠/♣):</strong> The next player must pick up 5 cards. (These stack!)</li>
+            <li><strong style="color:#d32f2f">Red Jack (♥/♦):</strong> Completely cancels any active penalty stack without picking up cards.</li>
+            <li><strong style="color:#f6b93b">Queen (Q):</strong> Must be "covered". You get another turn but MUST play a card of the same suit or another Queen. If you can't, you must draw a card!</li>
+            <li><strong style="color:#f6b93b">King (K):</strong> Reverses the direction of play. (In a 2-player game, this acts as a Skip).</li>
+            <li><strong style="color:#f6b93b">Ace (A):</strong> Change the active suit. You can play this on anything.</li>
+        </ul>
+        <button class="btn" style="margin-top:40px;" onclick="toggleRules(false)">Back</button>
+    </div>
+</div>
+
+<div id="pass-screen" class="screen">
+    <div>
+        <h1 id="pass-text" style="margin-bottom: 30px;">Pass device to...</h1>
+        <button class="btn" style="background:#f6b93b; padding: 20px 40px; font-size: 1.5rem;" onclick="readyTurn()">I'm Ready!</button>
+    </div>
+</div>
+
+<div id="game-container" class="screen">
+    <div>
+        <div id="status-bar">GAME START</div>
+        <div id="opponents-area"></div>
+    </div>
     
     <div id="center-area">
         <div class="deck-info">
@@ -86,10 +169,14 @@
     </div>
 
     <div id="player-hand-container">
-        <div>Your Hand (<span id="p-count">0</span>) | <strong style="color:#f6b93b">Penalty: <span id="penalty-count">0</span></strong></div>
+        <div style="margin-bottom:10px;"><strong id="p-name-display" style="font-size:1.2rem;">Your</strong> Hand | <strong style="color:#f6b93b">Penalty: <span id="penalty-count">0</span></strong></div>
         <div class="hand" id="player-hand"></div>
     </div>
-    <button class="btn" onclick="playerDraw()">DRAW / PASS</button>
+    
+    <div>
+        <button class="btn" id="draw-btn" onclick="playerDraw()">DRAW / PASS</button>
+        <button class="btn" style="background:transparent; color:#ADBC9F; box-shadow:none; padding: 5px; margin-top:5px; font-size:0.9rem;" onclick="showMenu()">Quit to Menu</button>
+    </div>
 </div>
 
 <div id="suit-picker">
@@ -106,30 +193,120 @@
     const suitOrderPriority = ['♠', '♥', '♣', '♦'];
     const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
     
-    let deck = [], discardPile = [], playerHand = [], cpuHand = [], centerCard = null;
-    let penaltyStack = 0, currentSuit = '', mustCover = false, isPlayerTurn = true;
-    let pCardsJustDrawn = 0, cCardsJustDrawn = 0, triggerCenterAnim = false;
+    let players = [], currentPlayerIndex = 0, gameMode = '';
+    let deck = [], discardPile = [], centerCard = null;
+    let penaltyStack = 0, currentSuit = '', mustCover = false, triggerCenterAnim = false;
+    let inputLocked = false; 
+    let playDirection = 1; // 1 for normal, -1 for reverse
 
-    function initGame() {
+    /* MENU & UI NAVIGATION */
+    function showMenu() {
+        document.getElementById('game-container').style.display = 'none';
+        document.getElementById('pass-screen').style.display = 'none';
+        document.getElementById('menu-screen').style.display = 'flex';
+        hideCPUMenu();
+    }
+    
+    function showCPUMenu() {
+        document.getElementById('main-options').style.display = 'none';
+        document.getElementById('cpu-options').style.display = 'block';
+    }
+
+    function hideCPUMenu() {
+        document.getElementById('cpu-options').style.display = 'none';
+        document.getElementById('main-options').style.display = 'block';
+    }
+
+    function toggleRules(show) {
+        document.getElementById('rules-screen').style.display = show ? 'block' : 'none';
+    }
+
+    function generateDeck(numDecks) {
         deck = []; discardPile = [];
-        for (let s of suitOrderPriority) {
-            for (let r of ranks) {
-                deck.push({ suit: s, rank: r, color: (s === '♥' || s === '♦') ? 'red' : 'black' });
+        for(let d = 0; d < numDecks; d++) {
+            for (let s of suitOrderPriority) {
+                for (let r of ranks) {
+                    deck.push({ suit: s, rank: r, color: (s === '♥' || s === '♦') ? 'red' : 'black' });
+                }
             }
         }
         deck.sort(() => Math.random() - 0.5);
-        playerHand = deck.splice(0, 7);
-        cpuHand = deck.splice(0, 7);
+    }
+
+    function setupGame(mode, cpuCount = 1) {
+        gameMode = mode;
+        players = [];
+        playDirection = 1; // Reset direction on new game
+        
+        if(mode === 'cpu') {
+            players.push({name:'You', isHuman:true, hand:[]});
+            for(let i=1; i<=cpuCount; i++) players.push({name:'CPU '+i, isHuman:false, hand:[]});
+        } else if(mode === '2p') {
+            players.push({name:'Player 1', isHuman:true, hand:[]}, {name:'Player 2', isHuman:true, hand:[]});
+        }
+
+        const totalDecks = players.length >= 5 ? 2 : 1;
+        generateDeck(totalDecks);
+        
+        for(let p of players) p.hand = deck.splice(0, 7);
         centerCard = deck.pop();
         currentSuit = centerCard.suit;
-        penaltyStack = 0; mustCover = false; isPlayerTurn = true;
-        pCardsJustDrawn = 7; cCardsJustDrawn = 7; triggerCenterAnim = true;
-        log("GAME START");
+        penaltyStack = 0; mustCover = false; currentPlayerIndex = 0; triggerCenterAnim = true;
+        inputLocked = false;
+
+        document.getElementById('menu-screen').style.display = 'none';
+        log("GAME START!");
+        startTurn();
+    }
+
+    /* TURN ENGINE */
+    function startTurn(prevIndex = -1) {
+        let p = players[currentPlayerIndex];
+        
+        if(p.isHuman) {
+            // Only show pass screen if it's 2P mode AND the turn actually changed to the other physical person
+            if(gameMode === '2p' && prevIndex !== currentPlayerIndex) {
+                document.getElementById('game-container').style.display = 'none';
+                document.getElementById('pass-screen').style.display = 'flex';
+                document.getElementById('pass-text').innerText = `Pass device to ${p.name}`;
+            } else {
+                document.getElementById('game-container').style.display = 'flex';
+                // If it's the exact same person from the previous turn, it's a skip or "Play Again"
+                log(prevIndex === currentPlayerIndex ? `${p.name} PLAYS AGAIN!` : `${p.name}'S TURN`);
+                inputLocked = false; 
+                render();
+            }
+        } else {
+            document.getElementById('game-container').style.display = 'flex';
+            inputLocked = true; 
+            log(`${p.name} IS THINKING...`);
+            render();
+            setTimeout(cpuTurn, 1500); 
+        }
+    }
+
+    function readyTurn() {
+        document.getElementById('pass-screen').style.display = 'none';
+        document.getElementById('game-container').style.display = 'flex';
+        let p = players[currentPlayerIndex];
+        log(`${p.name}'S TURN`);
+        inputLocked = false; 
         render();
     }
 
-    function sortPlayerHand() {
-        playerHand.sort((a, b) => {
+    function advanceTurn(steps) {
+        let prev = currentPlayerIndex;
+        // Move current index, factoring in direction. Modulo handles positive wrap.
+        currentPlayerIndex = (currentPlayerIndex + (steps * playDirection)) % players.length;
+        // Fix negative numbers for JS modulo
+        if (currentPlayerIndex < 0) currentPlayerIndex += players.length;
+        
+        startTurn(prev);
+    }
+
+    /* RENDERING */
+    function sortPlayerHand(hand) {
+        hand.sort((a, b) => {
             const sA = suitOrderPriority.indexOf(a.suit);
             const sB = suitOrderPriority.indexOf(b.suit);
             if (sA !== sB) return sA - sB;
@@ -150,38 +327,71 @@
     }
 
     function render() {
-        // Safety sort: ensure hand is ordered before every visual update
-        sortPlayerHand();
+        let activePlayer = players[currentPlayerIndex];
+        // In CPU mode, ALWAYS show Player 1 (You) at the bottom. In 2P, show the active player.
+        let viewPlayer = gameMode === 'cpu' ? players[0] : activePlayer;
+        
+        sortPlayerHand(viewPlayer.hand);
 
+        // Render Opponents Info Panel
+        const opponentsDiv = document.getElementById('opponents-area');
+        opponentsDiv.innerHTML = '';
+        players.forEach((p, i) => {
+            if(p !== viewPlayer) {
+                let info = document.createElement('div');
+                info.className = 'opponent-info';
+                
+                let html = `<div>${p.name}</div><div class="mini-hand">`;
+                let displayCount = Math.min(p.hand.length, 15);
+                for(let c = 0; c < displayCount; c++) html += `<div class="mini-card"></div>`;
+                if(p.hand.length > 15) html += `<div style="margin-left:5px">+${p.hand.length - 15}</div>`;
+                html += `</div>`;
+                
+                info.innerHTML = html;
+
+                if(i === currentPlayerIndex) { 
+                    info.style.border = "2px solid #f6b93b";
+                    info.style.background = "rgba(246, 185, 59, 0.2)";
+                }
+                opponentsDiv.appendChild(info);
+            }
+        });
+
+        // Render Bottom Hand Container
         const pHandDiv = document.getElementById('player-hand');
         pHandDiv.innerHTML = '';
-        playerHand.forEach((card, i) => {
+        const drawBtn = document.getElementById('draw-btn');
+        
+        let prefix = viewPlayer.name === "You" ? "Your" : `${viewPlayer.name}'s`;
+        document.getElementById('p-name-display').innerText = prefix;
+        
+        // Disable draw button if it is NOT the viewing human's turn
+        if (viewPlayer === activePlayer && activePlayer.isHuman) {
+            drawBtn.disabled = inputLocked;
+        } else {
+            drawBtn.disabled = true;
+        }
+
+        viewPlayer.hand.forEach((card, i) => {
             const el = document.createElement('div');
-            el.className = `card ${card.color} ${i >= playerHand.length - pCardsJustDrawn ? 'anim-draw' : ''}`;
+            el.className = `card ${card.color}`;
             el.innerHTML = `<div>${card.rank}</div><div>${card.suit}</div>`;
-            el.onclick = () => playCard(i);
+            el.onclick = () => {
+                // Only allow clicks if it's physically this player's turn
+                if (viewPlayer === activePlayer && !inputLocked) {
+                    playCard(i, viewPlayer);
+                }
+            };
             pHandDiv.appendChild(el);
         });
-        pCardsJustDrawn = 0; 
 
-        const cpuHandDiv = document.getElementById('cpu-hand');
-        cpuHandDiv.innerHTML = '';
-        cpuHand.forEach((_, i) => {
-            const el = document.createElement('div');
-            el.className = `card back ${i >= cpuHand.length - cCardsJustDrawn ? 'anim-draw' : ''}`;
-            cpuHandDiv.appendChild(el);
-        });
-        cCardsJustDrawn = 0; 
-
+        // Render Center
         const centerDiv = document.getElementById('current-card-display');
         centerDiv.innerHTML = centerCard.rank + currentSuit;
         const isRed = (currentSuit === '♥' || currentSuit === '♦');
         centerDiv.className = `active-card ${isRed ? 'red' : ''}`;
-        
         if (triggerCenterAnim) { void centerDiv.offsetWidth; centerDiv.classList.add('anim-pop'); triggerCenterAnim = false; }
         
-        document.getElementById('cpu-count').innerText = cpuHand.length;
-        document.getElementById('p-count').innerText = playerHand.length;
         document.getElementById('penalty-count').innerText = penaltyStack;
         document.getElementById('deck-count').innerText = deck.length;
         document.getElementById('deck-visual').className = (deck.length > 0 || discardPile.length > 0) ? "card back" : "card hidden";
@@ -191,18 +401,11 @@
     function isBlackJack(card) { return card.rank === 'J' && (card.suit === '♠' || card.suit === '♣'); }
     function isRedJack(card) { return card.rank === 'J' && (card.suit === '♥' || card.suit === '♦'); }
 
-    function hasValidMove(hand) {
-        return hand.some(card => {
-            const bj = isBlackJack(card), rj = isRedJack(card);
-            if (mustCover) return card.suit === currentSuit || card.rank === 'Q';
-            if (penaltyStack > 0) return rj || bj || card.rank === '2';
-            return card.rank === centerCard.rank || card.suit === currentSuit || card.rank === 'A';
-        });
-    }
-
-    function playCard(index) {
-        if (!isPlayerTurn) return;
-        const card = playerHand[index];
+    /* GAMEPLAY LOGIC */
+    function playCard(index, p) {
+        if(inputLocked) return; 
+        
+        const card = p.hand[index];
         const bj = isBlackJack(card), rj = isRedJack(card);
 
         if (mustCover && card.suit !== currentSuit && card.rank !== 'Q') return log("COVER THE QUEEN!");
@@ -211,53 +414,54 @@
         const isMatch = card.rank === centerCard.rank || card.suit === currentSuit || card.rank === 'A' || (penaltyStack > 0 && (rj || bj || card.rank === '2'));
         if (!isMatch) return log("INVALID MOVE!");
 
+        inputLocked = true; 
         discardPile.push(centerCard);
-        centerCard = playerHand.splice(index, 1)[0];
+        centerCard = p.hand.splice(index, 1)[0];
         currentSuit = centerCard.suit;
         triggerCenterAnim = true;
-        isPlayerTurn = false;
-
-        if (rj && penaltyStack > 0) { penaltyStack = 0; log("RED JACK CANCELLED PENALTY!"); }
-        else if (centerCard.rank === '2') { penaltyStack += 2; log("+2 PENALTY!"); }
-        else if (bj) { penaltyStack += 5; log("+5 BLACK JACK!"); }
-
-        if (playerHand.length === 1) log("LAST CARD!");
-        if (checkWin()) return;
-
-        if (centerCard.rank === 'Q') { mustCover = true; isPlayerTurn = true; log("QUEEN! COVER IT!"); render(); }
-        else if (centerCard.rank === 'K') { mustCover = false; isPlayerTurn = true; log("KING! GO AGAIN!"); render(); }
-        else if (centerCard.rank === '8') { mustCover = false; isPlayerTurn = true; log("8! CPU MISS A GO!"); render(); }
-        else if (centerCard.rank === 'A') { mustCover = false; document.getElementById('suit-picker').style.display = 'flex'; render(); }
-        else { mustCover = false; log("CPU'S TURN..."); render(); setTimeout(cpuTurn, 1000); }
+        
+        resolveCardEffectsAndNextTurn(card, p);
     }
 
     function selectSuit(s) {
         currentSuit = s;
         document.getElementById('suit-picker').style.display = 'none';
-        triggerCenterAnim = true; isPlayerTurn = false; render();
+        triggerCenterAnim = true; 
         log(`SUIT CHANGED TO ${s}`);
-        setTimeout(cpuTurn, 1000);
+        render();
+        setTimeout(() => advanceTurn(1), 1000);
     }
 
     function playerDraw() {
-        if (!isPlayerTurn) return;
+        if(inputLocked) return; 
+        let p = players[currentPlayerIndex];
+        if (!p.isHuman) return;
+        
+        inputLocked = true; 
+        
         if (deck.length === 0 && !reshuffle()) {
-            if (!hasValidMove(playerHand)) { alert("DRAW GAME!"); initGame(); return; }
-            else return log("DECK EMPTY! PLAY A CARD.");
+            log("DECK EMPTY! PASSING TURN.");
+            setTimeout(() => advanceTurn(1), 1000);
+            return;
         }
 
         const c = mustCover ? 1 : (penaltyStack || 1);
         for(let i=0; i<c; i++) {
             if (deck.length === 0 && !reshuffle()) break;
-            playerHand.push(deck.pop()); pCardsJustDrawn++;
+            p.hand.push(deck.pop()); 
         }
         penaltyStack = 0; mustCover = false;
-        isPlayerTurn = false; render(); log("YOU DREW - CPU'S TURN"); setTimeout(cpuTurn, 800);
+        
+        log(`${p.name} DREW CARDS`);
+        render();
+        setTimeout(() => advanceTurn(1), 800); 
     }
 
     function cpuTurn() {
-        if (checkWin()) return;
-        const idx = cpuHand.findIndex(c => {
+        let p = players[currentPlayerIndex];
+        if(p.isHuman) return; 
+
+        const idx = p.hand.findIndex(c => {
             const bj = isBlackJack(c), rj = isRedJack(c);
             if (mustCover) return c.suit === currentSuit || c.rank === 'Q';
             if (penaltyStack > 0) return rj || bj || c.rank === '2';
@@ -265,49 +469,83 @@
         });
 
         if (idx !== -1) {
-            const card = cpuHand.splice(idx, 1)[0];
+            const card = p.hand.splice(idx, 1)[0];
             discardPile.push(centerCard);
             centerCard = card; currentSuit = card.suit; triggerCenterAnim = true;
-            const bj = isBlackJack(card), rj = isRedJack(card);
-            
-            if (rj && penaltyStack > 0) { penaltyStack = 0; log("CPU RED JACK CANCELLED!"); }
-            else if (card.rank === '2') { penaltyStack += 2; log("CPU: +2!"); }
-            else if (bj) { penaltyStack += 5; log("CPU: +5 BLACK JACK!"); }
-            
-            if (cpuHand.length === 1) log("CPU: LAST CARD!");
-            render();
-
-            if (cpuHand.length === 0) {
-                setTimeout(() => { alert("CPU WINS!"); initGame(); }, 600);
+            resolveCardEffectsAndNextTurn(card, p);
+        } else {
+            if (deck.length === 0 && !reshuffle()) { 
+                log(`${p.name} PASSES (DECK EMPTY)`);
+                setTimeout(() => advanceTurn(1), 1000);
                 return;
             }
-
-            if (card.rank === 'Q') { mustCover = true; log("CPU played Queen! COVER IT"); render(); setTimeout(cpuTurn, 1000); }
-            else if (card.rank === 'K') { mustCover = false; log("CPU King! THEY GO AGAIN"); render(); setTimeout(cpuTurn, 1000); }
-            else if (card.rank === '8') { mustCover = false; isPlayerTurn = false; log("CPU played 8! YOU MISS A GO"); render(); setTimeout(cpuTurn, 1000); }
-            else if (card.rank === 'A') { mustCover = false; currentSuit = suitOrderPriority[Math.floor(Math.random() * 4)]; isPlayerTurn = true; log(`CPU changed suit to ${currentSuit}`); render(); }
-            else { mustCover = false; isPlayerTurn = true; log("YOUR TURN"); render(); }
-        } else {
-            if (deck.length === 0 && !reshuffle()) { alert("DRAW GAME!"); initGame(); return; }
             const c = mustCover ? 1 : (penaltyStack || 1);
             for(let i=0; i<c; i++) {
                 if (deck.length === 0 && !reshuffle()) break;
-                cpuHand.push(deck.pop()); cCardsJustDrawn++;
+                p.hand.push(deck.pop()); 
             }
             penaltyStack = 0; mustCover = false;
-            isPlayerTurn = true; log("CPU DREW - YOUR TURN"); render();
+            log(`${p.name} DREW CARDS`);
+            render();
+            setTimeout(() => advanceTurn(1), 1000);
         }
     }
 
-    function checkWin() {
-        if (playerHand.length === 0) { 
-            render();
-            setTimeout(() => { alert("YOU WIN!"); initGame(); }, 600); 
-            return true; 
+    function resolveCardEffectsAndNextTurn(card, p) {
+        const bj = isBlackJack(card), rj = isRedJack(card);
+        
+        if (rj && penaltyStack > 0) { penaltyStack = 0; log(`${p.name} RED JACK CANCELLED PENALTY!`); }
+        else if (card.rank === '2') { penaltyStack += 2; log(`${p.name}: +2 PENALTY!`); }
+        else if (bj) { penaltyStack += 5; log(`${p.name}: +5 BLACK JACK!`); }
+        
+        if (p.hand.length === 1) log(`${p.name}: LAST CARD!`);
+        
+        render(); 
+
+        if (p.hand.length === 0) {
+            setTimeout(() => { alert(`${p.name} WINS!`); showMenu(); }, 600);
+            return;
         }
-        return false;
+
+        // Action resolution
+        if (card.rank === 'Q') { 
+            mustCover = true; log(`${p.name} played Queen! COVER IT!`); 
+            if(p.isHuman) inputLocked = false; 
+            else setTimeout(cpuTurn, 1000); 
+        }
+        else if (card.rank === 'K') { 
+            mustCover = false; 
+            if (players.length === 2) {
+                // If only 2 players, King (Reverse) acts as a Skip so they go again
+                log(`${p.name} King! GO AGAIN!`); 
+                if(p.isHuman) inputLocked = false; 
+                else setTimeout(cpuTurn, 1000);
+            } else {
+                playDirection *= -1;
+                log(`${p.name} King! REVERSE DIRECTION!`);
+                setTimeout(() => advanceTurn(1), 1200);
+            }
+        }
+        else if (card.rank === '8') { 
+            mustCover = false; log(`${p.name} played 8! SKIP!`); 
+            setTimeout(() => advanceTurn(2), 1200);
+        }
+        else if (card.rank === 'A') { 
+            mustCover = false; 
+            if(p.isHuman) {
+                document.getElementById('suit-picker').style.display = 'flex';
+            } else {
+                currentSuit = suitOrderPriority[Math.floor(Math.random() * 4)]; 
+                log(`${p.name} changed suit to ${currentSuit}`);
+                render();
+                setTimeout(() => advanceTurn(1), 1200);
+            }
+        }
+        else { 
+            mustCover = false; 
+            setTimeout(() => advanceTurn(1), 1000); 
+        }
     }
-    initGame();
 </script>
 </body>
 </html>
