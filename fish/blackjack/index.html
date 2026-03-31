@@ -264,22 +264,26 @@
         let p = players[currentPlayerIndex];
         
         if(p.isHuman) {
-            // Only show pass screen if it's 2P mode AND the turn actually changed to the other physical person
             if(gameMode === '2p' && prevIndex !== currentPlayerIndex) {
                 document.getElementById('game-container').style.display = 'none';
                 document.getElementById('pass-screen').style.display = 'flex';
                 document.getElementById('pass-text').innerText = `Pass device to ${p.name}`;
             } else {
                 document.getElementById('game-container').style.display = 'flex';
-                // If it's the exact same person from the previous turn, it's a skip or "Play Again"
-                log(prevIndex === currentPlayerIndex ? `${p.name} PLAYS AGAIN!` : `${p.name}'S TURN`);
+                let msg = "";
+                if (prevIndex === currentPlayerIndex) {
+                    msg = p.name === 'You' ? "YOU PLAY AGAIN!" : `${p.name.toUpperCase()} PLAYS AGAIN!`;
+                } else {
+                    msg = p.name === 'You' ? "YOUR TURN" : `${p.name.toUpperCase()}'S TURN`;
+                }
+                log(msg);
                 inputLocked = false; 
                 render();
             }
         } else {
             document.getElementById('game-container').style.display = 'flex';
             inputLocked = true; 
-            log(`${p.name} IS THINKING...`);
+            log(`${p.name.toUpperCase()} IS THINKING...`);
             render();
             setTimeout(cpuTurn, 1500); 
         }
@@ -289,7 +293,7 @@
         document.getElementById('pass-screen').style.display = 'none';
         document.getElementById('game-container').style.display = 'flex';
         let p = players[currentPlayerIndex];
-        log(`${p.name}'S TURN`);
+        log(`${p.name.toUpperCase()}'S TURN`);
         inputLocked = false; 
         render();
     }
@@ -452,7 +456,7 @@
         }
         penaltyStack = 0; mustCover = false;
         
-        log(`${p.name} DREW CARDS`);
+        log(p.name === 'You' ? "YOU DREW CARDS" : `${p.name.toUpperCase()} DREW CARDS`);
         render();
         setTimeout(() => advanceTurn(1), 800); 
     }
@@ -475,7 +479,7 @@
             resolveCardEffectsAndNextTurn(card, p);
         } else {
             if (deck.length === 0 && !reshuffle()) { 
-                log(`${p.name} PASSES (DECK EMPTY)`);
+                log(`${p.name.toUpperCase()} PASSES (DECK EMPTY)`);
                 setTimeout(() => advanceTurn(1), 1000);
                 return;
             }
@@ -485,7 +489,7 @@
                 p.hand.push(deck.pop()); 
             }
             penaltyStack = 0; mustCover = false;
-            log(`${p.name} DREW CARDS`);
+            log(`${p.name.toUpperCase()} DREW CARDS`);
             render();
             setTimeout(() => advanceTurn(1), 1000);
         }
@@ -493,23 +497,28 @@
 
     function resolveCardEffectsAndNextTurn(card, p) {
         const bj = isBlackJack(card), rj = isRedJack(card);
+        let pName = p.name === 'You' ? "YOU" : p.name.toUpperCase();
         
-        if (rj && penaltyStack > 0) { penaltyStack = 0; log(`${p.name} RED JACK CANCELLED PENALTY!`); }
-        else if (card.rank === '2') { penaltyStack += 2; log(`${p.name}: +2 PENALTY!`); }
-        else if (bj) { penaltyStack += 5; log(`${p.name}: +5 BLACK JACK!`); }
+        if (rj && penaltyStack > 0) { 
+            penaltyStack = 0; 
+            log(p.name === 'You' ? "YOUR RED JACK CANCELLED THE PENALTY!" : `${pName}'S RED JACK CANCELLED THE PENALTY!`); 
+        }
+        else if (card.rank === '2') { penaltyStack += 2; log(`${pName}: +2 PENALTY!`); }
+        else if (bj) { penaltyStack += 5; log(`${pName}: +5 BLACK JACK!`); }
         
-        if (p.hand.length === 1) log(`${p.name}: LAST CARD!`);
+        if (p.hand.length === 1) log(`${pName}: LAST CARD!`);
         
         render(); 
 
         if (p.hand.length === 0) {
-            setTimeout(() => { alert(`${p.name} WINS!`); showMenu(); }, 600);
+            let winMsg = p.name === 'You' ? "YOU WIN!" : `${pName} WINS!`;
+            setTimeout(() => { alert(winMsg); showMenu(); }, 600);
             return;
         }
 
         // Action resolution
         if (card.rank === 'Q') { 
-            mustCover = true; log(`${p.name} played Queen! COVER IT!`); 
+            mustCover = true; log(`${pName} PLAYED QUEEN! COVER IT!`); 
             if(p.isHuman) inputLocked = false; 
             else setTimeout(cpuTurn, 1000); 
         }
@@ -517,17 +526,17 @@
             mustCover = false; 
             if (players.length === 2) {
                 // If only 2 players, King (Reverse) acts as a Skip so they go again
-                log(`${p.name} King! GO AGAIN!`); 
+                log(`${pName} PLAYED KING! GO AGAIN!`); 
                 if(p.isHuman) inputLocked = false; 
                 else setTimeout(cpuTurn, 1000);
             } else {
                 playDirection *= -1;
-                log(`${p.name} King! REVERSE DIRECTION!`);
+                log(`${pName} PLAYED KING! REVERSE DIRECTION!`);
                 setTimeout(() => advanceTurn(1), 1200);
             }
         }
         else if (card.rank === '8') { 
-            mustCover = false; log(`${p.name} played 8! SKIP!`); 
+            mustCover = false; log(`${pName} PLAYED 8! SKIP!`); 
             setTimeout(() => advanceTurn(2), 1200);
         }
         else if (card.rank === 'A') { 
@@ -536,7 +545,7 @@
                 document.getElementById('suit-picker').style.display = 'flex';
             } else {
                 currentSuit = suitOrderPriority[Math.floor(Math.random() * 4)]; 
-                log(`${p.name} changed suit to ${currentSuit}`);
+                log(`${pName} CHANGED SUIT TO ${currentSuit}`);
                 render();
                 setTimeout(() => advanceTurn(1), 1200);
             }
