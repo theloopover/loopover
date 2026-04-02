@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#f8fafc">
+    <title>HANGMAN • Light Edition</title>
+    <style>
+        :root {
+            --bg: oklch(0.985 0.002 260);
+            --surface: oklch(1 0 0);
+            --border: oklch(0.88 0.008 260);
+            --text: oklch(0.22 0.025 265);
+            --text-dim: oklch(0.63 0.022 255);
+            --accent: oklch(0.66 0.16 255);
+            --success: oklch(0.68 0.17 150);
+            --danger: oklch(0.60 0.20 25);
+            --warn: oklch(0.80 0.14 82);
+            --ease: cubic-bezier(0.25, 1, 0.5, 1);
+            --radius: 24px;
+            --font: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+            --shadow-sm: 0 2px 8px oklch(0 0 0 / 0.04);
+            --shadow-md: 0 8px 24px oklch(0 0 0 / 0.06);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            height: 100%; font-family: var(--font);
+            background: var(--bg); color: var(--text);
+            -webkit-font-smoothing: antialiased;
+            touch-action: manipulation; overflow: hidden;
+        }
+
+        .mesh {
+            position: fixed; inset: 0; z-index: -1;
+            background: 
+                radial-gradient(circle at 30% 30%, oklch(0.95 0.02 210), transparent 60%),
+                radial-gradient(circle at 80% 70%, oklch(0.96 0.015 170), transparent 60%),
+                linear-gradient(180deg, #fff, var(--bg));
+            opacity: 0.9;
+        }
+
+        .app {
+            width: 100%; max-width: 580px; height: 100dvh;
+            margin: 0 auto; display: flex; flex-direction: column;
+            padding: clamp(1.2rem, 4vw, 1.8rem); gap: 1rem;
+        }
+
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding-bottom: 0.8rem; border-bottom: 1px solid var(--border);
+        }
+        .logo {
+            font-size: clamp(1.5rem, 6vw, 2.1rem); font-weight: 800; text-transform: uppercase;
+            background: linear-gradient(135deg, var(--text), var(--accent));
+            -webkit-background-clip: text; background-clip: text; color: transparent; letter-spacing: -0.5px;
+        }
+        .stats { display: flex; gap: 1.2rem; text-align: right; }
+        .stat-label { font-size: 0.65rem; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1px; }
+        .stat-val { 
+            font-size: clamp(1rem, 3.5vw, 1.25rem); font-weight: 700; 
+            transition: color 0.3s var(--ease);
+            display: inline-block;
+        }
+        .stat-val.flash { animation: scorePop 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        @keyframes scorePop { 0% { transform: scale(1); } 50% { transform: scale(1.15); color: var(--warn); } 100% { transform: scale(1); } }
+
+        .screen {
+            position: absolute; inset: 0; padding: 1rem;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: transparent; opacity: 0; pointer-events: none; gap: 1.2rem;
+            transition: opacity 0.35s var(--ease), transform 0.35s var(--ease);
+            transform: scale(0.98);
+        }
+        .screen.active { opacity: 1; pointer-events: auto; position: relative; transform: scale(1); }
+
+        #menu h2 { color: var(--text-dim); margin-bottom: 0.5rem; font-weight: 500; text-align: center; font-size: 1.1rem; }
+        .diff-grid { display: grid; gap: 0.8rem; width: 100%; max-width: 320px; }
+        .diff-btn {
+            padding: 1rem; background: var(--surface); border: 1px solid var(--border);
+            border-radius: var(--radius); color: var(--text); font-weight: 600; cursor: pointer;
+            box-shadow: var(--shadow-sm); transition: all 0.2s var(--ease); text-align: left;
+        }
+        .diff-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--accent); }
+        .diff-btn.active { background: var(--accent); color: #fff; border-color: transparent; box-shadow: 0 8px 20px oklch(0.6 0.15 250 / 0.25); }
+        .diff-btn small { display: block; font-size: 0.75rem; font-weight: 400; opacity: 0.8; margin-top: 4px; }
+
+        .hangman-wrap {
+            width: clamp(140px, 30vw, 170px); height: auto; margin-bottom: 0.5rem;
+            filter: drop-shadow(var(--shadow-sm)); display: block; margin: 0 auto;
+        }
+        svg line, svg circle {
+            stroke: oklch(0.83 0.01 260); stroke-width: 3.5; stroke-linecap: round; fill: none;
+            transition: stroke 0.3s var(--ease), opacity 0.3s var(--ease); opacity: 0;
+        }
+        svg line.active, svg circle.active { opacity: 1; stroke: var(--danger); }
+
+        .progress-bar {
+            width: 100%; height: 5px; background: var(--border); border-radius: 4px; overflow: hidden; margin-bottom: 0.8rem;
+        }
+        .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.4s var(--ease); }
+
+        .word-area {
+            display: flex; justify-content: center; gap: 0.6rem; flex-wrap: wrap;
+            width: 100%; padding: 0.5rem 0.2rem; min-height: 72px;
+        }
+        .tile {
+            width: clamp(2.6rem, 11vw, 3.4rem); height: clamp(3.8rem, 15vw, 4.6rem);
+            display: flex; align-items: center; justify-content: center;
+            font-size: clamp(1.5rem, 7vw, 1.9rem); font-weight: 800;
+            color: var(--text-dim); border-bottom: 3px solid var(--border);
+            border-radius: 10px 10px 0 0; background: oklch(1 0 0 / 0.6);
+            transition: all 0.35s var(--ease); position: relative;
+        }
+        .tile .char { display: block; opacity: 0; transform: translateY(10px); transition: all 0.2s var(--ease); }
+        .tile.revealed { border-color: var(--accent); background: oklch(0.94 0.04 255 / 0.8); transform: translateY(-2px); }
+        .tile .char.show { opacity: 1; transform: translateY(0); color: var(--accent); }
+        .tile.missed .char.show { color: var(--danger); }
+        .tile.space { border: none; width: 0.8rem; background: transparent; }
+
+        .controls { display: flex; gap: 0.6rem; justify-content: center; width: 100%; margin-top: 0.2rem; }
+        .btn-ghost {
+            padding: 0.6rem 1rem; background: var(--surface); border: 1px solid var(--border);
+            border-radius: 12px; color: var(--text-dim); font-weight: 600; cursor: pointer;
+            transition: all 0.2s var(--ease); font-size: 0.9rem; box-shadow: var(--shadow-sm);
+        }
+        .btn-ghost:hover:not(:disabled) { border-color: var(--warn); color: var(--warn); transform: translateY(-1px); }
+        .btn-ghost:disabled { opacity: 0.35; cursor: not-allowed; }
+        .hint-cost { margin-left: 4px; font-size: 0.75rem; background: oklch(0.85 0.01 85 / 0.2); padding: 1px 5px; border-radius: 6px; }
+
+        .keyboard { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.5rem; width: 100%; }
+        .row { display: flex; justify-content: center; gap: 0.35rem; }
+        .key {
+            flex: 1; min-width: 38px; min-height: 42px; max-width: 42px;
+            background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+            color: var(--text); font-weight: 700; cursor: pointer; font-size: 0.95rem;
+            transition: all 0.18s var(--ease); box-shadow: var(--shadow-sm);
+            user-select: none; display: grid; place-items: center;
+        }
+        .key:hover:not(:disabled) { background: #f0f2f5; transform: translateY(-1px); }
+        .key:active:not(:disabled) { transform: translateY(1px); box-shadow: none; }
+        .key.correct { background: var(--success); color: #fff; border-color: var(--success); box-shadow: none; }
+        .key.wrong { background: oklch(0.92 0.02 25); color: var(--danger); border-color: var(--danger); opacity: 0.8; }
+
+        .meta-text { text-align: center; font-size: 0.8rem; color: var(--text-dim); font-weight: 500; margin-top: 0.4rem; letter-spacing: 0.5px; }
+        .message { font-size: 1.1rem; font-weight: 700; text-align: center; margin-top: auto; padding-top: 1.5rem; }
+        .message.win { color: var(--success); }
+        .message.lose { color: var(--danger); }
+
+        .actions { width: 100%; display: flex; justify-content: center; margin-top: 0.5rem; }
+        .btn-primary {
+            width: 100%; padding: 0.85rem; background: var(--accent); color: #fff;
+            font-weight: 700; font-size: 1rem; border: none; border-radius: 14px; cursor: pointer;
+            box-shadow: 0 6px 18px oklch(0.6 0.14 250 / 0.2); transition: all 0.25s var(--ease);
+        }
+        .btn-primary:hover { transform: translateY(-2px); filter: brightness(1.05); }
+        .btn-primary:active { transform: translateY(0); }
+
+        @media (max-width: 420px) {
+            .key { min-height: 40px; font-size: 0.9rem; }
+            .tile { width: clamp(2.2rem, 14vw, 2.8rem); height: clamp(3.4rem, 18vw, 4rem); }
+        }
+    </style>
+</head>
+<body>
+    <div class="mesh"></div>
+    <main class="app">
+        <header>
+            <h1 class="logo">HANGMAN</h1>
+            <div class="stats">
+                <div><div class="stat-label">Score</div><div id="score" class="stat-val">1000</div></div>
+                <div><div class="stat-label">Best</div><div id="best" class="stat-val">0</div></div>
+            </div>
+        </header>
+
+        <section id="screen-menu" class="screen active">
+            <h2>Select Difficulty</h2>
+            <div class="diff-grid">
+                <button class="diff-btn" data-mode="easy">Easy <small>3–5 letters • Friendly</small></button>
+                <button class="diff-btn" data-mode="medium">Medium <small>6–8 letters • Balanced</small></button>
+                <button class="diff-btn" data-mode="hard">Hard <small>9+ letters • Challenging</small></button>
+            </div>
+        </section>
+
+        <section id="screen-game" class="screen">
+            <svg class="hangman-wrap" viewBox="0 0 100 130" aria-hidden="true">
+                <line x1="10" y1="120" x2="90" y2="120" />
+                <line x1="30" y1="120" x2="30" y2="20" />
+                <line x1="30" y1="20" x2="70" y2="20" />
+                <line x1="70" y1="20" x2="70" y2="35" />
+                <circle id="p-head" cx="70" cy="50" r="12" />
+                <line id="p-body" x1="70" y1="62" x2="70" y2="92" />
+                <line id="p-l-arm" x1="70" y1="72" x2="48" y2="88" />
+                <line id="p-r-arm" x1="70" y1="72" x2="92" y2="88" />
+                <line id="p-l-leg" x1="70" y1="92" x2="48" y2="115" />
+                <line id="p-r-leg" x1="70" y1="92" x2="92" y2="115" />
+            </svg>
+
+            <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+            <div id="word-area" class="word-area" aria-live="polite"></div>
+
+            <div class="controls">
+                <button id="hint-btn" class="btn-ghost">💡 Hint <span class="hint-cost" id="hint-cost">-250</span></button>
+            </div>
+            <div class="meta-text" id="progress-text">0 / 0 LETTERS GUESSED</div>
+
+            <div id="kb" class="keyboard"></div>
+            <div id="msg" class="message"></div>
+            <div class="actions"><button id="reset-btn" class="btn-primary">Back to Menu</button></div>
+        </section>
+    </main>
+
+    <script>
+        (() => {
+            'use strict';
+            const DICT = {
+                easy: ["APPLE","WATER","HOUSE","TREE","BREAD","DANCE","LIGHT","NIGHT","PHONE","SMILE","TRAIN","BEACH","CLOUD","MUSIC","PAPER","RIVER","SHIRT","SLEEP","STONE","TABLE","WATCH","WRITE","FROG","BIRD","CAKE","PLANT","SWORD","GLOVE","FLAME","CROWD"],
+                medium: ["BRIDGE","CAMERA","FOREST","GARDEN","ISLAND","JUNGLE","ORANGE","PAINT","QUEEN","RABBIT","SUMMER","TEACH","VILLA","WINTER","YOUTH","BALCON","CANYON","DOLPH","ELEPH","FROZEN","HOTEL","INSECT","JEWEL","KITTEN","LEMON","MIRRO","NOVEL","PENCIL","SCENE","TIGER"],
+                hard: ["ADVENTURE","BEAUTIFUL","CHALLENGE","DISCOVERY","EVERYDAY","FEATHER","HARMONY","IMAGINE","JOURNEY","KNOWLEDGE","LAUGHTER","MYSTERY","NATURE","PERMIT","RESERVE","STATION","TRIUMPH","UNIFIED","VACATION","WANDER","ARCHERY","BALANCE","CIPHER","DELTA","EQUITY","FRAGMENT","GLACIER","HORIZON","INSPIRE","JUXTAPOSE"]
+            };
+
+            const S = {
+                mode: 'medium',
+                word: '',
+                guessed: new Set(),
+                mistakes: 0,
+                maxMist: 6,
+                score: 1000,
+                hintCost: 250,
+                gameOver: false,
+                highScores: JSON.parse(localStorage.getItem('hngmn_hs') || '{"easy":0,"medium":0,"hard":0}')
+            };
+
+            const $ = s => document.querySelector(s);
+            const DOM = {
+                menu: $('#screen-menu'), game: $('#screen-game'),
+                score: $('#score'), best: $('#best'),
+                diffBtns: document.querySelectorAll('.diff-btn'),
+                parts: document.querySelectorAll('svg line, svg circle'),
+                wordArea: $('#word-area'), progressFill: $('#progress'), progressText: $('#progress-text'),
+                hintBtn: $('#hint-btn'), kb: $('#kb'), msg: $('#msg'), resetBtn: $('#reset-btn')
+            };
+
+            function init() {
+                DOM.diffBtns.forEach(b => b.addEventListener('click', () => startGame(b.dataset.mode)));
+                DOM.resetBtn.addEventListener('click', () => {
+                    DOM.game.classList.remove('active');
+                    setTimeout(() => DOM.menu.classList.add('active'), 50);
+                });
+                DOM.hintBtn.addEventListener('click', useHint);
+                document.addEventListener('keydown', handlePhysical);
+                updateScoreUI();
+            }
+
+            function startGame(mode) {
+                S.mode = mode;
+                S.word = DICT[mode][Math.floor(Math.random() * DICT[mode].length)];
+                S.guessed.clear();
+                S.mistakes = 0;
+                S.gameOver = false;
+                S.score = 1000; // Hard reset every game
+
+                DOM.parts.forEach(p => { p.classList.remove('active'); });
+                buildWordUI();
+                buildKeyboard();
+                updateScoreUI();
+
+                DOM.menu.classList.remove('active');
+                DOM.game.classList.add('active');
+            }
+
+            function buildWordUI() {
+                DOM.wordArea.innerHTML = '';
+                [...S.word].forEach(char => {
+                    const t = document.createElement('div');
+                    t.className = `tile ${char === ' ' ? 'space' : ''}`;
+                    t.innerHTML = `<span class="char">${char === ' ' ? '' : '_'}</span>`;
+                    t.dataset.char = char;
+                    DOM.wordArea.appendChild(t);
+                });
+                updateProgress();
+            }
+
+            function buildKeyboard() {
+                DOM.kb.innerHTML = '';
+                const frag = document.createDocumentFragment();
+                ['QWERTYUIOP','ASDFGHJKL','ZXCVBNM'].forEach(r => {
+                    const row = document.createElement('div'); row.className = 'row';
+                    [...r].forEach(k => {
+                        const b = document.createElement('button');
+                        b.className = 'key'; b.textContent = k; b.dataset.key = k;
+                        b.onclick = () => guess(k);
+                        row.appendChild(b);
+                    });
+                    frag.appendChild(row);
+                });
+                DOM.kb.appendChild(frag);
+                DOM.hintBtn.disabled = false;
+                DOM.msg.textContent = ''; DOM.msg.className = 'message';
+            }
+
+            function guess(letter) {
+                if (S.gameOver || S.guessed.has(letter)) return;
+                S.guessed.add(letter);
+                const btn = DOM.kb.querySelector(`[data-key="${letter}"]`);
+                if (!btn) return;
+
+                btn.disabled = true;
+                if (S.word.includes(letter)) {
+                    btn.classList.add('correct');
+                    revealLetter(letter);
+                    if (checkWin()) finish(true);
+                } else {
+                    btn.classList.add('wrong');
+                    S.mistakes++;
+                    DOM.parts[S.mistakes - 1]?.classList.add('active');
+                    S.score = Math.max(0, S.score - (S.mode === 'hard' ? 200 : 150));
+                    updateScoreUI();
+                    if (S.mistakes >= S.maxMist) finish(false);
+                }
+                updateProgress();
+                updateHintState();
+            }
+
+            function revealLetter(l) {
+                DOM.wordArea.querySelectorAll('.tile').forEach(t => {
+                    if (t.dataset.char === l) {
+                        setTimeout(() => {
+                            const span = t.querySelector('.char');
+                            span.textContent = l;
+                            span.classList.add('show');
+                            t.classList.add('revealed');
+                            updateProgress();
+                        }, 30);
+                    }
+                });
+            }
+
+            function useHint() {
+                if (S.gameOver || S.score < S.hintCost) return;
+                const pool = S.word.split('').filter(c => c !== ' ' && !S.guessed.has(c));
+                if (!pool.length) return;
+
+                S.score -= S.hintCost;
+                updateScoreUI();
+                const pick = pool[Math.floor(Math.random() * pool.length)];
+                S.guessed.add(pick);
+                const btn = DOM.kb.querySelector(`[data-key="${pick}"]`);
+                if (btn) { btn.classList.add('correct'); btn.disabled = true; }
+                revealLetter(pick);
+                updateHintState();
+                if (checkWin()) finish(true);
+            }
+
+            function checkWin() { return S.word.split('').every(c => c === ' ' || S.guessed.has(c)); }
+
+            function finish(won) {
+                S.gameOver = true;
+                DOM.kb.querySelectorAll('.key').forEach(k => k.disabled = true);
+
+                if (won) {
+                    const mult = S.mode === 'hard' ? 2.5 : S.mode === 'medium' ? 1.6 : 1;
+                    const bonus = Math.floor(500 * mult);
+                    S.score += bonus;
+                    DOM.msg.textContent = `🌟 GUESSED IT! (+${bonus})`;
+                    DOM.msg.classList.add('win');
+                    spawnConfetti();
+                } else {
+                    DOM.wordArea.querySelectorAll('.tile').forEach((t, i) => {
+                        setTimeout(() => {
+                            const span = t.querySelector('.char');
+                            if (!span.classList.contains('show')) {
+                                span.textContent = t.dataset.char;
+                                span.classList.add('show');
+                                t.classList.add('revealed', 'missed');
+                            }
+                        }, i * 45);
+                    });
+                    DOM.msg.textContent = '💀 GAME OVER';
+                    DOM.msg.classList.add('lose');
+                }
+
+                updateScoreUI();
+                saveHighScore();
+            }
+
+            function saveHighScore() {
+                const prev = S.highScores[S.mode] || 0;
+                if (S.score > prev) {
+                    S.highScores[S.mode] = S.score;
+                    localStorage.setItem('hngmn_hs', JSON.stringify(S.highScores));
+                }
+            }
+
+            function updateScoreUI() {
+                DOM.score.textContent = S.score.toLocaleString();
+                DOM.best.textContent = (S.highScores[S.mode] || 0).toLocaleString();
+                DOM.score.classList.add('flash');
+                setTimeout(() => DOM.score.classList.remove('flash'), 300);
+                DOM.hintBtn.disabled = S.gameOver || S.score < S.hintCost;
+                DOM.hintBtn.style.opacity = (S.gameOver || S.score < S.hintCost) ? '0.35' : '1';
+            }
+
+            function updateProgress() {
+                const total = S.word.replace(/\s/g, '').length;
+                const guessed = S.word.split('').filter(c => c !== ' ' && S.guessed.has(c)).length;
+                DOM.progressFill.style.width = `${total > 0 ? (guessed / total) * 100 : 0}%`;
+                DOM.progressText.textContent = `${guessed} / ${total} LETTERS GUESSED`;
+            }
+
+            function updateHintState() { updateProgress(); }
+            function handlePhysical(e) {
+                if (S.gameOver || e.ctrlKey || e.metaKey || e.altKey) return;
+                const k = e.key.toUpperCase();
+                if (/^[A-Z]$/.test(k)) guess(k);
+            }
+
+            function spawnConfetti() {
+                const el = document.createElement('div');
+                el.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:999;';
+                const colors = ['#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444'];
+                for(let i=0; i<40; i++){
+                    const p = document.createElement('div');
+                    p.innerHTML = '✨';
+                    p.style.cssText = `position:absolute;left:${Math.random()*100}%;top:-10px;color:${colors[i%5]};font-size:${10+Math.random()*6}px;animation:fall ${1.1+Math.random()*0.4}s ${Math.random()*0.3}s forwards`;
+                    el.appendChild(p);
+                }
+                document.body.appendChild(el); setTimeout(()=>el.remove(), 2500);
+            }
+            if (!document.getElementById('fall-anim')) {
+                const s = document.createElement('style'); s.id = 'fall-anim';
+                s.textContent = `@keyframes fall { 0%{transform:translateY(0) rotate(0);opacity:1} 100%{transform:translateY(105vh) rotate(360deg);opacity:0} }`;
+                document.head.appendChild(s);
+            }
+
+            init();
+        })();
+    </script>
+</body>
+</html>
