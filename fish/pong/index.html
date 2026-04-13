@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classic HTML Pong</title>
+    <style>
+        /* --- CSS STYLING --- */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #222; /* Dark background for retro feel */
+            font-family: 'Arial', sans-serif;
+        }
+
+        #gameCanvas {
+            border: 4px solid white; /* The classic screen border */
+            background-color: #000; /* Black playing field */
+            display: block;
+        }
+
+        h1 {
+            color: white;
+            position: absolute;
+            top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>PONG</h1>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <script>
+        // =========================================
+        // --- JAVASCRIPT GAME LOGIC ---
+        // =========================================
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game Constants
+        const PADDLE_WIDTH = 15;
+        const PADDLE_HEIGHT = 100;
+        const BALL_RADIUS = 8;
+        const GAME_SPEED = 6; // Base speed for ball movement
+
+        // Player Objects (Left Paddle)
+        let player = {
+            x: 20,
+            y: canvas.height / 2 - PADDLE_HEIGHT / 2,
+            width: PADDLE_WIDTH,
+            height: PADDLE_HEIGHT,
+            score: 0,
+            dy: 0 // Vertical movement speed controlled by keys
+        };
+
+        // AI Object (Right Paddle)
+        let ai = {
+            x: canvas.width - 20 - PADDLE_WIDTH,
+            y: canvas.height / 2 - PADDLE_HEIGHT / 2,
+            width: PADDLE_WIDTH,
+            height: PADDLE_HEIGHT,
+            score: 0,
+            speed: GAME_SPEED * 0.9 // AI is slightly slower than the ball base speed
+        };
+
+        // Ball Object
+        let ball = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: BALL_RADIUS,
+            speedX: GAME_SPEED * (Math.random() > 0.5 ? 1 : -1), // Start moving randomly left or right
+            speedY: GAME_SPEED * (Math.random() > 0.5 ? 1 : -1)  // Start moving up or down
+        };
+
+        // --- INPUT HANDLING ---
+        let keysPressed = {};
+
+        document.addEventListener('keydown', (e) => {
+            keysPressed[e.code] = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keysPressed[e.code] = false;
+        });
+
+
+        // --- DRAWING FUNCTIONS ---
+
+        function drawRect(x, y, w, h, color = 'white') {
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, w, h);
+        }
+
+        function drawCircle(x, y, r, color = 'white') {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2, false);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function drawText(text, x, y, size = 40) {
+            ctx.fillStyle = 'white';
+            ctx.font = `${size}px Arial`;
+            ctx.fillText(text, x, y);
+        }
+
+
+        // --- GAME LOGIC FUNCTIONS ---
+
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            
+            // Reverse direction and give a slight random vertical nudge
+            ball.speedX *= -1; 
+            ball.speedY = (Math.random() * 4) - 2; // Small vertical change
+        }
+
+        function updatePlayerMovement() {
+            player.dy = 0;
+            if (keysPressed['ArrowUp'] || keysPressed['KeyW']) {
+                player.dy = -GAME_SPEED;
+            }
+            if (keysPressed['ArrowDown'] || keysPressed['KeyS']) {
+                player.dy = GAME_SPEED;
+            }
+
+            // Apply movement and keep paddle within bounds
+            player.y += player.dy;
+            if (player.y < 0) player.y = 0;
+            if (player.y + PADDLE_HEIGHT > canvas.height) {
+                player.y = canvas.height - PADDLE_HEIGHT;
+            }
+        }
+
+        function updateAIMovement() {
+            // Simple AI: follow the ball's Y position, but with smoothing/lag
+            let targetY = ball.y - ai.height / 2;
+            
+            // Move towards target at a controlled speed
+            if (ai.y < targetY) {
+                ai.y += Math.min(ai.speed, targetY - ai.y);
+            } else if (ai.y > targetY) {
+                ai.y -= Math.min(ai.speed, ai.y - targetY);
+            }
+
+            // Keep AI paddle within bounds
+            if (ai.y < 0) ai.y = 0;
+            if (ai.y + PADDLE_HEIGHT > canvas.height) {
+                ai.y = canvas.height - PADDLE_HEIGHT;
+            }
+        }
+
+        function updateBall() {
+            // Move the ball
+            ball.x += ball.speedX;
+            ball.y += ball.speedY;
+
+            // 1. Wall Collision (Top/Bottom)
+            if (ball.y + ball.radius > canvas.height || ball.y - ball.radius < 0) {
+                ball.speedY *= -1; // Reverse vertical direction
+            }
+
+            // 2. Paddle Collision Check (Player Left)
+            if (ball.x - ball.radius < player.x + player.width && 
+                ball.y > player.y && 
+                ball.y < player.y + PADDLE_HEIGHT && 
+                ball.speedX < 0) { // Only check if moving towards the paddle
+                
+                ball.speedX *= -1.05; // Reverse and slightly increase speed (for difficulty)
+
+                // Calculate where the ball hit relative to the center of the paddle (-1=top, 0=center, 1=bottom)
+                let relativeIntersectY = (player.y + PADDLE_HEIGHT / 2) - ball.y;
+                let normalizedRelativeIntersectionY = relativeIntersectY / (PADDLE_HEIGHT / 2);
+                
+                // Adjust vertical speed based on hit location (more extreme hits result in more angle)
+                ball.speedY = -normalizedRelativeIntersectionY * GAME_SPEED * 1.5;
+            }
+
+            // 3. Paddle Collision Check (AI Right)
+            if (ball.x + ball.radius > ai.x && 
+                ball.y > ai.y && 
+                ball.y < ai.y + PADDLE_HEIGHT && 
+                ball.speedX > 0) { // Only check if moving towards the paddle
+                
+                ball.speedX *= -1.05; // Reverse and slightly increase speed
+
+                // Calculate hit location for AI angle adjustment
+                let relativeIntersectY = (ai.y + PADDLE_HEIGHT / 2) - ball.y;
+                let normalizedRelativeIntersectionY = relativeIntersectY / (PADDLE_HEIGHT / 2);
+                ball.speedY = -normalizedRelativeIntersectionY * GAME_SPEED * 1.5;
+            }
+
+
+            // 4. Scoring Check (Ball goes past paddles)
+            if (ball.x < 0) {
+                ai.score++; // AI scores on player miss
+                resetBall();
+            } else if (ball.x > canvas.width) {
+                player.score++; // Player scores on AI miss
+                resetBall();
+            }
+        }
+
+        // --- MAIN GAME LOOP ---
+
+        function gameLoop() {
+            // 1. Clear the screen
+            drawRect(0, 0, canvas.width, canvas.height, '#000');
+
+            // 2. Update positions and logic
+            updatePlayerMovement();
+            updateAIMovement();
+            updateBall();
+
+            // 3. Draw elements
+            // Center line (optional)
+            for(let i = 0; i < canvas.height; i += 40) {
+                drawRect(canvas.width / 2 - 1, i, 2, 20);
+            }
+
+            // Draw Paddles and Ball
+            drawRect(player.x, player.y, PADDLE_WIDTH, PADDLE_HEIGHT); // Player Paddle
+            drawRect(ai.x, ai.y, PADDLE_WIDTH, PADDLE_HEIGHT);       // AI Paddle
+            drawCircle(ball.x, ball.y, ball.radius);                   // Ball
+
+            // Draw Scores
+            drawText(player.score, canvas.width / 4, 50);
+            drawText(ai.score, 3 * canvas.width / 4, 50);
+
+
+            // Request the next frame for smooth animation
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game!
+        resetBall(); // Initialize ball position and direction
+        gameLoop();  // Begin the rendering loop
+    </script>
+</body>
+</html>
