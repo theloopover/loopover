@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DBZ: TOONAMI TOURNAMENT</title>
+    <style>
+        :root {
+            --orange: #ff6a00;
+            --blue: #00e5ff;
+            --red: #ff2e2e;
+            --dark: #050505;
+            --panel: #1a1a1a;
+        }
+
+        body {
+            background-color: #000;
+            background-image: radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 40px),
+                              radial-gradient(white, rgba(255,255,255,.1) 1px, transparent 30px);
+            background-size: 550px 550px, 350px 350px;
+            color: #eee;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* Scanline Overlay for Retro Feel */
+        body::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 1000;
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+        }
+
+        #game-box {
+            width: 900px;
+            background: var(--dark);
+            border: 4px solid #333;
+            border-top: 4px solid var(--orange);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 0 50px rgba(0,0,0,1);
+        }
+
+        /* --- HUD --- */
+        #hud {
+            display: flex;
+            justify-content: space-between;
+            padding: 20px;
+            background: linear-gradient(to bottom, #222, #000);
+            border-bottom: 2px solid var(--orange);
+        }
+
+        .stat-group { width: 45%; }
+        .label { font-size: 12px; font-weight: bold; color: var(--orange); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 2px; }
+        
+        .bar-outer { background: #222; height: 12px; border: 1px solid #444; margin-bottom: 8px; border-radius: 2px; overflow: hidden; }
+        .bar-inner { height: 100%; width: 100%; transition: width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .hp { background: linear-gradient(90deg, #2ecc71, #27ae60); }
+        .ki { background: linear-gradient(90deg, var(--blue), #0097a7); width: 0%; }
+
+        /* --- STAGE --- */
+        #arena {
+            height: 400px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            background: url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
+            position: relative;
+        }
+
+        .sector {
+            border: 1px solid rgba(255, 106, 0, 0.05);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: 0.3s;
+        }
+        .sector:hover { background: rgba(255, 106, 0, 0.1); cursor: pointer; }
+        .sector.active-target { background: rgba(255, 106, 0, 0.2); border: 1px solid var(--orange); }
+
+        /* --- FIGHTERS --- */
+        .character {
+            width: 80px;
+            height: 100px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease;
+            z-index: 5;
+        }
+
+        .aura {
+            position: absolute;
+            width: 100px;
+            height: 120px;
+            border-radius: 50%;
+            filter: blur(15px);
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        #p-sprite { background: var(--blue); border-radius: 5px; box-shadow: 0 0 20px var(--blue); }
+        #c-sprite { background: var(--red); border-radius: 5px; box-shadow: 0 0 20px var(--red); }
+        
+        .charging .aura { opacity: 0.6; animation: pulse 0.5s infinite alternate; }
+        @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.2); } }
+
+        /* --- CONTROLS --- */
+        #ui-tray {
+            height: 140px;
+            background: #111;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            padding: 10px;
+            gap: 10px;
+        }
+
+        .btn-grid { display: grid; grid-template-columns: 1fr; gap: 5px; }
+        button {
+            background: #222;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 10px;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 1px;
+            cursor: pointer;
+        }
+        button:hover:not(:disabled) { background: var(--orange); color: #000; border-color: #fff; }
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
+        
+        #console {
+            background: #000;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #0f0;
+            overflow-y: auto;
+            border: 1px solid #333;
+        }
+
+        /* --- OVERLAY --- */
+        #screen-mask {
+            position: absolute; inset: 0;
+            background: rgba(0,0,0,0.9);
+            display: none; flex-direction: column;
+            justify-content: center; align-items: center;
+            z-index: 2000;
+        }
+
+        .shake { animation: shake-anim 0.3s; }
+        @keyframes shake-anim {
+            0% { transform: translate(0,0); }
+            25% { transform: translate(5px, 5px); }
+            50% { transform: translate(-5px, -5px); }
+            75% { transform: translate(5px, -5px); }
+            100% { transform: translate(0,0); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-box">
+    <div id="screen-mask">
+        <h1 id="end-title" style="font-size: 4rem; margin: 0;"></h1>
+        <button onclick="resetGame()" style="padding: 20px 40px; margin-top: 20px;">REDEPLOY</button>
+    </div>
+
+    <div id="hud">
+        <div class="stat-group">
+            <div class="label">User_Node: Goku</div>
+            <div class="bar-outer"><div id="p-hp-bar" class="bar-inner hp"></div></div>
+            <div class="bar-outer"><div id="p-ki-bar" class="bar-inner ki"></div></div>
+        </div>
+        <div class="stat-group" style="text-align: right;">
+            <div class="label">System_AI: Vegeta</div>
+            <div class="bar-outer"><div id="c-hp-bar" class="bar-inner hp"></div></div>
+            <div class="bar-outer"><div id="c-ki-bar" class="bar-inner ki"></div></div>
+        </div>
+    </div>
+
+    <div id="arena">
+        <div class="sector" id="s0" onclick="handleSectorClick(0)"></div>
+        <div class="sector" id="s1" onclick="handleSectorClick(1)"></div>
+        <div class="sector" id="s2" onclick="handleSectorClick(2)"></div>
+        <div class="sector" id="s3" onclick="handleSectorClick(3)"></div>
+        
+        <div id="p-sprite" class="character"><div class="aura" style="background: var(--blue);"></div><small>P1</small></div>
+        <div id="c-sprite" class="character"><div class="aura" style="background: var(--red);"></div><small>CPU</small></div>
+    </div>
+
+    <div id="ui-tray">
+        <div class="btn-grid">
+            <button id="atk-btn" onclick="executeTurn('attack')">Strike</button>
+            <button id="chg-btn" onclick="executeTurn('charge')">Charge Ki</button>
+            <button id="spc-btn" onclick="executeTurn('special')" disabled>Special Beam</button>
+        </div>
+        <div id="console"></div>
+    </div>
+</div>
+
+<script>
+    // Game State
+    let p1 = { hp: 100, ki: 0, pos: 2 };
+    let cpu = { hp: 100, ki: 0, pos: 3 };
+    let targetPos = 2;
+    let busy = false;
+
+    const log = document.getElementById('console');
+
+    function writeLog(txt, color = "#0f0") {
+        const entry = document.createElement('div');
+        entry.style.color = color;
+        entry.innerHTML = `> ${txt}`;
+        log.prepend(entry);
+    }
+
+    function handleSectorClick(idx) {
+        if (busy) return;
+        targetPos = idx;
+        document.querySelectorAll('.sector').forEach(s => s.classList.remove('active-target'));
+        document.getElementById(`s${idx}`).classList.add('active-target');
+        writeLog(`Targeting Sector 0${idx}...`);
+    }
+
+    function moveEntity(id, posIdx) {
+        const sector = document.getElementById(`s${posIdx}`);
+        const sprite = document.getElementById(id);
+        sector.appendChild(sprite);
+    }
+
+    async function executeTurn(pAction) {
+        if (busy) return;
+        busy = true;
+
+        // 1. CPU Decides
+        let cAction = 'attack';
+        let cTarget = Math.floor(Math.random() * 4);
+        if (cpu.ki >= 100) cAction = 'special';
+        else if (cpu.ki < 40 && Math.random() > 0.5) cAction = 'charge';
+
+        // 2. Animation Phase
+        p1.pos = targetPos;
+        cpu.pos = cTarget;
+        
+        moveEntity('p-sprite', p1.pos);
+        moveEntity('c-sprite', cpu.pos);
+
+        if(pAction === 'charge') document.getElementById('p-sprite').classList.add('charging');
+        if(cAction === 'charge') document.getElementById('c-sprite').classList.add('charging');
+
+        await new Promise(r => setTimeout(r, 600));
+
+        // 3. Logic Phase
+        let pLand = (pAction === 'attack' || pAction === 'special') && p1.pos === cpu.pos;
+        let cLand = (cAction === 'attack' || cAction === 'special') && cpu.pos === p1.pos;
+
+        // Player Impact
+        if (pAction === 'charge') {
+            p1.ki = Math.min(100, p1.ki + 40);
+        } else if (pLand) {
+            let dmg = pAction === 'special' ? 50 : 15;
+            cpu.hp -= dmg;
+            if(pAction === 'special') p1.ki = 0;
+            writeLog(`CRITICAL: Player hit CPU for ${dmg}!`, "#00e5ff");
+            triggerEffect('c-sprite');
+        } else {
+            p1.ki = Math.min(100, p1.ki + 10);
+            if(pAction === 'special') p1.ki = 0;
+        }
+
+        // CPU Impact
+        if (cAction === 'charge') {
+            cpu.ki = Math.min(100, cpu.ki + 40);
+        } else if (cLand) {
+            let dmg = cAction === 'special' ? 50 : 15;
+            p1.hp -= dmg;
+            if(cAction === 'special') cpu.ki = 0;
+            writeLog(`WARNING: CPU hit Player for ${dmg}!`, "#ff2e2e");
+            triggerEffect('p-sprite');
+            triggerEffect('game-box');
+        } else {
+            cpu.ki = Math.min(100, cpu.ki + 10);
+            if(cAction === 'special') cpu.ki = 0;
+        }
+
+        // 4. Cleanup
+        document.getElementById('p-sprite').classList.remove('charging');
+        document.getElementById('c-sprite').classList.remove('charging');
+        updateBars();
+        
+        if (p1.hp <= 0 || cpu.hp <= 0) {
+            endMatch();
+        } else {
+            busy = false;
+        }
+    }
+
+    function updateBars() {
+        document.getElementById('p-hp-bar').style.width = p1.hp + "%";
+        document.getElementById('p-ki-bar').style.width = p1.ki + "%";
+        document.getElementById('c-hp-bar').style.width = cpu.hp + "%";
+        document.getElementById('c-ki-bar').style.width = cpu.ki + "%";
+        document.getElementById('spc-btn').disabled = p1.ki < 100;
+    }
+
+    function triggerEffect(id) {
+        const el = document.getElementById(id);
+        el.classList.add('shake');
+        setTimeout(() => el.classList.remove('shake'), 300);
+    }
+
+    function endMatch() {
+        const mask = document.getElementById('screen-mask');
+        const title = document.getElementById('end-title');
+        mask.style.display = 'flex';
+        if (p1.hp <= 0) {
+            title.innerText = "SYSTEM FAILURE";
+            title.style.color = "#ff2e2e";
+        } else {
+            title.innerText = "THREAT NEUTRALIZED";
+            title.style.color = "#ff6a00";
+        }
+    }
+
+    function resetGame() {
+        p1 = { hp: 100, ki: 0, pos: 2 };
+        cpu = { hp: 100, ki: 0, pos: 3 };
+        targetPos = 2;
+        busy = false;
+        document.getElementById('screen-mask').style.display = 'none';
+        log.innerHTML = "";
+        updateBars();
+        moveEntity('p-sprite', 2);
+        moveEntity('c-sprite', 3);
+        writeLog("System rebooted. Awaiting input...");
+    }
+
+    // Initialize
+    moveEntity('p-sprite', 2);
+    moveEntity('c-sprite', 3);
+    writeLog("Toonami Battle Systems Online...");
+</script>
+
+</body>
+</html>
