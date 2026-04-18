@@ -1,0 +1,1621 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>DBZ Tournament</title>
+        <style>
+            @import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;700&display=swap");
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            :root {
+                --orange: #ff8c00;
+                --gold: #ffd700;
+                --blue: #3af;
+                --green: #4f4;
+                --purple: #c06fff;
+                --red: #ff3333;
+                --dark: #060810;
+                --dark2: #0e1220;
+                --border: rgba(255, 140, 0, 0.25);
+            }
+            body {
+                background: var(--dark);
+                color: #fff;
+                font-family: "Rajdhani", sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                overflow: hidden;
+                background-image: radial-gradient(
+                    ellipse at 50% 0%,
+                    rgba(255, 100, 0, 0.07) 0%,
+                    transparent 70%
+                );
+            }
+            #game {
+                width: 460px;
+                position: relative;
+                box-shadow: 0 0 60px rgba(255, 140, 0, 0.12);
+            }
+            .screen {
+                display: none;
+                flex-direction: column;
+                align-items: center;
+                width: 100%;
+            }
+            .screen.active {
+                display: flex;
+            }
+
+            /* ── BUTTONS ── */
+            .btn {
+                font-family: "Orbitron", sans-serif;
+                font-size: 11px;
+                letter-spacing: 2px;
+                padding: 10px 22px;
+                border: 1px solid;
+                background: transparent;
+                cursor: pointer;
+                transition: all 0.18s;
+                text-transform: uppercase;
+                color: #fff;
+            }
+            .btn-o {
+                border-color: var(--orange);
+                color: var(--orange);
+            }
+            .btn-o:hover,
+            .btn-o.sel {
+                background: var(--orange);
+                color: #000;
+                box-shadow: 0 0 14px var(--orange);
+            }
+            .btn-g {
+                border-color: var(--green);
+                color: var(--green);
+            }
+            .btn-g:hover,
+            .btn-g.sel {
+                background: var(--green);
+                color: #000;
+            }
+            .btn-r {
+                border-color: var(--red);
+                color: var(--red);
+            }
+            .btn-r:hover,
+            .btn-r.sel {
+                background: var(--red);
+                color: #000;
+            }
+            .btn-dim {
+                border-color: #444;
+                color: #666;
+            }
+            .btn-dim:hover {
+                border-color: #888;
+                color: #aaa;
+                background: transparent;
+            }
+            .btn:disabled {
+                opacity: 0.28;
+                cursor: not-allowed;
+                pointer-events: none;
+            }
+
+            /* ── TITLE ── */
+            #title-screen {
+                background: var(--dark);
+                border: 1px solid var(--border);
+            }
+            .title-wrap {
+                padding: 44px 32px 22px;
+                text-align: center;
+                width: 100%;
+                background: linear-gradient(
+                    180deg,
+                    rgba(255, 120, 0, 0.06),
+                    transparent
+                );
+                border-bottom: 1px solid var(--border);
+            }
+            .title-dbz {
+                font-family: "Orbitron", sans-serif;
+                font-size: 70px;
+                font-weight: 900;
+                color: var(--orange);
+                line-height: 1;
+                text-shadow:
+                    0 0 30px var(--orange),
+                    0 0 60px rgba(255, 140, 0, 0.35);
+                animation: glow 2.5s ease-in-out infinite;
+            }
+            @keyframes glow {
+                0%,
+                100% {
+                    text-shadow:
+                        0 0 30px var(--orange),
+                        0 0 60px rgba(255, 140, 0, 0.35);
+                }
+                50% {
+                    text-shadow:
+                        0 0 50px var(--orange),
+                        0 0 100px rgba(255, 140, 0, 0.55),
+                        0 0 130px rgba(255, 60, 0, 0.25);
+                }
+            }
+            .title-sub {
+                font-family: "Orbitron", sans-serif;
+                font-size: 13px;
+                letter-spacing: 8px;
+                color: #666;
+                margin-top: 4px;
+            }
+            .title-ed {
+                font-size: 9px;
+                letter-spacing: 4px;
+                color: #333;
+                margin-top: 2px;
+            }
+            .title-body {
+                padding: 26px 32px 30px;
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                gap: 20px;
+                align-items: center;
+            }
+            .sec-lbl {
+                font-family: "Orbitron", sans-serif;
+                font-size: 8px;
+                letter-spacing: 3px;
+                color: #333;
+                margin-bottom: 8px;
+            }
+            .diff-row {
+                display: flex;
+                gap: 8px;
+            }
+            .play-btn {
+                font-family: "Orbitron", sans-serif;
+                font-size: 14px;
+                letter-spacing: 3px;
+                padding: 13px 50px;
+                border: 1px solid var(--orange);
+                color: var(--orange);
+                background: transparent;
+                cursor: pointer;
+                transition: all 0.2s;
+                position: relative;
+                overflow: hidden;
+            }
+            .play-btn::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                background: var(--orange);
+                transform: scaleX(0);
+                transform-origin: left;
+                transition: transform 0.25s ease;
+                z-index: -1;
+            }
+            .play-btn:hover {
+                color: #000;
+            }
+            .play-btn:hover::before {
+                transform: scaleX(1);
+            }
+
+            /* ── CHAR SELECT ── */
+            #char-select {
+                background: var(--dark);
+                border: 1px solid var(--border);
+            }
+            .cs-hdr {
+                width: 100%;
+                padding: 18px 24px 14px;
+                border-bottom: 1px solid var(--border);
+                font-family: "Orbitron", sans-serif;
+                font-size: 12px;
+                letter-spacing: 4px;
+                color: var(--orange);
+                text-align: center;
+            }
+            .char-cards {
+                display: flex;
+                gap: 10px;
+                padding: 18px 14px;
+            }
+            .char-card {
+                flex: 1;
+                padding: 14px 8px 12px;
+                border: 1px solid #1c1c2c;
+                cursor: pointer;
+                text-align: center;
+                transition: all 0.2s;
+                background: rgba(255, 255, 255, 0.015);
+            }
+            .char-card:hover {
+                transform: translateY(-4px);
+            }
+            .char-card.sel {
+                transform: translateY(-6px);
+            }
+            .char-card.goku:hover,
+            .char-card.goku.sel {
+                border-color: var(--orange);
+                box-shadow:
+                    0 0 18px rgba(255, 140, 0, 0.28),
+                    inset 0 0 18px rgba(255, 140, 0, 0.04);
+            }
+            .char-card.vegeta:hover,
+            .char-card.vegeta.sel {
+                border-color: var(--blue);
+                box-shadow:
+                    0 0 18px rgba(51, 170, 255, 0.28),
+                    inset 0 0 18px rgba(51, 170, 255, 0.04);
+            }
+            .char-card.piccolo:hover,
+            .char-card.piccolo.sel {
+                border-color: var(--green);
+                box-shadow:
+                    0 0 18px rgba(68, 255, 68, 0.22),
+                    inset 0 0 18px rgba(68, 255, 68, 0.04);
+            }
+            .cc-svg {
+                width: 60px;
+                height: 82px;
+                margin: 0 auto 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .cc-name {
+                font-family: "Orbitron", sans-serif;
+                font-size: 10px;
+                letter-spacing: 2px;
+                margin-bottom: 9px;
+            }
+            .cc-row {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                margin-bottom: 4px;
+            }
+            .cc-lbl {
+                font-size: 8px;
+                color: #444;
+                width: 20px;
+                letter-spacing: 1px;
+            }
+            .cc-bar {
+                flex: 1;
+                height: 3px;
+                background: #111;
+            }
+            .cc-fill {
+                height: 100%;
+            }
+            .cc-sp {
+                font-size: 8px;
+                color: #444;
+                letter-spacing: 0.5px;
+                margin-top: 7px;
+                padding-top: 7px;
+                border-top: 1px solid #111;
+            }
+            .cs-foot {
+                width: 100%;
+                padding: 10px 16px 18px;
+                border-top: 1px solid var(--border);
+                text-align: center;
+            }
+
+            /* ── HUD ── */
+            .hud {
+                display: flex;
+                align-items: stretch;
+                width: 100%;
+                border-bottom: 1px solid var(--border);
+                background: var(--dark2);
+            }
+            .hud-side {
+                flex: 1;
+                padding: 9px 11px;
+            }
+            .hud-side.r {
+                text-align: right;
+            }
+            .hud-vs {
+                font-family: "Orbitron", sans-serif;
+                font-size: 9px;
+                color: var(--orange);
+                padding: 0 10px;
+                display: flex;
+                align-items: center;
+                border-left: 1px solid var(--border);
+                border-right: 1px solid var(--border);
+            }
+            .hud-name {
+                font-family: "Orbitron", sans-serif;
+                font-size: 9px;
+                letter-spacing: 1px;
+                margin-bottom: 5px;
+            }
+            .hp-wrap {
+                height: 7px;
+                background: #111;
+                border: 1px solid #181818;
+                position: relative;
+                margin-bottom: 3px;
+            }
+            .hp-bar {
+                height: 100%;
+                transition: width 0.5s ease;
+            }
+            .hp-goku {
+                background: linear-gradient(
+                    90deg,
+                    #cc4400,
+                    var(--orange),
+                    var(--gold)
+                );
+            }
+            .hp-vegeta {
+                background: linear-gradient(90deg, #0044cc, var(--blue));
+            }
+            .hp-piccolo {
+                background: linear-gradient(90deg, #006622, var(--green));
+            }
+            .hp-frieza {
+                background: linear-gradient(90deg, #660099, var(--purple));
+            }
+            .hp-cell {
+                background: linear-gradient(90deg, #004422, #44ff88);
+            }
+            .hp-num {
+                font-size: 8px;
+                color: #444;
+                letter-spacing: 0.5px;
+            }
+            .ki-row {
+                display: flex;
+                gap: 3px;
+                margin-top: 4px;
+            }
+            .ki-row.r {
+                justify-content: flex-end;
+            }
+            .ki-pip {
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                border: 1px solid #282828;
+                background: transparent;
+                transition: all 0.3s;
+            }
+            .ki-pip.on {
+                background: var(--orange);
+                border-color: var(--orange);
+                box-shadow: 0 0 4px var(--orange);
+            }
+
+            /* ── ROUND PIPS ── */
+            .round-row {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                gap: 5px;
+                padding: 5px;
+                background: #080b14;
+                border-bottom: 1px solid #0e1020;
+            }
+            .round-row span {
+                font-family: "Orbitron", sans-serif;
+                font-size: 7px;
+                letter-spacing: 2px;
+                color: #2a2a3a;
+                margin-right: 4px;
+            }
+            .r-pip {
+                width: 9px;
+                height: 9px;
+                border-radius: 50%;
+                border: 1px solid #1a1a2a;
+            }
+            .r-pip.pw {
+                background: var(--orange);
+                border-color: var(--orange);
+            }
+            .r-pip.cw {
+                background: var(--purple);
+                border-color: var(--purple);
+            }
+
+            /* ── ARENA ── */
+            .arena {
+                width: 100%;
+                height: 205px;
+                position: relative;
+                overflow: hidden;
+                background: linear-gradient(
+                    180deg,
+                    #000820 0%,
+                    #001038 54%,
+                    #1a0700 54%,
+                    #100400 100%
+                );
+            }
+            .a-horizon {
+                position: absolute;
+                left: 0;
+                right: 0;
+                top: 54%;
+                height: 1px;
+                background: linear-gradient(
+                    90deg,
+                    transparent,
+                    rgba(255, 70, 0, 0.5),
+                    transparent
+                );
+            }
+            .a-glow {
+                position: absolute;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                height: 55px;
+                background: linear-gradient(
+                    0,
+                    rgba(255, 50, 0, 0.07),
+                    transparent
+                );
+            }
+            .a-divider {
+                position: absolute;
+                left: 50%;
+                top: 0;
+                bottom: 0;
+                width: 1px;
+                background: rgba(255, 255, 255, 0.03);
+                z-index: 1;
+            }
+            .star {
+                position: absolute;
+                border-radius: 50%;
+                background: #fff;
+            }
+            .fighter {
+                position: absolute;
+                z-index: 10;
+                transition:
+                    left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                    top 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                    right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .fighter.atk {
+                animation: aPulse 0.38s ease;
+            }
+            .fighter.hit {
+                animation: aHit 0.3s ease;
+            }
+            @keyframes aPulse {
+                0%,
+                100% {
+                    transform: scale(1);
+                }
+                50% {
+                    transform: scale(1.28);
+                    filter: brightness(1.9);
+                }
+            }
+            @keyframes aHit {
+                0%,
+                100% {
+                    transform: translateX(0);
+                }
+                25% {
+                    transform: translateX(-9px);
+                }
+                75% {
+                    transform: translateX(9px);
+                }
+            }
+            .ftag {
+                font-family: "Orbitron", sans-serif;
+                font-size: 7px;
+                letter-spacing: 1px;
+                color: rgba(255, 255, 255, 0.13);
+                margin-top: 2px;
+            }
+
+            /* ── LOG ── */
+            .log {
+                min-height: 56px;
+                padding: 8px 14px;
+                background: #080c18;
+                border-top: 1px solid var(--border);
+                border-bottom: 1px solid #0e1020;
+                font-size: 12px;
+                color: #999;
+                line-height: 1.75;
+                letter-spacing: 0.3px;
+                text-align: center;
+            }
+            .lh {
+                color: var(--orange);
+                font-weight: 700;
+            }
+            .ld {
+                color: #ff5555;
+                font-weight: 700;
+            }
+            .lm {
+                color: #3a3a4a;
+            }
+            .ls {
+                color: var(--gold);
+                font-weight: 700;
+            }
+            .lb {
+                color: var(--blue);
+                font-weight: 700;
+            }
+
+            /* ── CONTROLS ── */
+            .controls {
+                background: var(--dark2);
+                padding: 9px 10px 11px;
+                border-top: 1px solid var(--border);
+            }
+            .ctrl-lbl {
+                font-family: "Orbitron", sans-serif;
+                font-size: 7px;
+                letter-spacing: 2px;
+                color: #2c2c3c;
+                margin-bottom: 6px;
+            }
+            .zone-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 5px;
+                margin-bottom: 9px;
+            }
+            .zone-btn {
+                padding: 7px 6px;
+                border: 1px solid #181828;
+                background: rgba(255, 255, 255, 0.015);
+                color: #484868;
+                cursor: pointer;
+                font-family: "Rajdhani", sans-serif;
+                font-size: 11px;
+                font-weight: 700;
+                letter-spacing: 0.8px;
+                text-transform: uppercase;
+                transition: all 0.15s;
+            }
+            .zone-btn:hover {
+                border-color: rgba(255, 140, 0, 0.45);
+                color: var(--orange);
+                background: rgba(255, 140, 0, 0.04);
+            }
+            .zone-btn.sel {
+                border-color: var(--orange);
+                color: var(--orange);
+                background: rgba(255, 140, 0, 0.08);
+                box-shadow: 0 0 7px rgba(255, 140, 0, 0.18);
+            }
+            .atk-row {
+                display: flex;
+                gap: 5px;
+                margin-bottom: 8px;
+            }
+            .atk-btn {
+                flex: 1;
+                padding: 7px 2px;
+                border: 1px solid #181828;
+                background: rgba(255, 255, 255, 0.015);
+                color: #484868;
+                cursor: pointer;
+                font-family: "Rajdhani", sans-serif;
+                font-size: 9px;
+                font-weight: 700;
+                letter-spacing: 0.5px;
+                text-transform: uppercase;
+                transition: all 0.15s;
+                text-align: center;
+            }
+            .aico {
+                font-size: 14px;
+                display: block;
+                margin-bottom: 2px;
+            }
+            .atk-btn:hover {
+                border-color: rgba(255, 140, 0, 0.45);
+                color: var(--orange);
+                background: rgba(255, 140, 0, 0.04);
+            }
+            .atk-btn.sel {
+                border-color: var(--orange);
+                color: var(--orange);
+                background: rgba(255, 140, 0, 0.08);
+                box-shadow: 0 0 7px rgba(255, 140, 0, 0.18);
+            }
+            .atk-btn.locked {
+                opacity: 0.28;
+                cursor: not-allowed;
+                pointer-events: none;
+            }
+            .conf-wrap {
+                display: flex;
+                justify-content: center;
+            }
+            .conf-btn {
+                font-family: "Orbitron", sans-serif;
+                font-size: 11px;
+                letter-spacing: 3px;
+                padding: 10px 48px;
+                border: 1px solid var(--orange);
+                color: var(--orange);
+                background: transparent;
+                cursor: pointer;
+                transition: all 0.18s;
+            }
+            .conf-btn:hover:not(:disabled) {
+                background: var(--orange);
+                color: #000;
+                box-shadow: 0 0 20px rgba(255, 140, 0, 0.45);
+            }
+            .conf-btn:disabled {
+                opacity: 0.22;
+                cursor: not-allowed;
+            }
+
+            /* ── DAMAGE ── */
+            .dmg {
+                position: absolute;
+                font-family: "Orbitron", sans-serif;
+                font-size: 19px;
+                font-weight: 900;
+                pointer-events: none;
+                z-index: 50;
+                animation: dFloat 1.1s ease forwards;
+                text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.9);
+            }
+            @keyframes dFloat {
+                0% {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
+                40% {
+                    opacity: 1;
+                    transform: translateY(-26px) scale(1.15);
+                }
+                100% {
+                    opacity: 0;
+                    transform: translateY(-52px) scale(0.8);
+                }
+            }
+
+            /* ── FLASH / SHAKE ── */
+            #flash {
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                z-index: 100;
+                opacity: 0;
+                transition: opacity 0.1s;
+            }
+            @keyframes shake {
+                0%,
+                100% {
+                    transform: translate(0, 0);
+                }
+                15% {
+                    transform: translate(-6px, -2px);
+                }
+                30% {
+                    transform: translate(6px, 2px);
+                }
+                45% {
+                    transform: translate(-4px, -1px);
+                }
+                60% {
+                    transform: translate(4px, 1px);
+                }
+                75% {
+                    transform: translate(-2px, 0);
+                }
+                90% {
+                    transform: translate(2px, 0);
+                }
+            }
+            .shaking {
+                animation: shake 0.44s ease;
+            }
+
+            /* ── END ── */
+            #end-screen {
+                background: var(--dark);
+                border: 1px solid var(--border);
+                min-height: 400px;
+                justify-content: center;
+            }
+            .end-inner {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 15px;
+                padding: 46px 32px;
+            }
+            .end-title {
+                font-family: "Orbitron", sans-serif;
+                font-size: 50px;
+                font-weight: 900;
+                letter-spacing: 4px;
+                line-height: 1;
+            }
+            .end-title.win {
+                color: var(--gold);
+                text-shadow: 0 0 40px rgba(255, 200, 0, 0.55);
+                animation: glow 2s ease-in-out infinite;
+            }
+            .end-title.lose {
+                color: var(--red);
+                text-shadow: 0 0 30px rgba(255, 40, 40, 0.4);
+            }
+            .end-sub {
+                font-family: "Orbitron", sans-serif;
+                font-size: 10px;
+                letter-spacing: 4px;
+                color: #555;
+            }
+            .end-stats {
+                font-size: 12px;
+                color: #3a3a4a;
+                line-height: 2;
+                letter-spacing: 1px;
+                text-align: center;
+            }
+            .end-btns {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                align-items: center;
+                margin-top: 8px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="game">
+            <div id="flash"></div>
+
+            <!-- ══ TITLE ══ -->
+            <div class="screen active" id="title-screen">
+                <div class="title-wrap">
+                    <div class="title-dbz">DBZ</div>
+                    <div class="title-sub">TOURNAMENT</div>
+                    <div class="title-ed">FLASH EDITION</div>
+                </div>
+                <div class="title-body">
+                    <div>
+                        <div class="sec-lbl">Difficulty</div>
+                        <div class="diff-row">
+                            <button
+                                class="btn btn-g sel"
+                                id="d-easy"
+                                onclick="setDiff('easy', this)"
+                            >
+                                EASY
+                            </button>
+                            <button
+                                class="btn btn-o"
+                                id="d-normal"
+                                onclick="setDiff('normal', this)"
+                            >
+                                NORMAL
+                            </button>
+                            <button
+                                class="btn btn-r"
+                                id="d-hard"
+                                onclick="setDiff('hard', this)"
+                            >
+                                HARD
+                            </button>
+                        </div>
+                    </div>
+                    <button class="play-btn" onclick="goTo('char-select')">
+                        ▶ PLAY
+                    </button>
+                </div>
+            </div>
+
+            <!-- ══ CHAR SELECT ══ -->
+            <div class="screen" id="char-select">
+                <div class="cs-hdr">CHOOSE YOUR FIGHTER</div>
+                <div class="char-cards" id="charCards"></div>
+                <div class="cs-foot">
+                    <button
+                        class="btn btn-o"
+                        id="fightBtn"
+                        disabled
+                        onclick="startBattle()"
+                    >
+                        ▶ FIGHT!
+                    </button>
+                </div>
+            </div>
+
+            <!-- ══ BATTLE ══ -->
+            <div class="screen" id="battle-screen">
+                <div class="hud">
+                    <div class="hud-side" id="pHUD"></div>
+                    <div class="hud-vs">VS</div>
+                    <div class="hud-side r" id="cHUD"></div>
+                </div>
+                <div class="round-row" id="roundRow"></div>
+                <div class="arena" id="arena">
+                    <div class="a-horizon"></div>
+                    <div class="a-glow"></div>
+                    <div class="a-divider"></div>
+                    <div class="fighter" id="pF"></div>
+                    <div class="fighter" id="cF"></div>
+                </div>
+                <div class="log" id="log">Choose your position and attack!</div>
+                <div class="controls">
+                    <div class="ctrl-lbl">① Select Position</div>
+                    <div class="zone-grid">
+                        <button
+                            class="zone-btn"
+                            id="z-TL"
+                            onclick="pickZone('TL')"
+                        >
+                            ↖ AIR LEFT
+                        </button>
+                        <button
+                            class="zone-btn"
+                            id="z-TR"
+                            onclick="pickZone('TR')"
+                        >
+                            ↗ AIR RIGHT
+                        </button>
+                        <button
+                            class="zone-btn"
+                            id="z-BL"
+                            onclick="pickZone('BL')"
+                        >
+                            ↙ GROUND LEFT
+                        </button>
+                        <button
+                            class="zone-btn"
+                            id="z-BR"
+                            onclick="pickZone('BR')"
+                        >
+                            ↘ GROUND RIGHT
+                        </button>
+                    </div>
+                    <div class="ctrl-lbl">② Select Attack</div>
+                    <div class="atk-row">
+                        <button
+                            class="atk-btn"
+                            id="a-punch"
+                            onclick="pickAtk('punch')"
+                        >
+                            <span class="aico">👊</span>Punch
+                        </button>
+                        <button
+                            class="atk-btn"
+                            id="a-ki"
+                            onclick="pickAtk('ki')"
+                        >
+                            <span class="aico">💥</span>Ki Blast
+                        </button>
+                        <button
+                            class="atk-btn"
+                            id="a-special"
+                            onclick="pickAtk('special')"
+                        >
+                            <span class="aico">⚡</span>Special
+                        </button>
+                        <button
+                            class="atk-btn"
+                            id="a-block"
+                            onclick="pickAtk('block')"
+                        >
+                            <span class="aico">🛡️</span>Block
+                        </button>
+                    </div>
+                    <div class="conf-wrap">
+                        <button
+                            class="conf-btn"
+                            id="confBtn"
+                            disabled
+                            onclick="confirmTurn()"
+                        >
+                            CONFIRM
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ══ END ══ -->
+            <div class="screen" id="end-screen">
+                <div class="end-inner">
+                    <div class="end-title" id="endTitle"></div>
+                    <div class="end-sub" id="endSub"></div>
+                    <div class="end-stats" id="endStats"></div>
+                    <div class="end-btns">
+                        <button class="btn btn-o" onclick="goTo('char-select')">
+                            ▶ REMATCH
+                        </button>
+                        <button
+                            class="btn btn-dim"
+                            onclick="goTo('title-screen')"
+                        >
+                            MAIN MENU
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // ═══ CHARACTER DATA ═══
+            const CHARS = {
+                goku: {
+                    key: "goku",
+                    name: "GOKU",
+                    col: "#ff8c00",
+                    aura: "rgba(255,200,0,.65)",
+                    hpCls: "hp-goku",
+                    maxHp: 100,
+                    atk: 16,
+                    def: 10,
+                    kiMax: 3,
+                    specialName: "Kamehameha",
+                    specialDmg: 44,
+                    stats: { pow: 82, spd: 88, def: 68 },
+                },
+                vegeta: {
+                    key: "vegeta",
+                    name: "VEGETA",
+                    col: "#3af",
+                    aura: "rgba(80,180,255,.65)",
+                    hpCls: "hp-vegeta",
+                    maxHp: 90,
+                    atk: 19,
+                    def: 8,
+                    kiMax: 3,
+                    specialName: "Final Flash",
+                    specialDmg: 50,
+                    stats: { pow: 93, spd: 75, def: 58 },
+                },
+                piccolo: {
+                    key: "piccolo",
+                    name: "PICCOLO",
+                    col: "#4f4",
+                    aura: "rgba(80,255,80,.55)",
+                    hpCls: "hp-piccolo",
+                    maxHp: 115,
+                    atk: 14,
+                    def: 15,
+                    kiMax: 3,
+                    specialName: "Special Beam Cannon",
+                    specialDmg: 40,
+                    stats: { pow: 72, spd: 68, def: 92 },
+                },
+            };
+            const CPUS = {
+                frieza: {
+                    key: "frieza",
+                    name: "FRIEZA",
+                    col: "#c06fff",
+                    aura: "rgba(170,80,255,.65)",
+                    hpCls: "hp-frieza",
+                    maxHp: 95,
+                    atk: 18,
+                    def: 9,
+                    kiMax: 3,
+                    specialName: "Death Ball",
+                    specialDmg: 46,
+                },
+                cell: {
+                    key: "cell",
+                    name: "CELL",
+                    col: "#44ff88",
+                    aura: "rgba(50,210,110,.6)",
+                    hpCls: "hp-cell",
+                    maxHp: 108,
+                    atk: 17,
+                    def: 13,
+                    kiMax: 3,
+                    specialName: "Solar Kamehameha",
+                    specialDmg: 48,
+                },
+            };
+
+            // Zone positions
+            const ZPOS = {
+                TL: { left: "5%", top: "6%", right: "auto" },
+                TR: { right: "5%", top: "6%", left: "auto" },
+                BL: { left: "5%", top: "55%", right: "auto" },
+                BR: { right: "5%", top: "55%", left: "auto" },
+            };
+            const ZNAME = {
+                TL: "Air Left",
+                TR: "Air Right",
+                BL: "Ground Left",
+                BR: "Ground Right",
+            };
+
+            // RPS: punch beats ki, ki beats special, special beats punch
+            const BEATS = { punch: "ki", ki: "special", special: "punch" };
+            const LOSES = { punch: "special", ki: "punch", special: "ki" };
+
+            // ═══ STATE ═══
+            const G = {
+                diff: "easy",
+                pKey: null,
+                cKey: null,
+                player: null,
+                cpu: null,
+                pRW: 0,
+                cRW: 0,
+                rlog: [],
+                round: 1,
+                turn: 0,
+                busy: false,
+                hist: [],
+                totalR: 3,
+                _pz: null,
+                _pa: null,
+            };
+
+            // ═══ SVG SPRITES ═══
+            function svgGoku(fl) {
+                const m = fl ? "scale(-1,1) translate(-52,0)" : "";
+                return `<svg width="52" height="80" viewBox="0 0 52 80" xmlns="http://www.w3.org/2000/svg"><g transform="${m}"><ellipse cx="26" cy="62" rx="18" ry="6" fill="rgba(255,180,0,.12)"/><polygon points="15,26 20,8 24,24" fill="#111"/><polygon points="22,23 26,4 30,23" fill="#111"/><polygon points="28,24 32,10 36,26" fill="#111"/><ellipse cx="26" cy="27" rx="11" ry="11" fill="#f5c0a0"/><ellipse cx="21.5" cy="26" rx="2" ry="2.5" fill="#111"/><ellipse cx="30.5" cy="26" rx="2" ry="2.5" fill="#111"/><circle cx="22.3" cy="25" r=".8" fill="#fff"/><circle cx="31.3" cy="25" r=".8" fill="#fff"/><path d="M22 32 Q26 35 30 32" stroke="#c08060" stroke-width="1.2" fill="none"/><rect x="16" y="38" width="20" height="22" rx="3" fill="#ff8c00"/><line x1="26" y1="38" x2="26" y2="60" stroke="#cc5500" stroke-width="1.5"/><rect x="14" y="55" width="24" height="5" rx="1" fill="#2233aa"/><rect x="5" y="38" width="11" height="16" rx="5" fill="#ff8c00"/><rect x="36" y="38" width="11" height="16" rx="5" fill="#ff8c00"/><ellipse cx="10.5" cy="54" rx="5" ry="4" fill="#f0b888"/><ellipse cx="41.5" cy="54" rx="5" ry="4" fill="#f0b888"/><rect x="16" y="60" width="9" height="14" rx="3" fill="#2233aa"/><rect x="27" y="60" width="9" height="14" rx="3" fill="#2233aa"/><ellipse cx="20.5" cy="74" rx="6" ry="3" fill="#112288"/><ellipse cx="31.5" cy="74" rx="6" ry="3" fill="#112288"/></g></svg>`;
+            }
+            function svgVegeta(fl) {
+                const m = fl ? "scale(-1,1) translate(-52,0)" : "";
+                return `<svg width="52" height="80" viewBox="0 0 52 80" xmlns="http://www.w3.org/2000/svg"><g transform="${m}"><ellipse cx="26" cy="62" rx="18" ry="6" fill="rgba(60,150,255,.12)"/><polygon points="16,26 21,5 26,23" fill="#111"/><polygon points="26,23 31,5 36,26" fill="#111"/><polygon points="19,25 24,14 28,25" fill="#111"/><ellipse cx="26" cy="27" rx="11" ry="11" fill="#f5c0a0"/><path d="M18,24 L25,26.5" stroke="#111" stroke-width="2.5" stroke-linecap="round"/><path d="M27,26.5 L34,24" stroke="#111" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="21.5" cy="26.5" rx="1.5" ry="2" fill="#111"/><ellipse cx="30.5" cy="26.5" rx="1.5" ry="2" fill="#111"/><path d="M22 32 Q26 30 30 32" stroke="#c08060" stroke-width="1.2" fill="none"/><rect x="4" y="34" width="13" height="8" rx="3" fill="#ccc"/><rect x="35" y="34" width="13" height="8" rx="3" fill="#ccc"/><rect x="14" y="37" width="24" height="22" rx="2" fill="#3af"/><rect x="14" y="37" width="24" height="6" rx="2" fill="#ddd"/><rect x="14" y="53" width="24" height="6" rx="2" fill="#ddd"/><rect x="7" y="42" width="8" height="14" rx="4" fill="#f0b888"/><rect x="37" y="42" width="8" height="14" rx="4" fill="#f0b888"/><ellipse cx="11" cy="56" rx="5" ry="4" fill="#f0b888"/><ellipse cx="41" cy="56" rx="5" ry="4" fill="#f0b888"/><rect x="16" y="59" width="9" height="14" rx="3" fill="#eee"/><rect x="27" y="59" width="9" height="14" rx="3" fill="#eee"/><ellipse cx="20.5" cy="73" rx="6" ry="3" fill="#bbb"/><ellipse cx="31.5" cy="73" rx="6" ry="3" fill="#bbb"/></g></svg>`;
+            }
+            function svgPiccolo(fl) {
+                const m = fl ? "scale(-1,1) translate(-52,0)" : "";
+                return `<svg width="52" height="80" viewBox="0 0 52 80" xmlns="http://www.w3.org/2000/svg"><g transform="${m}"><ellipse cx="26" cy="62" rx="18" ry="6" fill="rgba(60,220,60,.1)"/><line x1="21" y1="16" x2="16" y2="3" stroke="#3c7c3c" stroke-width="2.5" stroke-linecap="round"/><line x1="31" y1="16" x2="36" y2="3" stroke="#3c7c3c" stroke-width="2.5" stroke-linecap="round"/><circle cx="16" cy="3" r="2.5" fill="#3c7c3c"/><circle cx="36" cy="3" r="2.5" fill="#3c7c3c"/><ellipse cx="26" cy="23" rx="12" ry="12" fill="#4a8a4a"/><rect x="15" y="13" width="22" height="5" rx="2" fill="#eee"/><ellipse cx="21" cy="22" rx="2.5" ry="3" fill="#bb1100"/><ellipse cx="31" cy="22" rx="2.5" ry="3" fill="#bb1100"/><circle cx="21.8" cy="21" r="1" fill="#ff2200"/><path d="M22 29 Q26 27 30 29" stroke="#2a5a2a" stroke-width="1.5" fill="none"/><path d="M8,36 L16,38 L26,62 L36,38 L44,36 L40,78 L12,78 Z" fill="rgba(255,255,255,.9)"/><rect x="16" y="38" width="20" height="22" rx="2" fill="#7755aa"/><rect x="5" y="36" width="10" height="16" rx="5" fill="#4a8a4a"/><rect x="37" y="36" width="10" height="16" rx="5" fill="#4a8a4a"/><ellipse cx="10" cy="52" rx="5" ry="4" fill="#3a7a3a"/><ellipse cx="42" cy="52" rx="5" ry="4" fill="#3a7a3a"/><ellipse cx="20.5" cy="77" rx="7" ry="3" fill="#5533aa"/><ellipse cx="31.5" cy="77" rx="7" ry="3" fill="#5533aa"/></g></svg>`;
+            }
+            function svgFrieza(fl) {
+                const m = fl ? "scale(-1,1) translate(-52,0)" : "";
+                return `<svg width="52" height="80" viewBox="0 0 52 80" xmlns="http://www.w3.org/2000/svg"><g transform="${m}"><ellipse cx="26" cy="62" rx="18" ry="6" fill="rgba(180,80,255,.12)"/><line x1="19" y1="16" x2="12" y2="3" stroke="#c06fff" stroke-width="3" stroke-linecap="round"/><line x1="33" y1="16" x2="40" y2="3" stroke="#c06fff" stroke-width="3" stroke-linecap="round"/><ellipse cx="26" cy="22" rx="14" ry="14" fill="#e8ddf8"/><ellipse cx="26" cy="22" rx="10" ry="10" fill="#fff"/><ellipse cx="21" cy="21" rx="3" ry="3.5" fill="#bb00cc"/><ellipse cx="31" cy="21" rx="3" ry="3.5" fill="#bb00cc"/><circle cx="22" cy="20" r="1" fill="#ff00ee"/><circle cx="32" cy="20" r="1" fill="#ff00ee"/><path d="M21 29 Q26 31 31 29" stroke="#9966bb" stroke-width="1.2" fill="none"/><rect x="14" y="36" width="24" height="24" rx="3" fill="#c06fff"/><ellipse cx="26" cy="36" rx="13" ry="5" fill="#e8ddf8"/><circle cx="26" cy="46" r="5" fill="#e8ddf8"/><rect x="6" y="36" width="9" height="18" rx="4" fill="#e8ddf8"/><rect x="37" y="36" width="9" height="18" rx="4" fill="#e8ddf8"/><ellipse cx="10.5" cy="54" rx="5" ry="4" fill="#ddd"/><ellipse cx="41.5" cy="54" rx="5" ry="4" fill="#ddd"/><path d="M39,56 Q52,48 50,66" stroke="#c06fff" stroke-width="5" fill="none" stroke-linecap="round"/><rect x="16" y="60" width="9" height="14" rx="3" fill="#c06fff"/><rect x="27" y="60" width="9" height="14" rx="3" fill="#c06fff"/><ellipse cx="20.5" cy="74" rx="6" ry="3" fill="#9944cc"/><ellipse cx="31.5" cy="74" rx="6" ry="3" fill="#9944cc"/></g></svg>`;
+            }
+            function svgCell(fl) {
+                const m = fl ? "scale(-1,1) translate(-52,0)" : "";
+                return `<svg width="52" height="80" viewBox="0 0 52 80" xmlns="http://www.w3.org/2000/svg"><g transform="${m}"><ellipse cx="26" cy="62" rx="18" ry="6" fill="rgba(60,220,120,.1)"/><polygon points="18,16 22,3 26,16" fill="#006622"/><polygon points="26,16 30,3 34,16" fill="#006622"/><ellipse cx="26" cy="23" rx="13" ry="13" fill="#44cc66"/><ellipse cx="20" cy="21" rx="3.5" ry="4" fill="#006622"/><ellipse cx="32" cy="21" rx="3.5" ry="4" fill="#006622"/><ellipse cx="20" cy="21" rx="2.2" ry="2.8" fill="#88ff44"/><ellipse cx="32" cy="21" rx="2.2" ry="2.8" fill="#88ff44"/><path d="M20 30 Q26 33 32 30" stroke="#224422" stroke-width="1.5" fill="none"/><rect x="13" y="36" width="26" height="26" rx="4" fill="#44cc66"/><ellipse cx="26" cy="36" rx="14" ry="5" fill="#006622"/><circle cx="20" cy="46" r="3" fill="rgba(0,80,30,.5)"/><circle cx="26" cy="42" r="3" fill="rgba(0,80,30,.5)"/><circle cx="32" cy="46" r="3" fill="rgba(0,80,30,.5)"/><circle cx="23" cy="54" r="3" fill="rgba(0,80,30,.5)"/><circle cx="29" cy="54" r="3" fill="rgba(0,80,30,.5)"/><path d="M13,40 Q2,32 4,50" stroke="#44cc66" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M39,40 Q50,32 48,50" stroke="#44cc66" stroke-width="6" fill="none" stroke-linecap="round"/><rect x="6" y="38" width="8" height="16" rx="4" fill="#44cc66"/><rect x="38" y="38" width="8" height="16" rx="4" fill="#44cc66"/><ellipse cx="10" cy="54" rx="5" ry="4" fill="#33aa55"/><ellipse cx="42" cy="54" rx="5" ry="4" fill="#33aa55"/><path d="M40,56 Q52,48 50,64" stroke="#44cc66" stroke-width="5" fill="none" stroke-linecap="round"/><rect x="16" y="62" width="9" height="14" rx="3" fill="#44cc66"/><rect x="27" y="62" width="9" height="14" rx="3" fill="#44cc66"/><ellipse cx="20.5" cy="76" rx="6" ry="3" fill="#006622"/><ellipse cx="31.5" cy="76" rx="6" ry="3" fill="#006622"/></g></svg>`;
+            }
+
+            const SVG = {
+                goku: svgGoku,
+                vegeta: svgVegeta,
+                piccolo: svgPiccolo,
+                frieza: svgFrieza,
+                cell: svgCell,
+            };
+
+            // ═══ NAVIGATION ═══
+            function goTo(id) {
+                document
+                    .querySelectorAll(".screen")
+                    .forEach((s) => s.classList.remove("active"));
+                document.getElementById(id).classList.add("active");
+                if (id === "char-select") initCS();
+                if (id === "title-screen") {
+                    G.pKey = null;
+                    G.cKey = null;
+                }
+            }
+            function setDiff(d, btn) {
+                G.diff = d;
+                document
+                    .querySelectorAll(".diff-row .btn")
+                    .forEach((b) => b.classList.remove("sel"));
+                btn.classList.add("sel");
+            }
+
+            // ═══ CHAR SELECT ═══
+            function initCS() {
+                G.pKey = null;
+                document.getElementById("fightBtn").disabled = true;
+                const wrap = document.getElementById("charCards");
+                wrap.innerHTML = "";
+                Object.values(CHARS).forEach((c) => {
+                    const d = document.createElement("div");
+                    d.className = `char-card ${c.key}`;
+                    d.innerHTML = `<div class="cc-svg">${SVG[c.key](false)}</div>
+      <div class="cc-name" style="color:${c.col}">${c.name}</div>
+      <div class="cc-row"><span class="cc-lbl">POW</span><div class="cc-bar"><div class="cc-fill" style="width:${c.stats.pow}%;background:${c.col}"></div></div></div>
+      <div class="cc-row"><span class="cc-lbl">SPD</span><div class="cc-bar"><div class="cc-fill" style="width:${c.stats.spd}%;background:${c.col}"></div></div></div>
+      <div class="cc-row"><span class="cc-lbl">DEF</span><div class="cc-bar"><div class="cc-fill" style="width:${c.stats.def}%;background:${c.col}"></div></div></div>
+      <div class="cc-sp" style="color:${c.col}44">⚡ ${c.specialName}</div>`;
+                    d.onclick = () => {
+                        document
+                            .querySelectorAll(".char-card")
+                            .forEach((x) => x.classList.remove("sel"));
+                        d.classList.add("sel");
+                        G.pKey = c.key;
+                        document.getElementById("fightBtn").disabled = false;
+                    };
+                    wrap.appendChild(d);
+                });
+            }
+
+            // ═══ START BATTLE ═══
+            function startBattle() {
+                if (!G.pKey) return;
+                const cpuKeys = Object.keys(CPUS);
+                G.cKey = cpuKeys[Math.floor(Math.random() * cpuKeys.length)];
+                const pc = CHARS[G.pKey],
+                    cc = CPUS[G.cKey];
+                G.player = { ...pc, hp: pc.maxHp, ki: 0 };
+                G.cpu = { ...cc, hp: cc.maxHp, ki: 0 };
+                G.pRW = 0;
+                G.cRW = 0;
+                G.rlog = [];
+                G.round = 1;
+                G.turn = 0;
+                G.busy = false;
+                G.hist = [];
+                G._pz = null;
+                G._pa = null;
+                buildArena();
+                renderHUD();
+                renderPips();
+                setLog("Choose your position and attack!");
+                enableCtrl();
+                goTo("battle-screen");
+            }
+
+            // ═══ ARENA ═══
+            function buildArena() {
+                const a = document.getElementById("arena");
+                a.querySelectorAll(".star").forEach((s) => s.remove());
+                for (let i = 0; i < 25; i++) {
+                    const s = document.createElement("div");
+                    s.className = "star";
+                    const sz = Math.random() * 1.5 + 0.4;
+                    s.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random() * 100}%;top:${Math.random() * 50}%;opacity:${Math.random() * 0.6 + 0.15}`;
+                    a.insertBefore(s, a.querySelector(".a-horizon"));
+                }
+                const pc = CHARS[G.pKey],
+                    cc = CPUS[G.cKey];
+                const pF = document.getElementById("pF"),
+                    cF = document.getElementById("cF");
+                pF.innerHTML =
+                    SVG[G.pKey](false) +
+                    `<div class="ftag" style="color:${pc.col}">${pc.name}</div>`;
+                pF.style.cssText = "left:5%;top:55%;right:auto";
+                cF.innerHTML =
+                    SVG[G.cKey](true) +
+                    `<div class="ftag" style="color:${cc.col}">${cc.name}</div>`;
+                cF.style.cssText = "right:5%;top:55%;left:auto";
+            }
+            function moveSprite(who, zone) {
+                const el = document.getElementById(who === "p" ? "pF" : "cF");
+                const p = ZPOS[zone];
+                el.style.left = p.left || "auto";
+                el.style.right = p.right || "auto";
+                el.style.top = p.top;
+            }
+
+            // ═══ HUD ═══
+            function renderHUD() {
+                const p = G.player,
+                    c = G.cpu,
+                    pc = CHARS[G.pKey],
+                    cc = CPUS[G.cKey];
+                document.getElementById("pHUD").innerHTML = `
+    <div class="hud-name" style="color:${pc.col}">${p.name}</div>
+    <div class="hp-wrap"><div class="hp-bar ${pc.hpCls}" id="pBar" style="width:${pct(p.hp, pc.maxHp)}%"></div></div>
+    <div class="hp-num" id="pNum">${p.hp}/${pc.maxHp}</div>
+    <div class="ki-row" id="pKi"></div>`;
+                document.getElementById("cHUD").innerHTML = `
+    <div class="hud-name" style="color:${cc.col}">${c.name}</div>
+    <div class="hp-wrap"><div class="hp-bar ${cc.hpCls}" id="cBar" style="width:${pct(c.hp, cc.maxHp)}%"></div></div>
+    <div class="hp-num r" id="cNum">${c.hp}/${cc.maxHp}</div>
+    <div class="ki-row r" id="cKi"></div>`;
+                renderKi();
+            }
+            function renderKi() {
+                ["p", "c"].forEach((w) => {
+                    const ch = w === "p" ? G.player : G.cpu;
+                    const el = document.getElementById(w + "Ki");
+                    if (!el) return;
+                    el.innerHTML = "";
+                    for (let i = 0; i < ch.kiMax; i++) {
+                        const pip = document.createElement("div");
+                        pip.className = "ki-pip" + (i < ch.ki ? " on" : "");
+                        el.appendChild(pip);
+                    }
+                });
+            }
+            function updBars() {
+                const p = G.player,
+                    c = G.cpu,
+                    pc = CHARS[G.pKey],
+                    cc = CPUS[G.cKey];
+                const pb = document.getElementById("pBar"),
+                    cb = document.getElementById("cBar");
+                const pn = document.getElementById("pNum"),
+                    cn = document.getElementById("cNum");
+                if (pb) pb.style.width = pct(Math.max(0, p.hp), pc.maxHp) + "%";
+                if (cb) cb.style.width = pct(Math.max(0, c.hp), cc.maxHp) + "%";
+                if (pn) pn.textContent = `${Math.max(0, p.hp)}/${pc.maxHp}`;
+                if (cn) cn.textContent = `${Math.max(0, c.hp)}/${cc.maxHp}`;
+            }
+            function renderPips() {
+                const el = document.getElementById("roundRow");
+                el.innerHTML = "<span>ROUNDS</span>";
+                G.rlog.forEach((r) => {
+                    const p = document.createElement("div");
+                    p.className = "r-pip " + (r === "p" ? "pw" : "cw");
+                    el.appendChild(p);
+                });
+                for (let i = 0; i < G.totalR - G.rlog.length; i++) {
+                    const p = document.createElement("div");
+                    p.className = "r-pip";
+                    el.appendChild(p);
+                }
+            }
+
+            // ═══ CONTROLS ═══
+            function enableCtrl() {
+                G._pz = null;
+                G._pa = null;
+                G.busy = false;
+                document
+                    .querySelectorAll(".zone-btn")
+                    .forEach((b) => b.classList.remove("sel"));
+                document
+                    .querySelectorAll(".atk-btn")
+                    .forEach((b) => b.classList.remove("sel"));
+                document.getElementById("confBtn").disabled = true;
+                document
+                    .getElementById("a-special")
+                    .classList.toggle("locked", G.player.ki < G.player.kiMax);
+            }
+            function pickZone(z) {
+                if (G.busy) return;
+                G._pz = z;
+                document
+                    .querySelectorAll(".zone-btn")
+                    .forEach((b) => b.classList.remove("sel"));
+                document.getElementById("z-" + z).classList.add("sel");
+                chkConf();
+            }
+            function pickAtk(a) {
+                if (G.busy) return;
+                if (a === "special" && G.player.ki < G.player.kiMax) return;
+                G._pa = a;
+                document
+                    .querySelectorAll(".atk-btn")
+                    .forEach((b) => b.classList.remove("sel"));
+                document.getElementById("a-" + a).classList.add("sel");
+                chkConf();
+            }
+            function chkConf() {
+                document.getElementById("confBtn").disabled = !(G._pz && G._pa);
+            }
+
+            // ═══ CPU AI ═══
+            function cpuDecide() {
+                const zones = ["TL", "TR", "BL", "BR"];
+                const atks = ["punch", "ki", "block"];
+                if (G.cpu.ki >= G.cpu.kiMax) atks.push("special");
+                let zone, atk;
+                if (G.diff === "easy") {
+                    zone = rnd(zones);
+                    atk = rnd(atks);
+                } else if (G.diff === "normal") {
+                    const last = G.hist.slice(-1)[0];
+                    zone = last && Math.random() < 0.5 ? last : rnd(zones);
+                    atk = rnd(atks);
+                } else {
+                    const hist = G.hist.slice(-5);
+                    const freq = { TL: 0, TR: 0, BL: 0, BR: 0 };
+                    hist.forEach((z) => (freq[z] = (freq[z] || 0) + 1));
+                    const mx = Math.max(...Object.values(freq));
+                    const likely = zones.filter((z) => freq[z] === mx);
+                    zone = rnd(likely);
+                    atk = rnd(atks);
+                }
+                return { zone, atk };
+            }
+
+            // ═══ CONFIRM TURN ═══
+            async function confirmTurn() {
+                if (G.busy || !G._pz || !G._pa) return;
+                G.busy = true;
+                document.getElementById("confBtn").disabled = true;
+                G.turn++;
+                const pz = G._pz,
+                    pa = G._pa;
+                const { zone: cz, atk: ca } = cpuDecide();
+                G.hist.push(pz);
+                if (G.hist.length > 10) G.hist.shift();
+                moveSprite("p", pz);
+                moveSprite("c", cz);
+                await wait(400);
+
+                // Damage calc
+                const same = pz === cz;
+                const pHits = same || pa === "ki",
+                    cHits = same || ca === "ki";
+                const pRng = !same && pa === "ki",
+                    cRng = !same && ca === "ki";
+
+                const base = (ch, a) =>
+                    a === "punch"
+                        ? ch.atk
+                        : a === "ki"
+                          ? ch.atk * 0.85
+                          : a === "special"
+                            ? ch.specialDmg
+                            : 0;
+                const mmul = (my, their) => {
+                    if (their === "block") return 0.2;
+                    if (my === "block") return 0;
+                    return BEATS[my] === their
+                        ? 1.3
+                        : LOSES[my] === their
+                          ? 0.7
+                          : 1.0;
+                };
+                const defR = (d) => 1 - (d / (d + 40)) * 0.55;
+
+                let pDmg = 0,
+                    cDmg = 0;
+                if (pHits && pa !== "block") {
+                    let d = base(G.player, pa) * mmul(pa, ca);
+                    if (pRng) d *= 0.5;
+                    d *= defR(G.cpu.def);
+                    cDmg = Math.max(1, Math.round(d));
+                }
+                if (cHits && ca !== "block") {
+                    let d = base(G.cpu, ca) * mmul(ca, pa);
+                    if (cRng) d *= 0.5;
+                    d *= defR(G.player.def);
+                    pDmg = Math.max(1, Math.round(d));
+                }
+
+                const parts = [];
+                if (same)
+                    parts.push(
+                        `<span class="lh">⚡ CLASH! Both at ${ZNAME[pz]}!</span>`,
+                    );
+                else
+                    parts.push(
+                        `You → <span class="lh">${ZNAME[pz]}</span> &nbsp;|&nbsp; CPU → <span class="lh">${ZNAME[cz]}</span>`,
+                    );
+
+                // Player attack resolve
+                if (pa === "special") {
+                    await doFlash(CHARS[G.pKey].aura);
+                    doShake();
+                    pulse("pF", "atk");
+                    await wait(300);
+                }
+                if (cDmg > 0) {
+                    pulse("cF", "hit");
+                    G.cpu.hp = Math.max(0, G.cpu.hp - cDmg);
+                    spawnDmg(cDmg, false, pa === "special");
+                    updBars();
+                    parts.push(
+                        pa === "special"
+                            ? `<br><span class="ls">⚡ ${G.player.specialName}!</span> <span class="ld">-${cDmg}</span> to ${G.cpu.name}!`
+                            : `<br>Your <span class="lh">${aLbl(pa)}</span>${pRng ? ' <span class="lm">(ranged)</span>' : ""} hits for <span class="ld">-${cDmg}</span>`,
+                    );
+                } else if (pa === "block")
+                    parts.push(`<br>You <span class="lb">blocked!</span>`);
+                else
+                    parts.push(
+                        `<br>Your ${aLbl(pa)} <span class="lm">missed!</span>`,
+                    );
+
+                await wait(250);
+
+                // CPU attack resolve
+                if (ca === "special") {
+                    await doFlash(CPUS[G.cKey].aura);
+                    doShake();
+                    pulse("cF", "atk");
+                    await wait(300);
+                }
+                if (pDmg > 0) {
+                    pulse("pF", "hit");
+                    G.player.hp = Math.max(0, G.player.hp - pDmg);
+                    spawnDmg(pDmg, true, ca === "special");
+                    updBars();
+                    parts.push(
+                        ca === "special"
+                            ? `<br><span class="ls">⚡ ${G.cpu.specialName}!</span> <span class="ld">-${pDmg}</span> to you!`
+                            : `<br>CPU <span class="lh">${aLbl(ca)}</span>${cRng ? ' <span class="lm">(ranged)</span>' : ""} hits for <span class="ld">-${pDmg}</span>`,
+                    );
+                } else if (ca === "block")
+                    parts.push(`<br>CPU <span class="lb">blocked!</span>`);
+                else
+                    parts.push(
+                        `<br>CPU ${aLbl(ca)} <span class="lm">missed!</span>`,
+                    );
+
+                // Type advantage hint
+                if (
+                    pHits &&
+                    cHits &&
+                    pa !== "block" &&
+                    ca !== "block" &&
+                    pa !== ca
+                ) {
+                    if (BEATS[pa] === ca)
+                        parts.push(
+                            `<br><span class="lh">▲ ${aLbl(pa)} beats ${aLbl(ca)}!</span>`,
+                        );
+                    else
+                        parts.push(
+                            `<br><span class="lm">▼ ${aLbl(ca)} beats ${aLbl(pa)}.</span>`,
+                        );
+                }
+
+                setLog(parts.join(""));
+                await wait(480);
+
+                // Ki charge
+                if (pa !== "block")
+                    G.player.ki = Math.min(G.player.ki + 1, G.player.kiMax);
+                if (ca !== "block")
+                    G.cpu.ki = Math.min(G.cpu.ki + 1, G.cpu.kiMax);
+                if (pa === "special") G.player.ki = 0;
+                if (ca === "special") G.cpu.ki = 0;
+                renderKi();
+
+                if (G.player.hp <= 0 || G.cpu.hp <= 0) {
+                    await wait(650);
+                    await endRound();
+                } else {
+                    enableCtrl();
+                    setLog(`Turn ${G.turn} done — pick your next move!`);
+                }
+            }
+
+            // ═══ ROUND END ═══
+            async function endRound() {
+                const pd = G.player.hp <= 0,
+                    cd = G.cpu.hp <= 0;
+                let w;
+                if (cd && !pd) {
+                    w = "p";
+                    setLog(
+                        `<span class="lh">🏆 YOU WIN ROUND ${G.round}!</span>`,
+                    );
+                } else if (pd && !cd) {
+                    w = "c";
+                    setLog(
+                        `<span class="ld">💀 CPU WINS ROUND ${G.round}!</span>`,
+                    );
+                } else {
+                    w = "p";
+                    setLog(
+                        `<span class="ls">DOUBLE KO — Round ${G.round}!</span>`,
+                    );
+                }
+                G.rlog.push(w);
+                const pW = G.rlog.filter((r) => r === "p").length;
+                const cW = G.rlog.filter((r) => r === "c").length;
+                const need = Math.ceil(G.totalR / 2);
+                renderPips();
+                await wait(1400);
+                if (pW >= need || cW >= need || G.rlog.length >= G.totalR)
+                    showEnd(pW, cW);
+                else {
+                    G.round++;
+                    resetRound();
+                }
+            }
+            function resetRound() {
+                const pc = CHARS[G.pKey],
+                    cc = CPUS[G.cKey];
+                G.player.hp = pc.maxHp;
+                G.player.ki = 0;
+                G.cpu.hp = cc.maxHp;
+                G.cpu.ki = 0;
+                moveSprite("p", "BL");
+                moveSprite("c", "BR");
+                renderHUD();
+                renderPips();
+                setLog(`<span class="lh">⚡ ROUND ${G.round} — FIGHT!</span>`);
+                enableCtrl();
+            }
+            function showEnd(pW, cW) {
+                const won = pW > cW;
+                const pc = CHARS[G.pKey];
+                document.getElementById("endTitle").textContent = won
+                    ? "VICTORY!"
+                    : "DEFEAT";
+                document.getElementById("endTitle").className =
+                    "end-title " + (won ? "win" : "lose");
+                const sub = document.getElementById("endSub");
+                if (won) {
+                    sub.textContent =
+                        G.player.hp === pc.maxHp
+                            ? "IT'S OVER 9000!! PERFECT!"
+                            : pc.name + " WINS THE TOURNAMENT!";
+                    sub.style.color = "var(--gold)";
+                } else {
+                    sub.textContent =
+                        CPUS[G.cKey].name + " WINS THE TOURNAMENT";
+                    sub.style.color = "var(--red)";
+                }
+                document.getElementById("endStats").innerHTML =
+                    `Rounds: You <strong>${pW}</strong> — CPU <strong>${cW}</strong><br>Turns played: ${G.turn}`;
+                goTo("end-screen");
+            }
+
+            // ═══ FX ═══
+            function pulse(id, cls) {
+                const el = document.getElementById(id);
+                el.classList.remove("atk", "hit");
+                void el.offsetWidth;
+                el.classList.add(cls);
+                setTimeout(() => el.classList.remove(cls), 500);
+            }
+            function spawnDmg(v, isP, isSp) {
+                const a = document.getElementById("arena");
+                const el = document.createElement("div");
+                el.className = "dmg";
+                el.textContent = "-" + v;
+                el.style.color = isSp ? "var(--gold)" : "#ff5533";
+                el.style.left = isP ? "10%" : "60%";
+                el.style.top = isP ? "50%" : "32%";
+                if (isSp) el.style.fontSize = "24px";
+                a.appendChild(el);
+                setTimeout(() => el.remove(), 1200);
+            }
+            async function doFlash(color) {
+                const f = document.getElementById("flash");
+                f.style.background = color;
+                f.style.opacity = ".5";
+                await wait(75);
+                f.style.transition = "opacity .4s";
+                f.style.opacity = "0";
+                await wait(400);
+                f.style.transition = "";
+            }
+            function doShake() {
+                const g = document.getElementById("game");
+                g.classList.add("shaking");
+                setTimeout(() => g.classList.remove("shaking"), 450);
+            }
+
+            // ═══ UTILS ═══
+            const pct = (v, mx) => Math.max(0, Math.min(100, (v / mx) * 100));
+            const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+            const rnd = (arr) => arr[Math.floor(Math.random() * arr.length)];
+            const aLbl = (a) =>
+                ({
+                    punch: "Punch",
+                    ki: "Ki Blast",
+                    special: "Special",
+                    block: "Block",
+                })[a];
+            function setLog(html) {
+                document.getElementById("log").innerHTML = html;
+            }
+        </script>
+    </body>
+</html>
