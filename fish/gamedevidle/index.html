@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Game Dev Idle</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#07090f;--panel:#0c1018;--panel2:#111827;--border:#1e3050;
+  --accent:#00e5ff;--accent2:#ff6b35;--gold:#ffd700;--green:#00ff88;
+  --red:#ff4444;--purple:#cc44ff;--text:#b8cce0;--dim:#4a6080;
+  --px:'Press Start 2P',monospace;--vt:'VT323',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--vt);font-size:18px;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.06) 3px,rgba(0,0,0,0.06) 4px);pointer-events:none;z-index:9999;}
+
+/* Floating CP text */
+.ft{position:fixed;font-family:var(--px);font-size:9px;pointer-events:none;z-index:1000;animation:ftup 0.9s ease-out forwards;}
+@keyframes ftup{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-55px) scale(0.8)}}
+
+/* LAYOUT */
+#app{display:flex;flex-direction:column;min-height:100vh;max-width:1280px;margin:0 auto;}
+
+/* TOPBAR */
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:var(--panel);border-bottom:2px solid var(--border);position:sticky;top:0;z-index:100;gap:8px;}
+.topbar-title{font-family:var(--px);font-size:9px;color:var(--accent);text-shadow:0 0 12px var(--accent);white-space:nowrap;}
+.topbar-stats{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+.spill{font-family:var(--px);font-size:7px;padding:4px 8px;border:1px solid;border-radius:1px;}
+.spill.m{color:var(--gold);border-color:var(--gold);}
+.spill.c{color:var(--green);border-color:var(--green);}
+.spill.r{color:var(--dim);border-color:var(--dim);font-size:6px;}
+
+/* MAIN 3-COL */
+#main{display:flex;flex:1;}
+.sidebar{width:250px;min-width:250px;border-right:2px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;max-height:calc(100vh - 48px);}
+.sidebar.right{border-right:none;border-left:2px solid var(--border);}
+#center{flex:1;display:flex;flex-direction:column;align-items:center;padding:18px 14px 20px;overflow-y:auto;max-height:calc(100vh - 48px);}
+
+/* PANEL HEADER */
+.ph{font-family:var(--px);font-size:7px;color:var(--accent);padding:9px 12px;border-bottom:1px solid var(--border);background:var(--panel);letter-spacing:1px;flex-shrink:0;}
+
+/* STUDIO INFO */
+#studio-info{text-align:center;margin-bottom:12px;}
+#studio-name{font-family:var(--px);font-size:10px;color:var(--accent);text-shadow:0 0 14px var(--accent);margin-bottom:4px;line-height:1.5;}
+#studio-rank{font-size:16px;color:var(--dim);}
+.prestige-stars{color:var(--purple);letter-spacing:2px;font-size:14px;}
+
+/* CLICK BUTTON */
+#click-btn{
+  width:150px;height:150px;border-radius:50%;
+  background:radial-gradient(circle at 38% 35%,#142850,#060c1a);
+  border:3px solid var(--accent);
+  box-shadow:0 0 22px rgba(0,229,255,0.25),inset 0 0 20px rgba(0,229,255,0.04);
+  cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  transition:transform 0.07s,box-shadow 0.07s;user-select:none;-webkit-tap-highlight-color:transparent;
+  margin:12px 0;position:relative;overflow:hidden;
+}
+#click-btn::after{content:'';position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 0%,rgba(0,229,255,0.08),transparent 60%);}
+#click-btn:active{transform:scale(0.91);box-shadow:0 0 35px rgba(0,229,255,0.55),inset 0 0 30px rgba(0,229,255,0.1);}
+.btn-icon{font-size:38px;line-height:1;}
+.btn-label{font-family:var(--px);font-size:6px;color:var(--accent);}
+.btn-sub{font-family:var(--px);font-size:6px;color:var(--green);}
+
+/* QUICK STATS ROW */
+.qstats{display:flex;gap:18px;margin-bottom:14px;font-family:var(--px);font-size:8px;}
+.qs-cp{color:var(--green);}.qs-m{color:var(--gold);}
+
+/* PROJECT CARD */
+#proj-card{
+  width:100%;max-width:400px;background:var(--panel);border:2px solid var(--border);
+  padding:14px;margin-bottom:10px;
+}
+.pc-label{font-family:var(--px);font-size:6px;color:var(--dim);letter-spacing:1px;margin-bottom:6px;}
+#proj-title{font-family:var(--px);font-size:9px;color:var(--accent2);margin-bottom:10px;line-height:1.5;min-height:26px;}
+.pbar{background:#060d1e;border:1px solid var(--border);height:20px;position:relative;overflow:hidden;}
+.pbar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));transition:width 0.15s;position:relative;}
+.pbar-fill::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent,transparent 10px,rgba(255,255,255,0.04) 10px,rgba(255,255,255,0.04) 11px);}
+.pbar-txt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--px);font-size:6px;color:#fff;text-shadow:1px 1px 2px #000;}
+#proj-meta{display:flex;justify-content:space-between;margin-top:6px;font-size:14px;color:var(--dim);}
+#proj-cp-stat{color:var(--green);font-family:var(--px);font-size:7px;}
+
+/* NEW PROJECT */
+#new-proj{width:100%;max-width:400px;background:var(--panel);border:2px solid var(--border);padding:14px;margin-bottom:10px;}
+.np-lbl{font-family:var(--px);font-size:6px;color:var(--dim);margin-bottom:8px;letter-spacing:1px;}
+.chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.chip{font-family:var(--vt);font-size:16px;padding:4px 10px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;transition:all 0.12s;line-height:1.2;}
+.chip:hover,.chip.on{border-color:var(--accent);color:var(--accent);background:rgba(0,229,255,0.07);}
+.chip.locked{opacity:0.25;cursor:not-allowed;pointer-events:none;}
+.chip.golden-hint{border-color:var(--gold) !important;color:var(--gold) !important;}
+#start-btn{width:100%;padding:11px;background:var(--accent);color:#000;font-family:var(--px);font-size:8px;border:none;cursor:pointer;transition:all 0.12s;letter-spacing:1px;}
+#start-btn:hover:not(:disabled){background:#fff;box-shadow:0 0 22px var(--accent);}
+#start-btn:disabled{background:var(--border);color:var(--dim);cursor:not-allowed;box-shadow:none;}
+
+/* ACTIVE GAMES */
+#games-sec{width:100%;max-width:400px;margin-top:10px;display:none;}
+.ag{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--gold);padding:8px 10px;margin-bottom:6px;}
+.ag.gold-game{border-left-color:var(--accent2);}
+.ag-title{font-family:var(--px);font-size:6px;color:var(--gold);margin-bottom:3px;line-height:1.5;}
+.ag-sub{font-size:14px;color:var(--dim);}
+
+/* PRESTIGE */
+#prestige-wrap{width:100%;max-width:400px;}
+#prestige-btn{display:none;width:100%;padding:11px;background:linear-gradient(135deg,#3d0080,#800033);border:2px solid var(--purple);color:#dd88ff;font-family:var(--px);font-size:7px;cursor:pointer;margin-top:10px;animation:ppulse 2s ease-in-out infinite;letter-spacing:1px;}
+@keyframes ppulse{0%,100%{box-shadow:0 0 15px rgba(204,68,255,0.3)}50%{box-shadow:0 0 35px rgba(204,68,255,0.6)}}
+
+/* ACHIEVEMENTS */
+#ach-bar{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px;width:100%;max-width:400px;}
+.ach{font-size:20px;padding:3px 5px;border:1px solid var(--border);background:var(--panel2);cursor:help;transition:transform 0.15s;animation:achpop 0.4s cubic-bezier(0.34,1.56,0.64,1);}
+.ach:hover{transform:scale(1.3);}
+@keyframes achpop{from{transform:scale(0)}to{transform:scale(1)}}
+
+/* STAFF */
+.staff-slot{padding:10px 12px;border-bottom:1px solid var(--border);}
+.hire-slot{padding:10px 12px;border-bottom:1px solid var(--border);}
+.hire-btn{width:100%;padding:8px;background:transparent;border:1px dashed var(--border);color:var(--dim);font-family:var(--px);font-size:6px;cursor:pointer;transition:all 0.12s;}
+.hire-btn:hover{border-color:var(--accent);color:var(--accent);}
+.staff-card{display:flex;align-items:center;gap:8px;}
+.sav{font-size:26px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:var(--panel2);border:1px solid var(--border);flex-shrink:0;}
+.sinfo{flex:1;min-width:0;}
+.sname{font-family:var(--px);font-size:6px;color:var(--accent);}
+.srole{font-size:13px;color:var(--dim);}
+.seff{font-size:13px;color:var(--green);}
+.slvl-btn{font-family:var(--px);font-size:5px;padding:5px 6px;background:transparent;border:1px solid var(--gold);color:var(--gold);cursor:pointer;transition:all 0.12s;line-height:1.4;flex-shrink:0;}
+.slvl-btn:hover{background:var(--gold);color:#000;}
+.slvl-btn:disabled{border-color:var(--dim);color:var(--dim);cursor:not-allowed;}
+.mood-bar{height:3px;background:var(--border);margin-top:3px;border-radius:1px;}
+.mood-fill{height:100%;border-radius:1px;transition:width 0.5s;}
+
+/* UPGRADES */
+.upg{padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.12s;}
+.upg:hover:not(.owned):not(.broke){background:rgba(0,229,255,0.03);}
+.upg.owned{opacity:0.3;cursor:default;}
+.upg.broke{opacity:0.45;cursor:default;}
+.ut{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:3px;}
+.un{font-family:var(--px);font-size:6px;color:var(--accent);}
+.uc{font-family:var(--px);font-size:6px;white-space:nowrap;}
+.uc.m{color:var(--gold)}.uc.c{color:var(--green)}.owned-tag{font-family:var(--px);font-size:5px;color:var(--green);}
+.ud{font-size:14px;color:var(--dim);}
+
+/* STAT ROWS */
+.sr{display:flex;justify-content:space-between;padding:6px 12px;border-bottom:1px solid var(--border);font-size:14px;}
+.sr-l{color:var(--dim)}.sr-v{font-family:var(--px);font-size:8px;}
+
+/* MODALS */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:500;display:none;align-items:center;justify-content:center;padding:16px;}
+.ov.show{display:flex;}
+.modal{background:var(--panel);border:2px solid var(--accent);padding:20px;width:100%;max-width:420px;box-shadow:0 0 40px rgba(0,229,255,0.15);}
+.modal-title{font-family:var(--px);font-size:9px;color:var(--accent);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
+.modal-close{background:none;border:none;color:var(--dim);cursor:pointer;font-family:var(--px);font-size:10px;padding:0;}
+.ho{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);margin-bottom:7px;cursor:pointer;transition:all 0.12s;}
+.ho:hover{border-color:var(--accent);background:rgba(0,229,255,0.04);}
+.ho.cant{opacity:0.4;pointer-events:none;}
+.ho-av{font-size:28px;flex-shrink:0;}
+.ho-info{flex:1;}
+.ho-name{font-family:var(--px);font-size:7px;color:var(--accent2);}
+.ho-desc{font-size:14px;color:var(--dim);}
+.ho-cost{font-family:var(--px);font-size:7px;color:var(--gold);white-space:nowrap;}
+
+/* REVIEW MODAL */
+#rev-modal{position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:600;display:none;align-items:center;justify-content:center;}
+#rev-modal.show{display:flex;}
+#rev-card{background:var(--panel);border:3px solid var(--gold);padding:24px 20px;max-width:340px;width:92%;text-align:center;box-shadow:0 0 60px rgba(255,215,0,0.25);animation:rpop 0.3s cubic-bezier(0.34,1.56,0.64,1);}
+@keyframes rpop{from{transform:scale(0.55);opacity:0}to{transform:scale(1);opacity:1}}
+#rev-mag{font-family:var(--px);font-size:6px;color:var(--dim);margin-bottom:5px;}
+#rev-name{font-family:var(--px);font-size:10px;color:var(--accent2);margin-bottom:8px;line-height:1.6;}
+#rev-score{font-family:var(--px);font-size:40px;margin-bottom:4px;}
+#rev-verdict{font-family:var(--vt);font-size:22px;color:var(--text);margin-bottom:8px;font-style:italic;}
+#rev-earn{font-family:var(--px);font-size:7px;color:var(--gold);margin-bottom:14px;line-height:1.7;}
+#rev-close{padding:10px 22px;background:var(--gold);color:#000;font-family:var(--px);font-size:7px;border:none;cursor:pointer;}
+#rev-close:hover{background:#fff;}
+
+/* IDLE MODAL */
+#idle-modal{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:700;display:none;align-items:center;justify-content:center;}
+#idle-modal.show{display:flex;}
+#idle-card{background:var(--panel);border:2px solid var(--green);padding:24px 20px;max-width:320px;width:92%;text-align:center;}
+#idle-t{font-family:var(--px);font-size:8px;color:var(--green);margin-bottom:10px;}
+#idle-a{font-family:var(--px);font-size:16px;color:var(--gold);margin-bottom:14px;line-height:1.7;}
+#idle-close{padding:10px 22px;background:var(--green);color:#000;font-family:var(--px);font-size:7px;border:none;cursor:pointer;}
+
+/* TOAST */
+#toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--accent);color:var(--accent);font-family:var(--px);font-size:6px;padding:8px 14px;z-index:800;opacity:0;transition:opacity 0.25s;white-space:nowrap;pointer-events:none;}
+#toast.show{opacity:1;}
+
+/* MOBILE TABS */
+#mob-tabs{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--panel);border-top:2px solid var(--border);z-index:200;}
+.tb{flex:1;padding:8px 4px;background:none;border:none;color:var(--dim);font-family:var(--px);font-size:5px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:color 0.12s;}
+.tb .ti{font-size:18px;}.tb.on{color:var(--accent);}
+
+/* MOBILE PANELS */
+.mpanel{display:none;position:fixed;inset:0;top:48px;bottom:58px;background:var(--bg);overflow-y:auto;z-index:150;}
+.mpanel.on{display:block;}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:var(--bg);}::-webkit-scrollbar-thumb{background:var(--border);}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .sidebar{display:none;}
+  #mob-tabs{display:flex;}
+  #app{padding-bottom:58px;}
+  #center{max-height:calc(100vh - 48px - 58px);padding:14px 10px;}
+  .topbar-title{font-size:7px;}
+}
+@media(max-width:400px){
+  #click-btn{width:130px;height:130px;}
+  .btn-icon{font-size:32px;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOPBAR -->
+  <div id="topbar">
+    <div class="topbar-title">GAME DEV IDLE</div>
+    <div class="topbar-stats">
+      <div class="spill m" id="tb-money">$0</div>
+      <div class="spill c" id="tb-cps">0 CP/s</div>
+      <div class="spill r" id="tb-rank">Rank 1</div>
+    </div>
+  </div>
+
+  <div id="main">
+
+    <!-- LEFT: STAFF -->
+    <div class="sidebar" id="desk-staff">
+      <div class="ph">👥 STAFF</div>
+      <div id="staff-list"></div>
+    </div>
+
+    <!-- CENTER -->
+    <div id="center">
+      <div id="studio-info">
+        <div id="studio-name">PIXEL FORGE STUDIOS</div>
+        <div id="studio-rank">Rank 1 · Indie Dev</div>
+      </div>
+
+      <button id="click-btn" aria-label="Click to code">
+        <div class="btn-icon">💻</div>
+        <div class="btn-label">TAP TO CODE</div>
+        <div class="btn-sub" id="click-lbl">+1 CP</div>
+      </button>
+
+      <div class="qstats">
+        <div class="qs-cp">⚡ <span id="cp-pool">0</span> CP</div>
+        <div class="qs-m">💰 <span id="money-pool">$0</span></div>
+      </div>
+
+      <!-- PROJECT CARD -->
+      <div id="proj-card">
+        <div class="pc-label">CURRENT PROJECT</div>
+        <div id="proj-title">No active project</div>
+        <div class="pbar"><div class="pbar-fill" id="pbar" style="width:0%"></div><div class="pbar-txt" id="pbar-txt">0%</div></div>
+        <div id="proj-meta"><span id="proj-info">Select genre + platform below</span><span id="proj-cp-stat"></span></div>
+      </div>
+
+      <!-- NEW PROJECT -->
+      <div id="new-proj">
+        <div class="np-lbl">NEW PROJECT</div>
+        <div style="font-size:14px;color:var(--dim);margin-bottom:6px;">GENRE</div>
+        <div class="chip-row" id="genre-chips"></div>
+        <div style="font-size:14px;color:var(--dim);margin-bottom:6px;">PLATFORM</div>
+        <div class="chip-row" id="platform-chips"></div>
+        <div id="combo-hint" style="font-family:var(--px);font-size:6px;color:var(--gold);margin-bottom:8px;min-height:14px;"></div>
+        <button id="start-btn" disabled>SELECT GENRE + PLATFORM</button>
+      </div>
+
+      <!-- PRESTIGE -->
+      <div id="prestige-wrap">
+        <button id="prestige-btn" onclick="doPrestige()">⭐ FOUND NEW STUDIO (PRESTIGE)</button>
+      </div>
+
+      <!-- ACHIEVEMENTS -->
+      <div id="ach-bar"></div>
+
+      <!-- ON SALE -->
+      <div id="games-sec">
+        <div style="font-family:var(--px);font-size:6px;color:var(--dim);margin-bottom:7px;letter-spacing:1px;">📈 ON SALE</div>
+        <div id="games-list"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: UPGRADES -->
+    <div class="sidebar right" id="desk-upg">
+      <div class="ph">🔧 UPGRADES</div>
+      <div id="upg-list"></div>
+      <div class="ph" style="margin-top:4px;">📊 STATS</div>
+      <div id="stats-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MOBILE PANELS -->
+<div class="mpanel" id="mob-staff-panel">
+  <div class="ph">👥 STAFF</div>
+  <div id="mob-staff-list"></div>
+</div>
+<div class="mpanel" id="mob-upg-panel">
+  <div class="ph">🔧 UPGRADES</div>
+  <div id="mob-upg-list"></div>
+  <div class="ph" style="margin-top:4px;">📊 STATS</div>
+  <div id="mob-stats-list"></div>
+</div>
+
+<!-- MOBILE TABS -->
+<div id="mob-tabs">
+  <button class="tb on" id="tab-game" onclick="setTab('game')"><span class="ti">🎮</span>GAME</button>
+  <button class="tb" id="tab-staff" onclick="setTab('staff')"><span class="ti">👥</span>STAFF</button>
+  <button class="tb" id="tab-upg" onclick="setTab('upg')"><span class="ti">🔧</span>UPGRADES</button>
+</div>
+
+<!-- REVIEW MODAL -->
+<div id="rev-modal">
+  <div id="rev-card">
+    <div id="rev-mag">📰 GAMEWORLD MAGAZINE · REVIEWS</div>
+    <div id="rev-name"></div>
+    <div id="rev-score"></div>
+    <div id="rev-verdict"></div>
+    <div id="rev-earn"></div>
+    <button id="rev-close" onclick="closeReview()">SHIP IT!</button>
+  </div>
+</div>
+
+<!-- HIRE MODAL -->
+<div class="ov" id="hire-modal">
+  <div class="modal">
+    <div class="modal-title">HIRE STAFF <button class="modal-close" onclick="closeHire()">✕</button></div>
+    <div id="hire-opts"></div>
+  </div>
+</div>
+
+<!-- IDLE MODAL -->
+<div id="idle-modal">
+  <div id="idle-card">
+    <div id="idle-t">WELCOME BACK!</div>
+    <div style="font-size:16px;color:var(--dim);margin-bottom:8px;">While you were away...</div>
+    <div id="idle-a"></div>
+    <button id="idle-close" onclick="closeIdle()">COLLECT!</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// DATA TABLES
+// ═══════════════════════════════════════════
+
+const GENRES = [
+  {id:'casual', n:'Casual',    icon:'🎯', rank:1, smult:1.0, cpfact:1.0},
+  {id:'puzzle', n:'Puzzle',    icon:'🧩', rank:1, smult:1.1, cpfact:1.1},
+  {id:'action', n:'Action',    icon:'⚔️',  rank:2, smult:1.3, cpfact:1.4},
+  {id:'rpg',    n:'RPG',       icon:'🐉', rank:2, smult:1.6, cpfact:1.8},
+  {id:'strat',  n:'Strategy',  icon:'♟️',  rank:3, smult:1.7, cpfact:2.0},
+  {id:'sim',    n:'Sim',       icon:'🏙️', rank:3, smult:1.8, cpfact:2.2},
+  {id:'horror', n:'Horror',    icon:'👻', rank:4, smult:2.0, cpfact:2.5},
+  {id:'sports', n:'Sports',    icon:'⚽', rank:4, smult:1.6, cpfact:2.0},
+  {id:'openw',  n:'Open World',icon:'🌍', rank:5, smult:2.8, cpfact:4.0},
+];
+
+const PLATFORMS = [
+  {id:'mobile',  n:'Mobile',   icon:'📱', rank:1, smult:1.0, cpfact:1.0},
+  {id:'pc',      n:'PC',       icon:'🖥️', rank:1, smult:1.2, cpfact:1.5},
+  {id:'handheld',n:'Handheld', icon:'🎮', rank:4, smult:1.5, cpfact:2.0, lockUpg:null},
+  {id:'console', n:'Console',  icon:'🕹️', rank:3, smult:2.0, cpfact:3.0, lockUpg:'engine-lic'},
+];
+
+const GOLDEN = {
+  'rpg-console':1.6,'rpg-pc':1.3,'action-console':1.45,'sim-pc':1.35,
+  'openw-console':1.7,'strat-pc':1.4,'casual-mobile':1.3,'horror-pc':1.3,
+  'puzzle-handheld':1.25,'sports-console':1.35,
+};
+
+const STAFF_TYPES = [
+  {id:'prog',   n:'Programmer', icon:'👨‍💻', base:50,  eff:'+CP/sec',     desc:'Auto-generates code',  lvlmult:1.5},
+  {id:'artist', n:'Artist',     icon:'🎨', base:80,  eff:'+Design',      desc:'Boosts review scores', lvlmult:1.5},
+  {id:'design', n:'Game Designer',icon:'📐',base:80, eff:'+Code Skill',  desc:'Raises review score',  lvlmult:1.5},
+  {id:'market', n:'Marketer',   icon:'📣', base:110, eff:'+Hype/sec',    desc:'Increases launch sales',lvlmult:1.6},
+  {id:'prod',   n:'Producer',   icon:'📋', base:160, eff:'-Cost 5%/lv',  desc:'Cuts project CP cost', lvlmult:1.7},
+  {id:'direct', n:'Director',   icon:'🎬', base:320, eff:'×1.5 all CP',  desc:'Multiplies all output',lvlmult:2.0},
+];
+
+const UPGRADES = [
+  {id:'coffee',    n:'Coffee Machine',    icon:'☕', cost:200,   ct:'m', desc:'+25% CP/sec',          eff:'cpsmult', v:1.25},
+  {id:'whiteboard',n:'Whiteboard',        icon:'📝', cost:300,   ct:'m', desc:'-15% project CP cost', eff:'projmult',v:0.85},
+  {id:'pr',        n:'PR Agency',         icon:'📢', cost:400,   ct:'m', desc:'2× launch sales',      eff:'salesmult',v:2.0},
+  {id:'office',    n:'Open Plan Office',  icon:'🏢', cost:600,   ct:'m', desc:'+1 staff slot',        eff:'maxstaff', v:1},
+  {id:'engine-lic',n:'Engine License',    icon:'⚙️', cost:700,   ct:'m', desc:'Unlocks Console platform',eff:'unlock',v:'console'},
+  {id:'codereview',n:'Code Reviews',      icon:'🔍', cost:1000,  ct:'m', desc:'+4 to all review scores',eff:'revbonus',v:4},
+  {id:'playtest',  n:'Playtesting Lab',   icon:'🕹️', cost:2500,  ct:'m', desc:'Min review score: 6',  eff:'minrev',  v:6},
+  {id:'nocrunch',  n:'No Crunch Policy',  icon:'😴', cost:2000,  ct:'m', desc:'+50% all staff output', eff:'staffmult',v:1.5},
+  {id:'office2',   n:'Bigger Office',     icon:'🏬', cost:4000,  ct:'m', desc:'+2 staff slots',       eff:'maxstaff', v:2},
+  {id:'adnetwork', n:'Ad Network Deal',   icon:'📊', cost:7500,  ct:'m', desc:'3× launch sales',      eff:'salesmult',v:3.0},
+  {id:'agile',     n:'Agile Workflow',    icon:'🔄', cost:500,   ct:'c', desc:'-20% project CP cost', eff:'projmult', v:0.80},
+  {id:'eng2',      n:'Engine 2.0',        icon:'🚀', cost:1500,  ct:'c', desc:'2× all CP output',     eff:'cpsmult',  v:2.0},
+  {id:'eng3',      n:'Engine 3.0',        icon:'⚡', cost:6000,  ct:'c', desc:'3× all CP output',     eff:'cpsmult',  v:3.0},
+  {id:'eng4',      n:'Engine 4.0',        icon:'💫', cost:25000, ct:'c', desc:'5× all CP output',     eff:'cpsmult',  v:5.0},
+  {id:'cloud',     n:'Cloud Compute',     icon:'☁️', cost:2500,  ct:'c', desc:'+150 flat CP/sec',     eff:'cpsflat',  v:150},
+  {id:'aitools',   n:'AI Dev Tools',      icon:'🤖', cost:10000, ct:'c', desc:'3× click power',       eff:'clickmult',v:3.0},
+];
+
+const ACHIEVEMENTS = [
+  {id:'first',   icon:'🎮', n:'First Game!',    check:G=>G.shipped>=1},
+  {id:'hire1',   icon:'👋', n:'First Hire',     check:G=>G.staff.length>=1},
+  {id:'ten',     icon:'📦', n:'Prolific Dev',   check:G=>G.shipped>=10},
+  {id:'fifty',   icon:'🏭', n:'Game Factory',   check:G=>G.shipped>=50},
+  {id:'1k',      icon:'💵', n:'First $1K',      check:G=>G.totalEarned>=1000},
+  {id:'1m',      icon:'💰', n:'Millionaire',    check:G=>G.totalEarned>=1e6},
+  {id:'10m',     icon:'💎', n:'Ten Million',    check:G=>G.totalEarned>=1e7},
+  {id:'perfect', icon:'⭐', n:'Perfect Score',  check:G=>G.bestScore>=10},
+  {id:'fullteam',icon:'🏆', n:'Full Team',      check:G=>G.staff.length>=G.maxStaff && G.maxStaff>=4},
+  {id:'prestige',icon:'🌟', n:'New Chapter',    check:G=>G.tokens>=1},
+  {id:'rank5',   icon:'👑', n:'AAA Studio',     check:G=>G.rank>=5},
+  {id:'golden',  icon:'✨', n:'Golden Combo',   check:G=>G.goldenHits>=1},
+];
+
+const RANK_NAMES = ['','Indie Dev','Small Studio','Mid Studio','AA Developer','AAA Studio'];
+const RANK_AT    = [0,0,3,8,16,30]; // shipped games needed
+
+const PFXS = ['Epic','Pixel','Cyber','Dark','Hyper','Neo','Ultra','Mega','Shadow','Neon','Turbo','Final','Infinite','Rising','Void'];
+const SFXS = ['Quest','Runner','Saga','World','Force','Strike','Realm','Legend','Exodus','Dawn','Storm','Origin','Chronicle','Ascent'];
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let G = {
+  cp:0, money:0, hype:0,
+  totalEarned:0, shipped:0, bestScore:0, goldenHits:0,
+  rank:1, tokens:0,
+
+  // multipliers (reset on prestige, rebuilt from upgrades)
+  cpsMult:1, cpsFlat:0, clickMult:1,
+  projMult:1, salesMult:1, revBonus:0, minRev:1,
+  staffMult:1, maxStaff:4,
+
+  project:null,    // {genre,platform,genreIcon,platformIcon,gn,pn,needed,spent}
+  activeGames:[],
+  staff:[],        // {type,level}
+  upgrades:[],     // purchased upgrade ids
+  achievements:[],
+
+  selGenre:null, selPlatform:null,
+
+  lastActive:Date.now(),
+};
+
+// ═══════════════════════════════════════════
+// COMPUTED
+// ═══════════════════════════════════════════
+const staffOf = t => G.staff.filter(s=>s.type===t);
+const sumLvl  = t => staffOf(t).reduce((a,s)=>a+s.level,0);
+
+function getCPS(){
+  const base = sumLvl('prog') * 2 + G.cpsFlat;
+  return Math.max(0, base * G.cpsMult * G.staffMult * getDirectorMult());
+}
+function getDirectorMult(){ return staffOf('direct').reduce((a,s)=>a*Math.pow(1.5,s.level),1); }
+function getClickCP(){ return Math.max(1, Math.ceil(G.clickMult * (1 + sumLvl('prog')*0.1))); }
+function getDesign(){ return sumLvl('artist')*2; }
+function getCode(){   return sumLvl('design')*2; }
+function getCostRed(){ return staffOf('prod').reduce((a,s)=>a*(1-s.level*0.05),1); }
+
+function getProjCost(){
+  if(!G.project) return 0;
+  return Math.ceil(G.project.needed);
+}
+
+// ═══════════════════════════════════════════
+// GAME LOOP
+// ═══════════════════════════════════════════
+let lastT = Date.now();
+
+function tick(){
+  const now = Date.now();
+  const dt  = Math.min((now-lastT)/1000, 0.5);
+  lastT = now;
+
+  const cps = getCPS();
+  const gain = cps * dt;
+  G.cp += gain;
+  G.hype = Math.min(200, G.hype + sumLvl('market') * dt);
+
+  // Drain CP into project
+  if(G.project){
+    const drain = Math.min(G.cp, G.project.needed - G.project.spent);
+    if(drain > 0){ G.project.spent += drain; G.cp -= drain; }
+    if(G.project.spent >= G.project.needed) completeProject();
+  }
+
+  // Tick active game sales
+  let earnedTick = 0;
+  G.activeGames = G.activeGames.filter(ag=>{
+    const t2 = Math.min(ag.rem, dt);
+    const earn = ag.eps * t2;
+    earnedTick += earn;
+    ag.rem -= dt;
+    return ag.rem > 0;
+  });
+  if(earnedTick > 0){ G.money += earnedTick; G.totalEarned += earnedTick; }
+
+  checkAch();
+  renderLoop();
+}
+
+setInterval(tick, 100);
+
+// ═══════════════════════════════════════════
+// PROJECT
+// ═══════════════════════════════════════════
+function startProject(){
+  if(!G.selGenre || !G.selPlatform || G.project) return;
+  const genre = GENRES.find(x=>x.id===G.selGenre);
+  const plat  = PLATFORMS.find(x=>x.id===G.selPlatform);
+  const base  = 40 * genre.cpfact * plat.cpfact * Math.pow(1.35, G.shipped * 0.28);
+  const needed = Math.ceil(base * G.projMult * getCostRed());
+  G.project = {
+    genre:G.selGenre, platform:G.selPlatform,
+    gi:genre.icon, pi:plat.icon, gn:genre.n, pn:plat.n,
+    needed, spent:0,
+  };
+  renderProject();
+}
+
+function completeProject(){
+  const p = G.project;
+  G.project = null;
+  G.shipped++;
+  checkRank();
+
+  // Roll review score
+  const statBonus = Math.min(4, (getDesign()+getCode())/12);
+  const presBonus = G.tokens * 0.3;
+  let score = 4 + Math.random()*4 + statBonus + G.revBonus + presBonus;
+  if(G.minRev>1) score = Math.max(score, G.minRev);
+  score = Math.min(10, Math.floor(score));
+  G.bestScore = Math.max(G.bestScore, score);
+
+  const genre = GENRES.find(x=>x.id===p.genre);
+  const plat  = PLATFORMS.find(x=>x.id===p.platform);
+  const ck    = p.genre+'-'+p.platform;
+  const gmult = GOLDEN[ck] || 1;
+  const isGold = gmult > 1;
+  if(isGold) G.goldenHits++;
+
+  const hypeMult = 1 + G.hype * 0.005;
+  G.hype = 0;
+
+  const eps  = 80 * genre.smult * plat.smult * (score/5) * gmult * hypeMult * G.salesMult;
+  const dur  = 90;
+  const name = PFXS[Math.floor(Math.random()*PFXS.length)]+' '+SFXS[Math.floor(Math.random()*SFXS.length)];
+
+  G.activeGames.push({name, score, eps, rem:dur, dur, gi:p.gi, pi:p.pi, isGold});
+  showReview(name, score, eps*dur, isGold);
+  needFullRender = true;
+}
+
+// ═══════════════════════════════════════════
+// RANK
+// ═══════════════════════════════════════════
+function checkRank(){
+  for(let r=5;r>=1;r--){
+    if(G.shipped >= RANK_AT[r] && G.rank < r){
+      G.rank = r;
+      toast(`RANK UP! ${RANK_NAMES[r]}`);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════
+// CLICK
+// ═══════════════════════════════════════════
+document.getElementById('click-btn').addEventListener('click', function(e){
+  const cp = getClickCP();
+  if(G.project){
+    const drain = Math.min(cp, G.project.needed - G.project.spent);
+    G.project.spent += drain;
+    if(drain < cp) G.cp += (cp - drain);
+    if(G.project.spent >= G.project.needed){ completeProject(); }
+  } else {
+    G.cp += cp;
+  }
+  spawnFloat('+'+fmt(cp)+' CP', e.clientX, e.clientY, 'var(--green)');
+});
+
+function spawnFloat(txt, x, y, col){
+  const d=document.createElement('div');
+  d.className='ft';d.style.left=(x-16)+'px';d.style.top=(y-16)+'px';d.style.color=col;d.textContent=txt;
+  document.body.appendChild(d);setTimeout(()=>d.remove(),920);
+}
+
+// ═══════════════════════════════════════════
+// REVIEW
+// ═══════════════════════════════════════════
+const SCORE_COLS = ['','','','','#ff4444','#ff7744','#ffaa44','#ffcc44','#aaff44','#44ff88','#00ffcc'];
+const VERDICTS   = ['','','','','Catastrophe!','Disappointing.','Decent.','Good!','Great!!','Excellent!!','MASTERPIECE!!!'];
+
+function showReview(name, score, totalEarn, isGold){
+  document.getElementById('rev-name').textContent = '"'+name+'"';
+  const sc=document.getElementById('rev-score');
+  sc.textContent = score+'/10'; sc.style.color = SCORE_COLS[score]||'#fff';
+  document.getElementById('rev-verdict').textContent = VERDICTS[score]||'';
+  document.getElementById('rev-earn').innerHTML =
+    'Projected Revenue: '+fmtM(totalEarn)+(isGold?'<br>✨ GOLDEN COMBO BONUS!':'');
+  document.getElementById('rev-card').style.borderColor = isGold?'var(--gold)':(SCORE_COLS[score]||'var(--gold)');
+  document.getElementById('rev-modal').classList.add('show');
+}
+function closeReview(){ document.getElementById('rev-modal').classList.remove('show'); }
+
+// ═══════════════════════════════════════════
+// STAFF
+// ═══════════════════════════════════════════
+let hireSlotTarget = 0;
+
+function openHire(slot){
+  hireSlotTarget = slot;
+  const el = document.getElementById('hire-opts'); el.innerHTML='';
+  STAFF_TYPES.forEach(t=>{
+    const cnt = staffOf(t.id).length;
+    const cost = Math.ceil(t.base * Math.pow(1.6, cnt));
+    const can = G.money >= cost;
+    const d=document.createElement('div');
+    d.className='ho'+(can?'':' cant');
+    d.innerHTML=`<div class="ho-av">${t.icon}</div>
+      <div class="ho-info"><div class="ho-name">${t.n}</div>
+      <div class="ho-desc">${t.desc} — <span style="color:var(--green)">${t.eff}</span></div></div>
+      <div class="ho-cost">${fmtM(cost)}</div>`;
+    if(can) d.onclick=()=>hireStaff(t.id, cost);
+    el.appendChild(d);
+  });
+  document.getElementById('hire-modal').classList.add('show');
+}
+function closeHire(){ document.getElementById('hire-modal').classList.remove('show'); }
+
+function hireStaff(type, cost){
+  G.money -= cost;
+  G.staff.push({type, level:1});
+  closeHire();
+  toast('New hire joined the team!');
+  needFullRender=true;
+}
+
+function levelUp(idx){
+  const s=G.staff[idx]; if(!s) return;
+  const t=STAFF_TYPES.find(x=>x.id===s.type);
+  const cost=Math.ceil(t.base * Math.pow(t.lvlmult, s.level));
+  if(G.money<cost){ toast('Not enough money!'); return; }
+  G.money -= cost; s.level++;
+  toast(`${t.n} → Level ${s.level}!`);
+  needFullRender=true;
+}
+
+// ═══════════════════════════════════════════
+// UPGRADES
+// ═══════════════════════════════════════════
+function buyUpg(u){
+  if(G.upgrades.includes(u.id)) return;
+  if(u.ct==='m' && G.money<u.cost){ toast('Not enough money!'); return; }
+  if(u.ct==='c' && G.cp<u.cost){ toast('Not enough CP!'); return; }
+  if(u.ct==='m') G.money-=u.cost; else G.cp-=u.cost;
+  G.upgrades.push(u.id);
+  applyUpg(u);
+  toast(u.n+' purchased!');
+  needFullRender=true;
+}
+
+function applyUpg(u){
+  switch(u.eff){
+    case 'cpsmult':   G.cpsMult   *= u.v; break;
+    case 'cpsflat':   G.cpsFlat   += u.v; break;
+    case 'clickmult': G.clickMult *= u.v; break;
+    case 'projmult':  G.projMult  *= u.v; break;
+    case 'salesmult': G.salesMult *= u.v; break;
+    case 'revbonus':  G.revBonus  += u.v; break;
+    case 'minrev':    G.minRev = Math.max(G.minRev, u.v); break;
+    case 'staffmult': G.staffMult *= u.v; break;
+    case 'maxstaff':  G.maxStaff  += u.v; break;
+  }
+}
+
+function rebuildUpgEffects(){
+  G.cpsMult=1;G.cpsFlat=0;G.clickMult=1;G.projMult=1;G.salesMult=1;
+  G.revBonus=0;G.minRev=1;G.staffMult=1;G.maxStaff=4+G.tokens;
+  G.upgrades.forEach(id=>{ const u=UPGRADES.find(x=>x.id===id); if(u) applyUpg(u); });
+}
+
+// ═══════════════════════════════════════════
+// PRESTIGE
+// ═══════════════════════════════════════════
+function checkPrestige(){
+  const ok = G.totalEarned>=75000 || G.bestScore>=10 || G.shipped>=25;
+  document.getElementById('prestige-btn').style.display = ok?'block':'none';
+}
+
+function doPrestige(){
+  if(!confirm('Start a new studio?\n\nYou lose all progress but earn a Prestige Token.\nEach token: +1 max staff slot & better starting stats.')) return;
+  G.tokens++;
+  G.cp=0;G.money=0;G.hype=0;G.totalEarned=0;G.shipped=0;G.bestScore=0;G.goldenHits=0;
+  G.rank=1;G.project=null;G.activeGames=[];G.staff=[];G.upgrades=[];G.achievements=[];
+  G.selGenre=null;G.selPlatform=null;
+  rebuildUpgEffects();
+  needFullRender=true;
+  toast('New Studio founded! Prestige Token earned! ⭐');
+}
+
+// ═══════════════════════════════════════════
+// ACHIEVEMENTS
+// ═══════════════════════════════════════════
+function checkAch(){
+  ACHIEVEMENTS.forEach(a=>{
+    if(!G.achievements.includes(a.id) && a.check(G)){
+      G.achievements.push(a.id);
+      toast('Achievement: '+a.n+' '+a.icon);
+      renderAch();
+    }
+  });
+}
+
+// ═══════════════════════════════════════════
+// SAVE / LOAD
+// ═══════════════════════════════════════════
+function save(){ G.lastActive=Date.now(); localStorage.setItem('gdi_v2',JSON.stringify(G)); }
+function load(){
+  const raw=localStorage.getItem('gdi_v2'); if(!raw) return;
+  try{
+    const d=JSON.parse(raw);
+    const idle=(Date.now()-(d.lastActive||Date.now()))/1000;
+    Object.assign(G,d);
+    rebuildUpgEffects();
+    if(idle>30){
+      const offCps=getCPS();
+      const offCp=offCps*idle*0.5;
+      let offMoney=0;
+      G.activeGames=G.activeGames.map(ag=>{
+        const t=Math.min(ag.rem,idle);
+        offMoney+=ag.eps*t*0.5;
+        return {...ag,rem:Math.max(0,ag.rem-idle)};
+      }).filter(ag=>ag.rem>0);
+      G.cp+=offCp; G.money+=offMoney; G.totalEarned+=offMoney;
+      showIdle(offCp,offMoney,Math.floor(idle));
+    }
+  }catch(e){ console.warn('Load fail',e); }
+}
+setInterval(save, 30000);
+
+function showIdle(cp,m,sec){
+  document.getElementById('idle-a').innerHTML=
+    `⚡ +${fmt(Math.floor(cp))} CP<br>💰 +${fmtM(m)}<br><span style="font-size:14px;color:var(--dim)">(${fmtTime(sec)} offline)</span>`;
+  document.getElementById('idle-modal').classList.add('show');
+}
+function closeIdle(){ document.getElementById('idle-modal').classList.remove('show'); }
+
+// ═══════════════════════════════════════════
+// FORMAT HELPERS
+// ═══════════════════════════════════════════
+function fmt(n){
+  if(n>=1e12) return (n/1e12).toFixed(1)+'T';
+  if(n>=1e9)  return (n/1e9).toFixed(1)+'B';
+  if(n>=1e6)  return (n/1e6).toFixed(2)+'M';
+  if(n>=1e3)  return (n/1e3).toFixed(1)+'K';
+  return Math.floor(n).toString();
+}
+function fmtM(n){ return '$'+fmt(n); }
+function fmtTime(s){ if(s<60) return s+'s'; if(s<3600) return Math.floor(s/60)+'m'; return Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m'; }
+
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._timer); t._timer=setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ═══════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════
+let needFullRender = true;
+let lastFullRender = 0;
+
+function renderLoop(){
+  // Fast: numbers only
+  const cps=getCPS();
+  document.getElementById('tb-money').textContent=fmtM(G.money);
+  document.getElementById('tb-cps').textContent=fmt(cps)+' CP/s';
+  document.getElementById('tb-rank').textContent='Rank '+G.rank;
+  document.getElementById('cp-pool').textContent=fmt(G.cp);
+  document.getElementById('money-pool').textContent=fmtM(G.money);
+  document.getElementById('click-lbl').textContent='+'+fmt(getClickCP())+' CP';
+  document.getElementById('studio-rank').textContent=
+    'Rank '+G.rank+' · '+RANK_NAMES[G.rank]+(G.tokens?'  '+'⭐'.repeat(G.tokens):'');
+
+  renderProject();
+  renderActiveSales();
+  checkPrestige();
+
+  // Full re-render on demand or every 2s
+  const now=Date.now();
+  if(needFullRender || now-lastFullRender>2000){
+    needFullRender=false; lastFullRender=now;
+    renderStaff();
+    renderUpgrades();
+    renderGenrePlatform();
+    renderStats();
+    renderAch();
+  }
+}
+
+function renderProject(){
+  const el_title=document.getElementById('proj-title');
+  const el_pbar=document.getElementById('pbar');
+  const el_ptxt=document.getElementById('pbar-txt');
+  const el_info=document.getElementById('proj-info');
+  const el_cpst=document.getElementById('proj-cp-stat');
+  const el_sbtn=document.getElementById('start-btn');
+
+  if(G.project){
+    const pct=Math.min(100,(G.project.spent/G.project.needed)*100);
+    el_title.textContent=G.project.gi+' '+G.project.gn+' + '+G.project.pi+' '+G.project.pn;
+    el_pbar.style.width=pct+'%';
+    el_ptxt.textContent=Math.floor(pct)+'%';
+    el_info.textContent='Game #'+(G.shipped+1);
+    el_cpst.textContent=fmt(G.project.spent)+' / '+fmt(G.project.needed)+' CP';
+    el_sbtn.disabled=true; el_sbtn.textContent='IN DEVELOPMENT...';
+  } else {
+    el_title.textContent='No active project';
+    el_pbar.style.width='0%'; el_ptxt.textContent='0%';
+    el_info.textContent='Select genre + platform below';
+    el_cpst.textContent='';
+    const can = G.selGenre && G.selPlatform;
+    el_sbtn.disabled=!can;
+    el_sbtn.textContent=can?'▶ START PROJECT':'SELECT GENRE + PLATFORM';
+  }
+}
+
+function renderActiveSales(){
+  const sec=document.getElementById('games-sec');
+  const lst=document.getElementById('games-list');
+  if(G.activeGames.length===0){ sec.style.display='none'; return; }
+  sec.style.display='block'; lst.innerHTML='';
+  G.activeGames.forEach(ag=>{
+    const pct=((ag.dur-ag.rem)/ag.dur)*100;
+    const d=document.createElement('div');
+    d.className='ag'+(ag.isGold?' gold-game':'');
+    d.innerHTML=`<div class="ag-title">${ag.gi} ${ag.name} ${ag.isGold?'✨':''}</div>
+      <div class="ag-sub">Score: <span style="color:var(--gold)">${ag.score}/10</span> · ${fmtM(ag.eps)}/s</div>
+      <div class="pbar" style="height:6px;margin-top:4px;">
+        <div class="pbar-fill" style="width:${pct}%;background:linear-gradient(90deg,var(--gold),var(--accent2))"></div>
+      </div>`;
+    lst.appendChild(d);
+  });
+}
+
+function renderGenrePlatform(){
+  const ge=document.getElementById('genre-chips'); ge.innerHTML='';
+  const pe=document.getElementById('platform-chips'); pe.innerHTML='';
+
+  GENRES.forEach(g=>{
+    const locked=g.rank > G.rank;
+    const c=document.createElement('div');
+    c.className='chip'+(locked?' locked':'')+(G.selGenre===g.id?' on':'');
+    c.textContent=g.icon+' '+g.n;
+    if(!locked) c.onclick=()=>{ G.selGenre=g.id; renderGenrePlatform(); renderProject(); updateComboHint(); };
+    ge.appendChild(c);
+  });
+
+  PLATFORMS.forEach(p=>{
+    const needsUpg = p.lockUpg && !G.upgrades.includes(p.lockUpg);
+    const locked   = p.rank > G.rank || needsUpg;
+    const c=document.createElement('div');
+    const isGolden = G.selGenre && GOLDEN[G.selGenre+'-'+p.id];
+    c.className='chip'+(locked?' locked':'')+(G.selPlatform===p.id?' on':'')+(isGolden&&!locked?' golden-hint':'');
+    c.textContent=p.icon+' '+p.n+(locked&&needsUpg?' 🔒':'');
+    if(!locked) c.onclick=()=>{ G.selPlatform=p.id; renderGenrePlatform(); renderProject(); updateComboHint(); };
+    pe.appendChild(c);
+  });
+
+  updateComboHint();
+}
+
+function updateComboHint(){
+  const el=document.getElementById('combo-hint');
+  if(G.selGenre && G.selPlatform){
+    const ck=G.selGenre+'-'+G.selPlatform;
+    const m=GOLDEN[ck];
+    el.textContent=m?('✨ GOLDEN COMBO! +'+Math.round((m-1)*100)+'% bonus revenue'):'';
+  } else { el.textContent=''; }
+}
+
+function renderStaff(){
+  ['staff-list','mob-staff-list'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.innerHTML='';
+    for(let i=0;i<G.maxStaff;i++){
+      const s=G.staff[i];
+      const d=document.createElement('div');
+      if(s){
+        const t=STAFF_TYPES.find(x=>x.id===s.type);
+        const lvcost=Math.ceil(t.base*Math.pow(t.lvlmult,s.level));
+        const can=G.money>=lvcost;
+        d.className='staff-slot';
+        d.innerHTML=`<div class="staff-card">
+          <div class="sav">${t.icon}</div>
+          <div class="sinfo">
+            <div class="sname">${t.n} <span style="color:var(--gold)">Lv${s.level}</span></div>
+            <div class="srole">${t.desc}</div>
+            <div class="seff">${t.eff} ×${s.level}</div>
+          </div>
+          <button class="slvl-btn" onclick="levelUp(${i})" ${can?'':'disabled'}>
+            LVL UP<br>${fmtM(lvcost)}
+          </button>
+        </div>`;
+      } else {
+        d.className='hire-slot';
+        d.innerHTML=`<button class="hire-btn" onclick="openHire(${i})">+ HIRE STAFF</button>`;
+      }
+      el.appendChild(d);
+    }
+  });
+}
+
+function renderUpgrades(){
+  ['upg-list','mob-upg-list'].forEach(id=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.innerHTML='';
+    UPGRADES.forEach(u=>{
+      const owned=G.upgrades.includes(u.id);
+      const afford=u.ct==='m'? G.money>=u.cost : G.cp>=u.cost;
+      const d=document.createElement('div');
+      d.className='upg'+(owned?' owned':(!afford?' broke':''));
+      d.innerHTML=`<div class="ut">
+        <div class="un">${u.icon} ${u.n}</div>
+        ${owned?'<div class="owned-tag">✓ OWNED</div>':`<div class="uc ${u.ct}">${u.ct==='m'?fmtM(u.cost):fmt(u.cost)+' CP'}</div>`}
+      </div><div class="ud">${u.desc}</div>`;
+      if(!owned && afford) d.onclick=()=>buyUpg(u);
+      el.appendChild(d);
+    });
+  });
+}
+
+function renderStats(){
+  const rows=[
+    {l:'Games Shipped', v:G.shipped,                  col:'var(--accent)'},
+    {l:'Best Review',   v:G.bestScore+'/10',           col:'var(--gold)'},
+    {l:'Total Earned',  v:fmtM(G.totalEarned),         col:'var(--gold)'},
+    {l:'CP / sec',      v:fmt(getCPS()),                col:'var(--green)'},
+    {l:'Click Power',   v:'+'+fmt(getClickCP())+' CP', col:'var(--green)'},
+    {l:'Design Stat',   v:getDesign(),                 col:'var(--accent2)'},
+    {l:'Code Stat',     v:getCode(),                   col:'var(--accent2)'},
+    {l:'Sales Mult',    v:'×'+G.salesMult.toFixed(1),  col:'var(--accent)'},
+    {l:'Prestige Tokens',v:'⭐'.repeat(G.tokens)||'0', col:'var(--purple)'},
+  ];
+  const html=rows.map(r=>`<div class="sr"><span class="sr-l">${r.l}</span><span class="sr-v" style="color:${r.col}">${r.v}</span></div>`).join('');
+  ['stats-list','mob-stats-list'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=html; });
+}
+
+function renderAch(){
+  const el=document.getElementById('ach-bar'); if(!el) return;
+  el.innerHTML='';
+  G.achievements.forEach(id=>{
+    const a=ACHIEVEMENTS.find(x=>x.id===id); if(!a) return;
+    const s=document.createElement('span');
+    s.className='ach'; s.textContent=a.icon; s.title=a.n;
+    el.appendChild(s);
+  });
+}
+
+// ═══════════════════════════════════════════
+// MOBILE TABS
+// ═══════════════════════════════════════════
+function setTab(tab){
+  document.getElementById('mob-staff-panel').classList.remove('on');
+  document.getElementById('mob-upg-panel').classList.remove('on');
+  ['tab-game','tab-staff','tab-upg'].forEach(id=>document.getElementById(id).classList.remove('on'));
+  if(tab==='staff')  { document.getElementById('mob-staff-panel').classList.add('on'); document.getElementById('tab-staff').classList.add('on'); renderStaff(); }
+  else if(tab==='upg'){ document.getElementById('mob-upg-panel').classList.add('on');  document.getElementById('tab-upg').classList.add('on');   renderUpgrades(); renderStats(); }
+  else                { document.getElementById('tab-game').classList.add('on'); }
+}
+
+// ═══════════════════════════════════════════
+// START PROJECT BUTTON
+// ═══════════════════════════════════════════
+document.getElementById('start-btn').addEventListener('click',()=>{
+  if(!G.project) startProject();
+});
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+load();
+rebuildUpgEffects();
+needFullRender=true;
+setTab('game');
+lastT=Date.now();
+</script>
+</body>
+</html>
