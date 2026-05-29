@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chalkboard Hangman</title>
+    <!-- Single permitted external resource: Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* ============================================
+           CSS CUSTOM PROPERTIES — CHALKBOARD PALETTE
+           ============================================ */
+        :root {
+            --bg-primary: #1a2332;
+            --bg-secondary: #1e2a3a;
+            --bg-card: #222d3d;
+            --chalk-white: #e8e4d8;
+            --chalk-dim: #a8a498;
+            --chalk-faint: #6b6860;
+            --accent-amber: #f0a500;
+            --accent-gold: #d4920a;
+            --accent-warm: #e8913a;
+            --success-green: #5cb85c;
+            --danger-red: #d9534f;
+            --danger-fade: rgba(217, 83, 79, 0.3);
+            --font-display: 'Caveat', cursive;
+            --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --shadow-card: 0 2px 12px rgba(0,0,0,0.3);
+            --transition-fast: 0.15s ease;
+            --transition-med: 0.3s ease;
+        }
+
+        /* ============================================
+           RESET & BASE
+           ============================================ */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            font-size: 16px;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        body {
+            font-family: var(--font-ui);
+            background-color: var(--bg-primary);
+            color: var(--chalk-white);
+            min-height: 100vh;
+            overflow-x: hidden;
+            /* Subtle chalkboard texture via noise */
+            background-image:
+                radial-gradient(ellipse at 20% 50%, rgba(255,255,255,0.02) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(240,165,0,0.03) 0%, transparent 50%);
+        }
+
+        /* ============================================
+           LAYOUT CONTAINER
+           ============================================ */
+        .game-container {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 16px 16px 32px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        /* ============================================
+           TITLE
+           ============================================ */
+        .game-title {
+            font-family: var(--font-display);
+            font-size: clamp(2.2rem, 6vw, 3.5rem);
+            font-weight: 700;
+            color: var(--chalk-white);
+            text-align: center;
+            letter-spacing: 0.02em;
+            line-height: 1.2;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+            padding-top: 8px;
+        }
+
+        .game-title span {
+            color: var(--accent-amber);
+        }
+
+        /* ============================================
+           DIFFICULTY SELECTOR
+           ============================================ */
+        .difficulty-bar {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+            max-width: 420px;
+            justify-content: center;
+        }
+
+        .diff-btn {
+            flex: 1;
+            font-family: var(--font-ui);
+            font-size: 0.95rem;
+            font-weight: 600;
+            padding: 10px 8px;
+            border: 2px solid var(--chalk-faint);
+            border-radius: var(--radius-md);
+            background: transparent;
+            color: var(--chalk-dim);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            position: relative;
+            overflow: hidden;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .diff-btn:active {
+            transform: scale(0.94);
+        }
+
+        .diff-btn.active {
+            border-color: var(--accent-amber);
+            color: var(--accent-amber);
+            background: rgba(240, 165, 0, 0.1);
+            box-shadow: 0 0 12px rgba(240, 165, 0, 0.15);
+        }
+
+        .diff-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 24px;
+            height: 3px;
+            background: var(--accent-amber);
+            border-radius: 2px;
+        }
+
+        /* ============================================
+           SCORE BAR
+           ============================================ */
+        .score-bar {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            width: 100%;
+            max-width: 420px;
+            padding: 10px 16px;
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-card);
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--chalk-dim);
+            position: relative;
+        }
+
+        .score-bar .label {
+            color: var(--chalk-faint);
+        }
+
+        .score-bar .value {
+            color: var(--chalk-white);
+            font-weight: 700;
+        }
+
+        .score-bar .wins .value {
+            color: var(--success-green);
+        }
+
+        .score-bar .losses .value {
+            color: var(--danger-red);
+        }
+
+        .score-bar .streak .value {
+            color: var(--accent-amber);
+        }
+
+        .new-high-score {
+            position: absolute;
+            top: -28px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            color: var(--accent-amber);
+            white-space: nowrap;
+            animation: popIn 0.5s ease forwards;
+            pointer-events: none;
+        }
+
+        @keyframes popIn {
+            0% { opacity: 0; transform: translateX(-50%) scale(0.5) translateY(10px); }
+            50% { opacity: 1; transform: translateX(-50%) scale(1.2) translateY(-4px); }
+            100% { opacity: 1; transform: translateX(-50%) scale(1) translateY(0); }
+        }
+
+        /* ============================================
+           HANGMAN SVG AREA
+           ============================================ */
+        .hangman-area {
+            width: 100%;
+            max-width: 280px;
+            aspect-ratio: 1 / 1.1;
+            position: relative;
+        }
+
+        .hangman-svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Gallows — always visible */
+        .gallows {
+            fill: none;
+            stroke: var(--chalk-dim);
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* Body parts — hidden initially, drawn via animation */
+        .body-part {
+            fill: none;
+            stroke: var(--chalk-white);
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-dasharray: 100;
+            stroke-dashoffset: 100;
+            transition: stroke-dashoffset 0.6s ease;
+        }
+
+        .body-part.drawn {
+            stroke-dashoffset: 0;
+        }
+
+        /* Head is a circle — different dash values */
+        .body-part.head {
+            stroke-dasharray: 95;
+            stroke-dashoffset: 95;
+        }
+
+        .body-part.head.drawn {
+            stroke-dashoffset: 0;
+        }
+
+        /* Loss sway animation */
+        .hangman-svg.sway .hangman-figure {
+            animation: sway 0.8s ease-in-out;
+        }
+
+        @keyframes sway {
+            0%, 100% { transform: rotate(0deg); }
+            20% { transform: rotate(8deg); }
+            40% { transform: rotate(-6deg); }
+            60% { transform: rotate(4deg); }
+            80% { transform: rotate(-2deg); }
+        }
+
+        .hangman-figure {
+            transform-origin: 140px 40px;
+        }
+
+        /* ============================================
+           WORD DISPLAY
+           ============================================ */
+        .word-display {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 8px;
+            min-height: 64px;
+            align-items: center;
+        }
+
+        .letter-slot {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: clamp(32px, 8vw, 48px);
+            height: clamp(40px, 10vw, 56px);
+            font-family: var(--font-display);
+            font-size: clamp(1.5rem, 5vw, 2.2rem);
+            font-weight: 700;
+            color: var(--chalk-white);
+            border-bottom: 3px solid var(--chalk-dim);
+            position: relative;
+            perspective: 400px;
+        }
+
+        .letter-slot .letter-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transform: rotateX(90deg);
+            transition: all 0.4s ease;
+        }
+
+        .letter-slot.revealed .letter-inner {
+            opacity: 1;
+            transform: rotateX(0deg);
+        }
+
+        .letter-slot.revealed {
+            border-bottom-color: var(--accent-amber);
+        }
+
+        .letter-slot.wrong-reveal {
+            border-bottom-color: var(--danger-red);
+        }
+
+        .letter-slot.wrong-reveal .letter-inner {
+            color: var(--danger-red);
+            opacity: 1;
+            transform: rotateX(0deg);
+        }
+
+        /* Space between words */
+        .letter-slot.space {
+            border-bottom-color: transparent;
+            width: clamp(16px, 4vw, 24px);
+        }
+
+        /* ============================================
+           WRONG LETTERS & GUESSES REMAINING
+           ============================================ */
+        .status-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            font-size: 0.9rem;
+            min-height: 32px;
+        }
+
+        .wrong-letters {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .wrong-letter {
+            font-family: var(--font-ui);
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: var(--danger-red);
+            opacity: 0.7;
+            text-decoration: line-through;
+            animation: fadeWrong 0.3s ease;
+        }
+
+        @keyframes fadeWrong {
+            0% { opacity: 0; transform: scale(1.4); }
+            100% { opacity: 0.7; transform: scale(1); }
+        }
+
+        .guesses-remaining {
+            color: var(--chalk-dim);
+            font-weight: 500;
+        }
+
+        .guesses-remaining .count {
+            color: var(--accent-amber);
+            font-weight: 700;
+        }
+
+        /* ============================================
+           KEYBOARD
+           ============================================ */
+        .keyboard {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+            max-width: 560px;
+            padding: 0 4px;
+        }
+
+        .keyboard-row {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .key-btn {
+            min-width: 44px;
+            height: 48px;
+            font-family: var(--font-ui);
+            font-size: 1rem;
+            font-weight: 700;
+            border: none;
+            border-radius: var(--radius-sm);
+            background: var(--bg-card);
+            color: var(--chalk-white);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all var(--transition-fast);
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            flex: 1;
+            max-width: 52px;
+        }
+
+        .key-btn:active {
+            transform: scale(0.92);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+        .key-btn:disabled {
+            cursor: default;
+            pointer-events: none;
+        }
+
+        .key-btn.correct {
+            background: var(--success-green);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(92, 184, 92, 0.3);
+        }
+
+        .key-btn.wrong {
+            background: rgba(217, 83, 79, 0.2);
+            color: var(--danger-red);
+            opacity: 0.5;
+        }
+
+        /* Ripple effect */
+        .key-btn .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(0);
+            animation: ripple 0.5s ease-out;
+            pointer-events: none;
+        }
+
+        @keyframes ripple {
+            to { transform: scale(3); opacity: 0; }
+        }
+
+        /* ============================================
+           NEW GAME BUTTON
+           ============================================ */
+        .new-game-btn {
+            font-family: var(--font-display);
+            font-size: 1.4rem;
+            font-weight: 700;
+            padding: 12px 36px;
+            border: 2px solid var(--accent-amber);
+            border-radius: var(--radius-lg);
+            background: transparent;
+            color: var(--accent-amber);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            position: relative;
+            overflow: hidden;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            margin-top: 4px;
+        }
+
+        .new-game-btn:active {
+            transform: scale(0.95);
+        }
+
+        .new-game-btn:hover {
+            background: rgba(240, 165, 0, 0.1);
+        }
+
+        /* ============================================
+           OVERLAY (WIN / LOSS)
+           ============================================ */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(26, 35, 50, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+
+        .overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .overlay-card {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            padding: 32px 28px;
+            text-align: center;
+            max-width: 360px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            transform: scale(0.8);
+            transition: transform 0.3s ease;
+        }
+
+        .overlay.visible .overlay-card {
+            transform: scale(1);
+        }
+
+        .overlay-title {
+            font-family: var(--font-display);
+            font-size: 2.4rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .overlay-title.win {
+            color: var(--success-green);
+        }
+
+        .overlay-title.loss {
+            color: var(--danger-red);
+        }
+
+        .overlay-word {
+            font-family: var(--font-display);
+            font-size: 1.6rem;
+            color: var(--accent-amber);
+            margin-bottom: 4px;
+        }
+
+        .overlay-subtitle {
+            font-size: 0.95rem;
+            color: var(--chalk-dim);
+            margin-bottom: 20px;
+        }
+
+        .overlay-btn {
+            font-family: var(--font-display);
+            font-size: 1.3rem;
+            font-weight: 700;
+            padding: 10px 32px;
+            border: 2px solid var(--accent-amber);
+            border-radius: var(--radius-md);
+            background: rgba(240, 165, 0, 0.1);
+            color: var(--accent-amber);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .overlay-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* ============================================
+           CONFETTI CANVAS
+           ============================================ */
+        .confetti-canvas {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 101;
+        }
+
+        /* ============================================
+           SHAKE ANIMATION
+           ============================================ */
+        .shake {
+            animation: shake 0.4s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-8px); }
+            40% { transform: translateX(8px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
+        }
+
+        /* ============================================
+           RESPONSIVE — DESKTOP
+           ============================================ */
+        @media (min-width: 600px) {
+            .game-container {
+                padding: 24px 24px 40px;
+                gap: 20px;
+            }
+
+            .keyboard {
+                gap: 10px;
+            }
+
+            .keyboard-row {
+                gap: 8px;
+            }
+
+            .key-btn {
+                height: 52px;
+                font-size: 1.05rem;
+            }
+        }
+
+        @media (min-width: 900px) {
+            .game-container {
+                max-width: 800px;
+            }
+
+            .hangman-area {
+                max-width: 320px;
+            }
+        }
+
+        /* ============================================
+           RESPONSIVE — VERY SMALL SCREENS
+           ============================================ */
+        @media (max-width: 380px) {
+            .key-btn {
+                min-width: 36px;
+                height: 44px;
+                font-size: 0.9rem;
+            }
+
+            .keyboard-row {
+                gap: 4px;
+            }
+
+            .keyboard {
+                gap: 6px;
+            }
+
+            .score-bar {
+                gap: 12px;
+                font-size: 0.8rem;
+            }
+        }
+
+        /* ============================================
+           UTILITY
+           ============================================ */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0,0,0,0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        /* Category hint */
+        .category-hint {
+            font-size: 0.85rem;
+            color: var(--chalk-faint);
+            font-style: italic;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container" id="gameContainer">
+        <!-- TITLE -->
+        <h1 class="game-title">Chalkboard <span>Hangman</span></h1>
+
+        <!-- DIFFICULTY SELECTOR -->
+        <div class="difficulty-bar" id="difficultyBar" role="tablist" aria-label="Difficulty selection">
+            <button class="diff-btn active" data-difficulty="easy" role="tab" aria-selected="true">Easy</button>
+            <button class="diff-btn" data-difficulty="medium" role="tab" aria-selected="false">Medium</button>
+            <button class="diff-btn" data-difficulty="hard" role="tab" aria-selected="false">Hard</button>
+        </div>
+
+        <!-- SCORE BAR -->
+        <div class="score-bar" id="scoreBar">
+            <span class="wins"><span class="label">Wins: </span><span class="value" id="winsCount">0</span></span>
+            <span class="losses"><span class="label">Losses: </span><span class="value" id="lossesCount">0</span></span>
+            <span class="streak"><span class="label">Best Streak: </span><span class="value" id="bestStreak">0</span></span>
+        </div>
+
+        <!-- HANGMAN SVG -->
+        <div class="hangman-area" id="hangmanArea">
+            <svg class="hangman-svg" id="hangmanSvg" viewBox="0 0 280 300" xmlns="http://www.w3.org/2000/svg">
+                <!-- Gallows structure (always visible) -->
+                <g class="gallows">
+                    <!-- Base -->
+                    <line x1="40" y1="280" x2="240" y2="280" />
+                    <!-- Vertical pole -->
+                    <line x1="80" y1="280" x2="80" y2="30" />
+                    <!-- Top bar -->
+                    <line x1="80" y1="30" x2="180" y2="30" />
+                    <!-- Rope -->
+                    <line x1="180" y1="30" x2="180" y2="60" />
+                    <!-- Support diagonal -->
+                    <line x1="80" y1="70" x2="120" y2="30" />
+                </g>
+
+                <!-- Hangman figure (body parts animated in) -->
+                <g class="hangman-figure" id="hangmanFigure">
+                    <!-- Head (circle) -->
+                    <circle class="body-part head" id="partHead" cx="180" cy="85" r="25" />
+                    <!-- Body -->
+                    <line class="body-part" id="partBody" x1="180" y1="110" x2="180" y2="180" />
+                    <!-- Left arm -->
+                    <line class="body-part" id="partLeftArm" x1="180" y1="130" x2="145" y2="165" />
+                    <!-- Right arm -->
+                    <line class="body-part" id="partRightArm" x1="180" y1="130" x2="215" y2="165" />
+                    <!-- Left leg -->
+                    <line class="body-part" id="partLeftLeg" x1="180" y1="180" x2="150" y2="225" />
+                    <!-- Right leg -->
+                    <line class="body-part" id="partRightLeg" x1="180" y1="180" x2="210" y2="225" />
+                </g>
+            </svg>
+        </div>
+
+        <!-- CATEGORY HINT -->
+        <p class="category-hint" id="categoryHint"></p>
+
+        <!-- WORD DISPLAY -->
+        <div class="word-display" id="wordDisplay" aria-label="Word to guess"></div>
+
+        <!-- STATUS ROW: Wrong letters + guesses remaining -->
+        <div class="status-row" id="statusRow">
+            <div class="wrong-letters" id="wrongLetters"></div>
+            <div class="guesses-remaining">
+                Guesses left: <span class="count" id="guessesLeft">6</span>
+            </div>
+        </div>
+
+        <!-- KEYBOARD -->
+        <div class="keyboard" id="keyboard" role="group" aria-label="Letter keyboard">
+            <div class="keyboard-row" data-row="1"></div>
+            <div class="keyboard-row" data-row="2"></div>
+            <div class="keyboard-row" data-row="3"></div>
+        </div>
+
+        <!-- NEW GAME BUTTON -->
+        <button class="new-game-btn" id="newGameBtn">New Game</button>
+    </div>
+
+    <!-- WIN/LOSS OVERLAY -->
+    <div class="overlay" id="overlay">
+        <div class="overlay-card">
+            <h2 class="overlay-title" id="overlayTitle"></h2>
+            <p class="overlay-word" id="overlayWord"></p>
+            <p class="overlay-subtitle" id="overlaySubtitle"></p>
+            <button class="overlay-btn" id="overlayBtn">Play Again</button>
+        </div>
+    </div>
+
+    <!-- CONFETTI CANVAS -->
+    <canvas class="confetti-canvas" id="confettiCanvas"></canvas>
+
+    <script>
+        /* ============================================
+           WORD BANKS — 50+ words each difficulty
+           ============================================ */
+        const WORD_BANKS = {
+            easy: [
+                "cat", "jump", "blue", "fish", "cake", "road", "tree", "book", "lamp", "rain",
+                "duck", "star", "moon", "ship", "frog", "bell", "drum", "flag", "gold", "hill",
+                "kite", "leaf", "nest", "pond", "rock", "sand", "tent", "wave", "yarn", "zinc",
+                "apple", "beach", "chair", "dance", "eagle", "flame", "grape", "heart", "ivory",
+                "jewel", "knife", "lemon", "mango", "night", "ocean", "piano", "queen", "river",
+                "snake", "tiger", "cloud", "brick", "glove", "peach", "smile", "train", "wheel",
+                "bread", "candy", "dream", "fence", "horse", "juice", "lunch", "mouse", "paint",
+                "sheep", "spoon", "storm", "watch", "whale", "world", "youth", "zebra", "angel",
+                "arrow", "bacon", "cabin", "daisy", "elbow", "fairy", "ghost", "honey", "igloo",
+                "jelly"
+            ],
+            medium: [
+                "jungle", "window", "planet", "candle", "bridge", "school", "castle", "mirror",
+                "ticket", "garden", "basket", "camera", "desert", "engine", "forest", "guitar",
+                "harbor", "island", "jacket", "kitten", "ladder", "marble", "needle", "orange",
+                "pencil", "quartz", "rabbit", "saddle", "temple", "valley", "wallet", "yellow",
+                "zipper", "anchor", "bottle", "carpet", "dolphin", "feather", "glacier", "hamster",
+                "iceberg", "jasmine", "kitchen", "lantern", "muffin", "nectar", "octopus", "popcorn",
+                "puzzle", "rocket", "silver", "thunder", "umbrella", "viking", "walnut", "yogurt",
+                "breeze", "cactus", "donkey", "falcon", "goblin", "hazard", "insect", "jigsaw",
+                "kettle", "lizard", "magnet", "napkin", "outfit", "parrot", "quiver", "riddle",
+                "soccer", "tunnel", "velvet", "waffle", "bronze", "cherry", "dagger", "fossil"
+            ],
+            hard: [
+                "saxophone", "labyrinth", "chrysalis", "exquisite", "algorithm", "silhouette",
+                "phenomenon", "bureaucrat", "catastrophe", "equilibrium", "avalanche", "butterfly",
+                "chocolate", "dinosaur", "earthquake", "fireplace", "grapevine", "hamburger",
+                "invention", "jellyfish", "kangaroo", "lighthouse", "mountain", "newspaper",
+                "orchestra", "parachute", "raspberry", "spaghetti", "telephone", "waterfall",
+                "xylophone", "bracelet", "calendar", "daffodil", "elephant", "flamingo",
+                "hospital", "kerosene", "lemonade", "macaroni", "question", "sandwich",
+                "tangerine", "universe", "wardrobe", "absolute", "bathroom", "cinnamon",
+                "database", "envelope", "firewall", "guardian", "hardware", "illusion",
+                "kilogram", "language", "medicine", "notebook", "opposite", "platform",
+                "quantity", "railroad", "software", "treasure", "ultimate", "velocity",
+                "wireless", "youthful", "abstract", "bargain", "captain", "diamond",
+                "eclipse", "freedom", "granite", "harmony", "justice", "kingdom"
+            ]
+        };
+
+        /* ============================================
+           GAME STATE
+           ============================================ */
+        const state = {
+            difficulty: 'easy',
+            currentWord: '',
+            guessedLetters: new Set(),
+            wrongGuesses: 0,
+            maxWrong: 6,
+            wins: 0,
+            losses: 0,
+            bestStreak: 0,
+            currentStreak: 0,
+            gameOver: false,
+            wordIndex: 0,
+            shuffledWords: []
+        };
+
+        /* ============================================
+           DOM REFERENCES
+           ============================================ */
+        const dom = {
+            gameContainer: document.getElementById('gameContainer'),
+            difficultyBar: document.getElementById('difficultyBar'),
+            scoreBar: document.getElementById('scoreBar'),
+            winsCount: document.getElementById('winsCount'),
+            lossesCount: document.getElementById('lossesCount'),
+            bestStreak: document.getElementById('bestStreak'),
+            hangmanArea: document.getElementById('hangmanArea'),
+            hangmanSvg: document.getElementById('hangmanSvg'),
+            hangmanFigure: document.getElementById('hangmanFigure'),
+            categoryHint: document.getElementById('categoryHint'),
+            wordDisplay: document.getElementById('wordDisplay'),
+            wrongLetters: document.getElementById('wrongLetters'),
+            guessesLeft: document.getElementById('guessesLeft'),
+            keyboard: document.getElementById('keyboard'),
+            newGameBtn: document.getElementById('newGameBtn'),
+            overlay: document.getElementById('overlay'),
+            overlayTitle: document.getElementById('overlayTitle'),
+            overlayWord: document.getElementById('overlayWord'),
+            overlaySubtitle: document.getElementById('overlaySubtitle'),
+            overlayBtn: document.getElementById('overlayBtn'),
+            confettiCanvas: document.getElementById('confettiCanvas'),
+            // Body parts
+            partHead: document.getElementById('partHead'),
+            partBody: document.getElementById('partBody'),
+            partLeftArm: document.getElementById('partLeftArm'),
+            partRightArm: document.getElementById('partRightArm'),
+            partLeftLeg: document.getElementById('partLeftLeg'),
+            partRightLeg: document.getElementById('partRightLeg'),
+        };
+
+        const bodyParts = [
+            dom.partHead, dom.partBody, dom.partLeftArm,
+            dom.partRightArm, dom.partLeftLeg, dom.partRightLeg
+        ];
+
+        /* ============================================
+           FISHER-YATES SHUFFLE
+           ============================================ */
+        function shuffleArray(arr) {
+            const shuffled = [...arr];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        /* ============================================
+           INITIALISE KEYBOARD
+           ============================================ */
+        function buildKeyboard() {
+            const rows = [
+                'QWERTYUIOP',
+                'ASDFGHJKL',
+                'ZXCVBNM'
+            ];
+            const keyboardEl = dom.keyboard;
+            const rowEls = keyboardEl.querySelectorAll('.keyboard-row');
+
+            rows.forEach((rowStr, idx) => {
+                const rowEl = rowEls[idx];
+                rowEl.innerHTML = '';
+                for (const ch of rowStr) {
+                    const btn = document.createElement('button');
+                    btn.className = 'key-btn';
+                    btn.textContent = ch;
+                    btn.setAttribute('data-letter', ch);
+                    btn.setAttribute('aria-label', `Letter ${ch}`);
+                    btn.addEventListener('click', handleKeyClick);
+                    btn.addEventListener('touchend', function(e) {
+                        // Prevent double-fire on touch devices
+                        e.preventDefault();
+                    }, { passive: false });
+                    rowEl.appendChild(btn);
+                }
+            });
+        }
+
+        /* ============================================
+           KEY CLICK HANDLER
+           ============================================ */
+        function handleKeyClick(e) {
+            if (state.gameOver) return;
+
+            const btn = e.currentTarget;
+            const letter = btn.getAttribute('data-letter');
+
+            if (!letter || state.guessedLetters.has(letter)) return;
+
+            // Ripple effect
+            createRipple(e, btn);
+
+            state.guessedLetters.add(letter);
+
+            if (state.currentWord.toUpperCase().includes(letter)) {
+                // Correct guess
+                btn.classList.add('correct');
+                revealLetters(letter);
+                checkWin();
+            } else {
+                // Wrong guess
+                btn.classList.add('wrong');
+                state.wrongGuesses++;
+                updateGuessesLeft();
+                drawBodyPart(state.wrongGuesses - 1);
+                addWrongLetter(letter);
+
+                // Shake the word display
+                dom.wordDisplay.classList.add('shake');
+                setTimeout(() => dom.wordDisplay.classList.remove('shake'), 400);
+
+                checkLoss();
+            }
+        }
+
+        /* ============================================
+           RIPPLE EFFECT
+           ============================================ */
+        function createRipple(e, btn) {
+            const ripple = document.createElement('span');
+            ripple.className = 'ripple';
+            const rect = btn.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            const x = (e.clientX || e.touches?.[0]?.clientX || rect.left + rect.width / 2) - rect.left - size / 2;
+            const y = (e.clientY || e.touches?.[0]?.clientY || rect.top + rect.height / 2) - rect.top - size / 2;
+            ripple.style.width = ripple.style.height = size + 'px';
+            ripple.style.left = x + 'px';
+            ripple.style.top = y + 'px';
+            btn.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 500);
+        }
+
+        /* ============================================
+           REVEAL LETTERS IN WORD DISPLAY
+           ============================================ */
+        function revealLetters(letter) {
+            const slots = dom.wordDisplay.querySelectorAll('.letter-slot');
+            const upperWord = state.currentWord.toUpperCase();
+            let delay = 0;
+
+            slots.forEach((slot, idx) => {
+                if (slot.getAttribute('data-letter') === letter) {
+                    setTimeout(() => {
+                        slot.classList.add('revealed');
+                    }, delay);
+                    delay += 80;
+                }
+            });
+        }
+
+        /* ============================================
+           ADD WRONG LETTER DISPLAY
+           ============================================ */
+        function addWrongLetter(letter) {
+            const span = document.createElement('span');
+            span.className = 'wrong-letter';
+            span.textContent = letter;
+            dom.wrongLetters.appendChild(span);
+        }
+
+        /* ============================================
+           UPDATE GUESSES LEFT DISPLAY
+           ============================================ */
+        function updateGuessesLeft() {
+            const remaining = state.maxWrong - state.wrongGuesses;
+            dom.guessesLeft.textContent = remaining;
+        }
+
+        /* ============================================
+           DRAW BODY PART (SVG stroke animation)
+           ============================================ */
+        function drawBodyPart(index) {
+            if (index >= 0 && index < bodyParts.length) {
+                bodyParts[index].classList.add('drawn');
+            }
+        }
+
+        /* ============================================
+           CHECK WIN
+           ============================================ */
+        function checkWin() {
+            const upperWord = state.currentWord.toUpperCase();
+            const allGuessed = [...upperWord].every(ch => ch === ' ' || state.guessedLetters.has(ch));
+
+            if (allGuessed) {
+                state.gameOver = true;
+                state.wins++;
+                state.currentStreak++;
+
+                // Update high score
+                if (state.currentStreak > state.bestStreak) {
+                    state.bestStreak = state.currentStreak;
+                    localStorage.setItem('hangmanBestStreak', state.bestStreak.toString());
+                    showNewHighScore();
+                }
+
+                updateScoreDisplay();
+
+                // Delay then show overlay + confetti
+                setTimeout(() => {
+                    showOverlay('win');
+                    launchConfetti();
+                }, 500);
+            }
+        }
+
+        /* ============================================
+           CHECK LOSS
+           ============================================ */
+        function checkLoss() {
+            if (state.wrongGuesses >= state.maxWrong) {
+                state.gameOver = true;
+                state.losses++;
+                state.currentStreak = 0;
+                updateScoreDisplay();
+
+                // Sway animation
+                dom.hangmanSvg.classList.add('sway');
+
+                // Reveal unguessed letters in red
+                setTimeout(() => {
+                    revealUnguessedLetters();
+                }, 400);
+
+                // Show overlay
+                setTimeout(() => {
+                    showOverlay('loss');
+                }, 1200);
+            }
+        }
+
+        /* ============================================
+           REVEAL UNGUESSED LETTERS (on loss)
+           ============================================ */
+        function revealUnguessedLetters() {
+            const upperWord = state.currentWord.toUpperCase();
+            const slots = dom.wordDisplay.querySelectorAll('.letter-slot');
+
+            slots.forEach(slot => {
+                const letter = slot.getAttribute('data-letter');
+                if (letter && !state.guessedLetters.has(letter)) {
+                    slot.classList.add('wrong-reveal');
+                }
+            });
+        }
+
+        /* ============================================
+           OVERLAY
+           ============================================ */
+        function showOverlay(type) {
+            if (type === 'win') {
+                dom.overlayTitle.textContent = '🎉 Brilliant!';
+                dom.overlayTitle.className = 'overlay-title win';
+                dom.overlaySubtitle.textContent = 'You nailed it!';
+            } else {
+                dom.overlayTitle.textContent = '💀 Game Over';
+                dom.overlayTitle.className = 'overlay-title loss';
+                dom.overlaySubtitle.textContent = 'Better luck next time!';
+            }
+
+            dom.overlayWord.textContent = state.currentWord;
+            dom.overlay.classList.add('visible');
+        }
+
+        function hideOverlay() {
+            dom.overlay.classList.remove('visible');
+        }
+
+        /* ============================================
+           NEW HIGH SCORE ANIMATION
+           ============================================ */
+        function showNewHighScore() {
+            // Remove any existing
+            const existing = dom.scoreBar.querySelector('.new-high-score');
+            if (existing) existing.remove();
+
+            const el = document.createElement('span');
+            el.className = 'new-high-score';
+            el.textContent = '⭐ New High Score!';
+            dom.scoreBar.appendChild(el);
+
+            setTimeout(() => el.remove(), 3000);
+        }
+
+        /* ============================================
+           UPDATE SCORE DISPLAY
+           ============================================ */
+        function updateScoreDisplay() {
+            dom.winsCount.textContent = state.wins;
+            dom.lossesCount.textContent = state.losses;
+            dom.bestStreak.textContent = state.bestStreak;
+        }
+
+        /* ============================================
+           CONFETTI (pure JS canvas)
+           ============================================ */
+        function launchConfetti() {
+            const canvas = dom.confettiCanvas;
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const particles = [];
+            const colours = ['#f0a500', '#d4920a', '#e8913a', '#5cb85c', '#e8e4d8', '#d9534f', '#4a90d9'];
+            const totalParticles = 120;
+
+            for (let i = 0; i < totalParticles; i++) {
+                particles.push({
+                    x: canvas.width / 2 + (Math.random() - 0.5) * 100,
+                    y: canvas.height / 2,
+                    vx: (Math.random() - 0.5) * 16,
+                    vy: (Math.random() - 1) * 18 - 4,
+                    w: Math.random() * 8 + 4,
+                    h: Math.random() * 6 + 3,
+                    color: colours[Math.floor(Math.random() * colours.length)],
+                    rotation: Math.random() * 360,
+                    rotSpeed: (Math.random() - 0.5) * 12,
+                    gravity: 0.35,
+                    opacity: 1,
+                    decay: 0.008 + Math.random() * 0.008
+                });
+            }
+
+            let animId;
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let alive = false;
+
+                particles.forEach(p => {
+                    if (p.opacity <= 0) return;
+                    alive = true;
+
+                    p.x += p.vx;
+                    p.vy += p.gravity;
+                    p.y += p.vy;
+                    p.rotation += p.rotSpeed;
+                    p.opacity -= p.decay;
+                    p.vx *= 0.99;
+
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate((p.rotation * Math.PI) / 180);
+                    ctx.globalAlpha = Math.max(0, p.opacity);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+                    ctx.restore();
+                });
+
+                if (alive) {
+                    animId = requestAnimationFrame(animate);
+                } else {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            }
+
+            animate();
+
+            // Safety cleanup after 5 seconds
+            setTimeout(() => {
+                cancelAnimationFrame(animId);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }, 5000);
+        }
+
+        /* ============================================
+           START NEW GAME
+           ============================================ */
+        function startNewGame() {
+            hideOverlay();
+
+            // Clear confetti
+            const ctx = dom.confettiCanvas.getContext('2d');
+            ctx.clearRect(0, 0, dom.confettiCanvas.width, dom.confettiCanvas.height);
+
+            // Reset state
+            state.guessedLetters.clear();
+            state.wrongGuesses = 0;
+            state.gameOver = false;
+
+            // Shuffle words if needed or pick next
+            if (state.wordIndex >= state.shuffledWords.length) {
+                state.shuffledWords = shuffleArray(WORD_BANKS[state.difficulty]);
+                state.wordIndex = 0;
+            }
+
+            state.currentWord = state.shuffledWords[state.wordIndex];
+            state.wordIndex++;
+
+            // Reset UI
+            resetHangman();
+            resetWordDisplay();
+            resetKeyboard();
+            resetWrongLetters();
+            updateGuessesLeft();
+            dom.hangmanSvg.classList.remove('sway');
+            dom.categoryHint.textContent = '';
+        }
+
+        /* ============================================
+           RESET FUNCTIONS
+           ============================================ */
+        function resetHangman() {
+            bodyParts.forEach(part => part.classList.remove('drawn'));
+        }
+
+        function resetWordDisplay() {
+            dom.wordDisplay.innerHTML = '';
+            const word = state.currentWord.toUpperCase();
+
+            for (const ch of word) {
+                const slot = document.createElement('div');
+                slot.className = 'letter-slot';
+
+                if (ch === ' ') {
+                    slot.classList.add('space');
+                } else {
+                    slot.setAttribute('data-letter', ch);
+                    const inner = document.createElement('span');
+                    inner.className = 'letter-inner';
+                    inner.textContent = ch;
+                    slot.appendChild(inner);
+                }
+
+                dom.wordDisplay.appendChild(slot);
+            }
+        }
+
+        function resetKeyboard() {
+            const keys = dom.keyboard.querySelectorAll('.key-btn');
+            keys.forEach(btn => {
+                btn.classList.remove('correct', 'wrong');
+                btn.disabled = false;
+            });
+        }
+
+        function resetWrongLetters() {
+            dom.wrongLetters.innerHTML = '';
+        }
+
+        /* ============================================
+           DIFFICULTY SELECTION
+           ============================================ */
+        function setDifficulty(diff) {
+            state.difficulty = diff;
+            state.shuffledWords = shuffleArray(WORD_BANKS[diff]);
+            state.wordIndex = 0;
+
+            // Update active button
+            dom.difficultyBar.querySelectorAll('.diff-btn').forEach(btn => {
+                const isActive = btn.getAttribute('data-difficulty') === diff;
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+
+            startNewGame();
+        }
+
+        /* ============================================
+           PHYSICAL KEYBOARD SUPPORT
+           ============================================ */
+        function handlePhysicalKey(e) {
+            if (state.gameOver) return;
+
+            const key = e.key.toUpperCase();
+            if (key.length === 1 && key >= 'A' && key <= 'Z') {
+                const btn = dom.keyboard.querySelector(`[data-letter="${key}"]`);
+                if (btn && !btn.classList.contains('correct') && !btn.classList.contains('wrong')) {
+                    btn.click();
+                }
+            }
+        }
+
+        /* ============================================
+           INIT
+           ============================================ */
+        function init() {
+            // Load high score from localStorage
+            const saved = localStorage.getItem('hangmanBestStreak');
+            if (saved) {
+                state.bestStreak = parseInt(saved, 10) || 0;
+            }
+
+            // Build keyboard
+            buildKeyboard();
+
+            // Difficulty buttons
+            dom.difficultyBar.querySelectorAll('.diff-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    setDifficulty(btn.getAttribute('data-difficulty'));
+                });
+            });
+
+            // New game buttons
+            dom.newGameBtn.addEventListener('click', startNewGame);
+            dom.overlayBtn.addEventListener('click', startNewGame);
+
+            // Physical keyboard
+            document.addEventListener('keydown', handlePhysicalKey);
+
+            // Handle resize for confetti canvas
+            window.addEventListener('resize', () => {
+                dom.confettiCanvas.width = window.innerWidth;
+                dom.confettiCanvas.height = window.innerHeight;
+            });
+
+            // Shuffle initial words and start
+            state.shuffledWords = shuffleArray(WORD_BANKS[state.difficulty]);
+            state.wordIndex = 0;
+            updateScoreDisplay();
+            startNewGame();
+        }
+
+        // Run on DOM ready
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
