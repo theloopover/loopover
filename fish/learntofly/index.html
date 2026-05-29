@@ -1,0 +1,2408 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
+        <title>🐧 Learn to Fly - Ultimate Edition</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            html,
+            body {
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+            }
+            body {
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+                touch-action: none;
+                user-select: none;
+                -webkit-user-select: none;
+            }
+            #game-container {
+                position: relative;
+                width: 100%;
+                max-width: 900px;
+                max-height: 100vh;
+                aspect-ratio: 800 / 500;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+            #game {
+                width: 100%;
+                height: 100%;
+                max-width: 100%;
+                max-height: 100%;
+                display: block;
+                border-radius: 12px;
+                box-shadow: 0 0 50px rgba(93, 173, 225, 0.3);
+            }
+            #hud {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                display: flex;
+                justify-content: space-between;
+                pointer-events: none;
+                z-index: 10;
+            }
+            .hud-box {
+                background: rgba(0, 0, 0, 0.6);
+                padding: 10px 15px;
+                border-radius: 10px;
+                backdrop-filter: blur(8px);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .hud-text {
+                color: #fff;
+                font-size: 12px;
+                text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+                white-space: nowrap;
+            }
+            .hud-label {
+                color: #aaa;
+            }
+            .hud-value {
+                color: #5dade2;
+                font-weight: bold;
+            }
+            #money-value {
+                color: #ffd700;
+            }
+            #best-value {
+                color: #27ae60;
+            }
+            #wind-value {
+                color: #a9dfbf;
+            }
+            #energy-val {
+                color: #f39c12;
+            }
+            #alt-value {
+                color: #bb8fce;
+            }
+            #menu-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: linear-gradient(
+                    135deg,
+                    rgba(20, 30, 50, 0.97) 0%,
+                    rgba(30, 50, 80, 0.97) 100%
+                );
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                z-index: 100;
+                border-radius: 12px;
+                padding: 20px;
+            }
+            #menu-overlay.hidden {
+                display: none;
+            }
+            .menu-title {
+                font-size: 48px;
+                color: #5dade2;
+                text-shadow: 0 0 30px rgba(93, 173, 226, 0.6);
+                margin-bottom: 5px;
+                animation: glow 2s ease-in-out infinite alternate;
+            }
+            @keyframes glow {
+                from {
+                    text-shadow: 0 0 20px rgba(93, 173, 226, 0.4);
+                }
+                to {
+                    text-shadow: 0 0 40px rgba(93, 173, 226, 0.8);
+                }
+            }
+            .menu-subtitle {
+                color: #888;
+                font-size: 16px;
+                margin-bottom: 25px;
+            }
+            .menu-penguin {
+                font-size: 80px;
+                margin-bottom: 20px;
+                animation: bounce 1s ease-in-out infinite;
+            }
+            @keyframes bounce {
+                0%,
+                100% {
+                    transform: translateY(0);
+                }
+                50% {
+                    transform: translateY(-15px);
+                }
+            }
+            .menu-btn {
+                background: linear-gradient(135deg, #5dade2, #3498db);
+                border: none;
+                color: white;
+                padding: 15px 50px;
+                font-size: 18px;
+                border-radius: 30px;
+                cursor: pointer;
+                margin: 8px;
+                transition: all 0.3s;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                font-weight: bold;
+                min-width: 200px;
+                display: block;
+            }
+            .menu-btn:hover {
+                transform: scale(1.08);
+                box-shadow: 0 0 30px rgba(93, 173, 226, 0.7);
+            }
+            .menu-btn.green {
+                background: linear-gradient(135deg, #27ae60, #2ecc71);
+            }
+            .menu-btn.green:hover {
+                box-shadow: 0 0 30px rgba(46, 204, 113, 0.7);
+            }
+            .menu-btn.orange {
+                background: linear-gradient(135deg, #e67e22, #d35400);
+            }
+            .menu-btn.orange:hover {
+                box-shadow: 0 0 30px rgba(230, 126, 34, 0.7);
+            }
+            .menu-btn.purple {
+                background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            }
+            .menu-btn.purple:hover {
+                box-shadow: 0 0 30px rgba(155, 89, 182, 0.7);
+            }
+            .controls-info {
+                background: rgba(0, 0, 0, 0.4);
+                padding: 15px 25px;
+                border-radius: 12px;
+                margin: 20px auto;
+                max-width: 350px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            .controls-title {
+                color: #f1c40f;
+                font-size: 16px;
+                margin-bottom: 10px;
+                text-align: center;
+            }
+            .control-row {
+                display: flex;
+                justify-content: space-between;
+                color: #ccc;
+                font-size: 13px;
+                margin: 6px 0;
+                align-items: center;
+            }
+            .key-badge {
+                background: linear-gradient(135deg, #555, #333);
+                padding: 4px 10px;
+                border-radius: 5px;
+                color: #fff;
+                font-family: monospace;
+                border: 1px solid #666;
+                font-size: 12px;
+            }
+            #stats-overlay {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(10, 20, 40, 0.95);
+                padding: 25px 35px;
+                border-radius: 15px;
+                text-align: center;
+                display: none;
+                z-index: 90;
+                border: 2px solid rgba(93, 173, 226, 0.4);
+                min-width: 280px;
+            }
+            #stats-overlay.visible {
+                display: block;
+            }
+            .stats-title {
+                color: #5dade2;
+                font-size: 24px;
+                margin-bottom: 15px;
+            }
+            .stat-row {
+                display: flex;
+                justify-content: space-between;
+                color: #fff;
+                margin: 8px 0;
+                font-size: 15px;
+            }
+            .stat-value {
+                color: #f1c40f;
+                font-weight: bold;
+            }
+            .stat-value.green {
+                color: #2ecc71;
+            }
+            .stat-value.blue {
+                color: #5dade2;
+            }
+            .stats-buttons {
+                display: flex;
+                gap: 10px;
+                margin-top: 20px;
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+            .stats-btn {
+                padding: 12px 25px;
+                border: none;
+                border-radius: 25px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: bold;
+                transition: all 0.2s;
+                color: white;
+            }
+            .stats-btn.fly {
+                background: linear-gradient(135deg, #5dade2, #3498db);
+            }
+            .stats-btn.shop {
+                background: linear-gradient(135deg, #f39c12, #e67e22);
+            }
+            .stats-btn:hover {
+                transform: scale(1.05);
+            }
+            #achievements-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(10, 20, 40, 0.98);
+                padding: 20px;
+                text-align: center;
+                display: none;
+                z-index: 95;
+                border-radius: 12px;
+                overflow-y: auto;
+            }
+            #achievements-overlay.visible {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            .ach-title {
+                color: #f1c40f;
+                font-size: 24px;
+                margin-bottom: 15px;
+            }
+            .ach-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 10px;
+                width: 100%;
+                max-width: 600px;
+            }
+            .ach-item {
+                background: rgba(255, 255, 255, 0.05);
+                padding: 12px;
+                border-radius: 10px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                text-align: left;
+            }
+            .ach-item.unlocked {
+                border-color: #f1c40f;
+                background: rgba(241, 196, 15, 0.1);
+            }
+            .ach-name {
+                color: #fff;
+                font-weight: bold;
+                font-size: 13px;
+            }
+            .ach-desc {
+                color: #888;
+                font-size: 11px;
+                margin-top: 3px;
+            }
+            .ach-unlocked {
+                color: #27ae60;
+                font-size: 10px;
+            }
+            .ach-close {
+                margin-top: 15px;
+                padding: 10px 30px;
+                background: linear-gradient(135deg, #5dade2, #3498db);
+                border: none;
+                color: white;
+                border-radius: 20px;
+                cursor: pointer;
+                font-size: 14px;
+            }
+            .new-record {
+                background: linear-gradient(135deg, #f1c40f, #e67e22);
+                color: #fff;
+                padding: 8px 20px;
+                border-radius: 20px;
+                font-size: 18px;
+                font-weight: bold;
+                margin: 10px 0;
+                animation: recordPulse 0.5s ease-in-out infinite alternate;
+                display: none;
+            }
+            .new-record.visible {
+                display: inline-block;
+            }
+            @keyframes recordPulse {
+                from {
+                    transform: scale(1);
+                }
+                to {
+                    transform: scale(1.05);
+                }
+            }
+            #shop-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(10, 20, 40, 0.97);
+                display: none;
+                flex-direction: column;
+                z-index: 100;
+                border-radius: 12px;
+            }
+            #shop-overlay.visible {
+                display: flex;
+            }
+            .shop-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 12px 15px;
+                background: rgba(0, 0, 0, 0.5);
+            }
+            .shop-title {
+                color: #f1c40f;
+                font-size: 22px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            #shop-money {
+                color: #ffd700;
+                font-size: 18px;
+            }
+            .shop-content {
+                flex: 1;
+                padding: 10px;
+                overflow-y: auto;
+            }
+            .shop-content::-webkit-scrollbar {
+                width: 6px;
+            }
+            .shop-content::-webkit-scrollbar-track {
+                background: rgba(0, 0, 0, 0.2);
+                border-radius: 3px;
+            }
+            .shop-content::-webkit-scrollbar-thumb {
+                background: rgba(93, 173, 226, 0.4);
+                border-radius: 3px;
+            }
+            .shop-category-header {
+                color: #f1c40f;
+                font-size: 13px;
+                font-weight: bold;
+                margin: 14px 0 6px;
+                padding-bottom: 4px;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }
+            .shop-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                background: rgba(255, 255, 255, 0.04);
+                border-radius: 10px;
+                padding: 10px 12px;
+                margin-bottom: 8px;
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                gap: 10px;
+                transition: all 0.2s;
+            }
+            .shop-item:hover {
+                background: rgba(255, 255, 255, 0.07);
+            }
+            .shop-item.maxed {
+                opacity: 0.6;
+                border-color: #27ae60;
+            }
+            .shop-item-info {
+                flex: 1;
+                min-width: 0;
+            }
+            .shop-item-name {
+                color: #fff;
+                font-size: 14px;
+                font-weight: bold;
+                margin-bottom: 2px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .shop-item-meta {
+                color: #aaa;
+                font-size: 11px;
+            }
+            .shop-item-effect {
+                color: #2ecc71;
+                font-size: 11px;
+                margin-top: 2px;
+            }
+            .shop-buy-btn {
+                background: linear-gradient(135deg, #f39c12, #e67e22);
+                border: none;
+                color: white;
+                padding: 8px 14px;
+                border-radius: 18px;
+                cursor: pointer;
+                font-size: 12px;
+                font-weight: bold;
+                min-width: 85px;
+                transition: all 0.2s;
+                white-space: nowrap;
+            }
+            .shop-buy-btn:hover:not(:disabled) {
+                transform: scale(1.03);
+                box-shadow: 0 0 12px rgba(243, 156, 18, 0.4);
+            }
+            .shop-buy-btn:disabled {
+                background: #444;
+                color: #888;
+                cursor: not-allowed;
+            }
+            .shop-close-btn {
+                background: linear-gradient(135deg, #5dade2, #3498db);
+                border: none;
+                color: white;
+                padding: 12px 40px;
+                border-radius: 25px;
+                cursor: pointer;
+                font-size: 15px;
+                font-weight: bold;
+                margin: 10px auto;
+                display: block;
+            }
+            #mobile-controls {
+                position: absolute;
+                bottom: 15px;
+                left: 10px;
+                right: 10px;
+                display: none;
+                justify-content: space-between;
+                align-items: flex-end;
+                z-index: 50;
+                pointer-events: none;
+            }
+            @media (pointer: coarse) {
+                #mobile-controls {
+                    display: flex;
+                }
+            }
+            .control-group {
+                display: flex;
+                gap: 8px;
+                pointer-events: auto;
+            }
+            .control-btn {
+                width: 60px;
+                height: 60px;
+                border-radius: 50%;
+                border: 3px solid rgba(255, 255, 255, 0.3);
+                background: rgba(0, 0, 0, 0.6);
+                color: white;
+                font-size: 24px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                user-select: none;
+                -webkit-user-select: none;
+                touch-action: manipulation;
+                transition: all 0.1s;
+                cursor: pointer;
+            }
+            .control-btn:active,
+            .control-btn.active {
+                background: rgba(93, 173, 226, 0.6);
+                border-color: #5dade2;
+                transform: scale(0.95);
+            }
+            #boost-btn {
+                width: 80px;
+                height: 80px;
+                font-size: 12px;
+                background: linear-gradient(135deg, #e74c3c, #c0392b);
+                border-color: #e74c3c;
+                font-weight: bold;
+                flex-direction: column;
+            }
+            #boost-btn.active {
+                background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+                border-color: #ff6b6a;
+            }
+            #start-overlay {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                text-align: center;
+                display: none;
+                z-index: 80;
+            }
+            #start-overlay.visible {
+                display: block;
+            }
+            .start-text {
+                color: #fff;
+                font-size: 28px;
+                font-weight: bold;
+                text-shadow: 0 0 20px rgba(93, 173, 226, 0.8);
+                animation: pulse 1s ease-in-out infinite;
+            }
+            .start-key {
+                background: linear-gradient(135deg, #5dade2, #3498db);
+                padding: 10px 30px;
+                border-radius: 10px;
+                margin-top: 15px;
+                display: inline-block;
+                font-weight: bold;
+            }
+            @keyframes pulse {
+                0%,
+                100% {
+                    opacity: 1;
+                }
+                50% {
+                    opacity: 0.7;
+                }
+            }
+            #toast-container {
+                position: absolute;
+                top: 60px;
+                right: 10px;
+                z-index: 200;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            .toast {
+                background: linear-gradient(135deg, #27ae60, #2ecc71);
+                color: white;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-size: 13px;
+                animation:
+                    toastIn 0.3s ease-out,
+                    toastOut 0.3s ease-in 2.7s forwards;
+                box-shadow: 0 0 20px rgba(46, 204, 113, 0.5);
+            }
+            @keyframes toastIn {
+                from {
+                    opacity: 0;
+                    transform: translateX(100px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+            }
+            @keyframes toastOut {
+                from {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+                to {
+                    opacity: 0;
+                    transform: translateX(100px);
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div id="game-container">
+            <canvas id="game"></canvas>
+            <div id="hud">
+                <div class="hud-box">
+                    <div class="hud-text">
+                        <span class="hud-label">Distance:</span
+                        ><span class="hud-value" id="dist">0</span>m
+                    </div>
+                    <div class="hud-text">
+                        <span class="hud-label">Best:</span
+                        ><span class="hud-value" id="best">0</span>m
+                    </div>
+                    <div class="hud-text">
+                        <span class="hud-label">📏 Alt:</span
+                        ><span class="hud-value" id="alt-value">0</span>m
+                    </div>
+                </div>
+                <div class="hud-box">
+                    <div class="hud-text">
+                        <span class="hud-label">💰</span
+                        ><span id="money-value">0</span>
+                    </div>
+                    <div class="hud-text">
+                        <span class="hud-label">💨 Wind:</span
+                        ><span class="hud-value" id="wind-value">→ 0</span>
+                    </div>
+                    <div class="hud-text">
+                        <span class="hud-label">⚡ Energy:</span
+                        ><span class="hud-value" id="energy-val">100%</span>
+                    </div>
+                    <div class="hud-text">
+                        <span class="hud-label">Speed:</span
+                        ><span class="hud-value" id="speed">0</span>
+                    </div>
+                </div>
+            </div>
+            <div id="menu-overlay">
+                <div class="menu-penguin">🐧</div>
+                <div class="menu-title">Learn to Fly</div>
+                <div class="menu-subtitle">
+                    Help the penguin achieve the impossible!
+                </div>
+                <div class="controls-info">
+                    <div class="controls-title">⌨️ Controls</div>
+                    <div class="control-row">
+                        <span>Launch/Boost</span
+                        ><span class="key-badge">SPACE</span>
+                    </div>
+                    <div class="control-row">
+                        <span>Tilt Up</span
+                        ><span class="key-badge">↑ or W</span>
+                    </div>
+                    <div class="control-row">
+                        <span>Tilt Down</span
+                        ><span class="key-badge">↓ or S</span>
+                    </div>
+                    <div class="control-row">
+                        <span>Tilt Left</span
+                        ><span class="key-badge">← or A</span>
+                    </div>
+                    <div class="control-row">
+                        <span>Tilt Right</span
+                        ><span class="key-badge">→ or D</span>
+                    </div>
+                    <div class="control-row">
+                        <span>Menu</span><span class="key-badge">ESC</span>
+                    </div>
+                </div>
+                <button class="menu-btn green" id="start-btn">
+                    ▶ Start Flying!
+                </button>
+                <button class="menu-btn" id="shop-menu-btn">🛒 Shop</button>
+                <button class="menu-btn purple" id="ach-btn">
+                    🏆 Achievements
+                </button>
+            </div>
+            <div id="start-overlay">
+                <div class="start-text">Ready to Launch!</div>
+                <div class="start-key">Press SPACE or tap BOOST</div>
+            </div>
+            <div id="stats-overlay">
+                <div class="stats-title">✈️ Flight Complete!</div>
+                <div class="new-record" id="new-record">🏆 NEW RECORD! 🏆</div>
+                <div class="stat-row">
+                    <span>Distance:</span
+                    ><span class="stat-value" id="s-distance">0m</span>
+                </div>
+                <div class="stat-row">
+                    <span>Max Speed:</span
+                    ><span class="stat-value blue" id="s-speed">0</span>
+                </div>
+                <div class="stat-row">
+                    <span>Max Height:</span
+                    ><span class="stat-value blue" id="s-height">0m</span>
+                </div>
+                <div class="stat-row">
+                    <span>Earned:</span
+                    ><span class="stat-value green" id="s-earned">$0</span>
+                </div>
+                <div class="stats-buttons">
+                    <button class="stats-btn fly" id="retry-btn">
+                        ▶ Fly Again
+                    </button>
+                    <button class="stats-btn shop" id="stats-shop-btn">
+                        🛒 Shop
+                    </button>
+                </div>
+            </div>
+            <div id="achievements-overlay">
+                <div class="ach-title">🏆 Achievements</div>
+                <div class="ach-grid" id="ach-grid"></div>
+                <button class="ach-close" id="ach-close">← Back</button>
+            </div>
+            <div id="shop-overlay">
+                <div class="shop-header">
+                    <div class="shop-title">🛒 Upgrade Shop</div>
+                    <div id="shop-money">
+                        💰 <span id="shop-money-val">0</span>
+                    </div>
+                </div>
+                <div class="shop-content" id="shop-content"></div>
+                <button class="shop-close-btn" id="shop-close">
+                    ← Continue Flying
+                </button>
+            </div>
+            <div id="mobile-controls">
+                <div class="control-group">
+                    <button class="control-btn" id="up-btn">▲</button>
+                    <button class="control-btn" id="down-btn">▼</button>
+                </div>
+                <div class="control-group">
+                    <button class="control-btn" id="left-btn">◀</button>
+                    <button class="control-btn" id="right-btn">▶</button>
+                </div>
+                <button class="control-btn" id="boost-btn">
+                    <span>🚀</span><span>BOOST</span>
+                </button>
+            </div>
+            <div id="toast-container"></div>
+        </div>
+
+        <script>
+            // ============================================
+            // SOUND SYSTEM
+            // ============================================
+            const Sound = {
+                ctx: null,
+                enabled: true,
+                init: function () {
+                    try {
+                        this.ctx = new (
+                            window.AudioContext || window.webkitAudioContext
+                        )();
+                    } catch (e) {
+                        this.enabled = false;
+                    }
+                },
+                play: function (type) {
+                    if (!this.enabled || !this.ctx) return;
+                    try {
+                        if (this.ctx.state === "suspended") this.ctx.resume();
+                        var osc = this.ctx.createOscillator(),
+                            gain = this.ctx.createGain(),
+                            now = this.ctx.currentTime;
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        switch (type) {
+                            case "launch":
+                                osc.type = "sine";
+                                osc.frequency.setValueAtTime(220, now);
+                                osc.frequency.exponentialRampToValueAtTime(
+                                    550,
+                                    now + 0.35,
+                                );
+                                gain.gain.setValueAtTime(0.12, now);
+                                gain.gain.exponentialRampToValueAtTime(
+                                    0.001,
+                                    now + 0.35,
+                                );
+                                osc.start(now);
+                                osc.stop(now + 0.35);
+                                break;
+                            case "boost":
+                                osc.type = "triangle";
+                                osc.frequency.setValueAtTime(180, now);
+                                osc.frequency.linearRampToValueAtTime(
+                                    210,
+                                    now + 0.12,
+                                );
+                                gain.gain.setValueAtTime(0.08, now);
+                                gain.gain.exponentialRampToValueAtTime(
+                                    0.001,
+                                    now + 0.12,
+                                );
+                                osc.start(now);
+                                osc.stop(now + 0.12);
+                                break;
+                            case "crash":
+                                osc.type = "sine";
+                                osc.frequency.setValueAtTime(140, now);
+                                osc.frequency.exponentialRampToValueAtTime(
+                                    45,
+                                    now + 0.25,
+                                );
+                                gain.gain.setValueAtTime(0.15, now);
+                                gain.gain.exponentialRampToValueAtTime(
+                                    0.001,
+                                    now + 0.25,
+                                );
+                                osc.start(now);
+                                osc.stop(now + 0.25);
+                                break;
+                            case "upgrade":
+                                osc.type = "sine";
+                                osc.frequency.setValueAtTime(523, now);
+                                osc.frequency.setValueAtTime(659, now + 0.08);
+                                gain.gain.setValueAtTime(0.14, now);
+                                gain.gain.exponentialRampToValueAtTime(
+                                    0.001,
+                                    now + 0.22,
+                                );
+                                osc.start(now);
+                                osc.stop(now + 0.22);
+                                break;
+                            case "achievement":
+                                osc.type = "sine";
+                                osc.frequency.setValueAtTime(440, now);
+                                osc.frequency.setValueAtTime(554, now + 0.1);
+                                osc.frequency.setValueAtTime(659, now + 0.2);
+                                gain.gain.setValueAtTime(0.16, now);
+                                gain.gain.exponentialRampToValueAtTime(
+                                    0.001,
+                                    now + 0.35,
+                                );
+                                osc.start(now);
+                                osc.stop(now + 0.35);
+                                break;
+                            case "slide":
+                                osc.type = "triangle";
+                                osc.frequency.setValueAtTime(90, now);
+                                gain.gain.setValueAtTime(0.06, now);
+                                gain.gain.exponentialRampToValueAtTime(
+                                    0.001,
+                                    now + 0.1,
+                                );
+                                osc.start(now);
+                                osc.stop(now + 0.1);
+                                break;
+                        }
+                    } catch (e) {
+                        console.warn("Sound error:", e);
+                    }
+                },
+            };
+
+            // ============================================
+            // UPGRADES & ACHIEVEMENTS
+            // ============================================
+            var UPGRADES = {
+                sled: {
+                    category: "launch",
+                    name: "🛷 Sled",
+                    description: "Reduces ground friction",
+                    baseCost: 60,
+                    maxLevel: 100,
+                    effectPerLevel: 0.005,
+                    effectText: (l) => `Ground drag: -${(l * 0.5).toFixed(1)}%`,
+                    nextText: (l) =>
+                        `Ground drag: -${((l + 1) * 0.5).toFixed(1)}%`,
+                },
+                ramp: {
+                    category: "launch",
+                    name: "🛹 Launch Ramp",
+                    description: "Increases launch velocity",
+                    baseCost: 100,
+                    maxLevel: 100,
+                    effectPerLevel: 0.008,
+                    effectText: (l) =>
+                        `Launch power: +${(l * 0.8).toFixed(1)}%`,
+                    nextText: (l) =>
+                        `Launch power: +${((l + 1) * 0.8).toFixed(1)}%`,
+                },
+                launcher: {
+                    category: "launch",
+                    name: "🎯 Launcher",
+                    description: "Initial velocity bonus",
+                    baseCost: 160,
+                    maxLevel: 100,
+                    effectPerLevel: 0.006,
+                    effectText: (l) => `Start speed: +${(l * 0.6).toFixed(1)}%`,
+                    nextText: (l) =>
+                        `Start speed: +${((l + 1) * 0.6).toFixed(1)}%`,
+                },
+                gyro: {
+                    category: "launch",
+                    name: "🧭 Gyro Stabilizer",
+                    description: "Reduces unwanted angle drift",
+                    baseCost: 200,
+                    maxLevel: 100,
+                    effectPerLevel: 0.006,
+                    effectText: (l) => `Stability: +${(l * 0.6).toFixed(1)}%`,
+                    nextText: (l) =>
+                        `Stability: +${((l + 1) * 0.6).toFixed(1)}%`,
+                },
+                glider: {
+                    category: "flight",
+                    name: "🪂 Glider",
+                    description: "Better air control and lift",
+                    baseCost: 140,
+                    maxLevel: 100,
+                    effectPerLevel: 0.004,
+                    effectText: (l) => `Lift power: +${(l * 0.4).toFixed(1)}%`,
+                    nextText: (l) =>
+                        `Lift power: +${((l + 1) * 0.4).toFixed(1)}%`,
+                },
+                aerodynamics: {
+                    category: "flight",
+                    name: "✈️ Aerodynamics",
+                    description: "Reduces air resistance",
+                    baseCost: 200,
+                    maxLevel: 100,
+                    effectPerLevel: 0.003,
+                    effectText: (l) => `Air drag: -${(l * 0.3).toFixed(1)}%`,
+                    nextText: (l) =>
+                        `Air drag: -${((l + 1) * 0.3).toFixed(1)}%`,
+                },
+                wings: {
+                    category: "flight",
+                    name: "🦅 Wings",
+                    description: "Speed-based lift",
+                    baseCost: 240,
+                    maxLevel: 100,
+                    effectPerLevel: 0.0035,
+                    effectText: (l) => `Speed lift: +${(l * 0.35).toFixed(1)}%`,
+                    nextText: (l) =>
+                        `Speed lift: +${((l + 1) * 0.35).toFixed(1)}%`,
+                },
+                windbreaker: {
+                    category: "flight",
+                    name: "🌬️ Wind Breaker",
+                    description: "Reduces headwind drag & boosts tailwind",
+                    baseCost: 260,
+                    maxLevel: 100,
+                    effectPerLevel: 0.015,
+                    effectText: (l) =>
+                        `Wind control: +${(l * 1.5).toFixed(1)}%`,
+                    nextText: (l) =>
+                        `Wind control: +${((l + 1) * 1.5).toFixed(1)}%`,
+                },
+                parachute: {
+                    category: "flight",
+                    name: "🪂 Parachute",
+                    description:
+                        "Hold ↓ to glide & convert fall to forward speed",
+                    baseCost: 300,
+                    maxLevel: 100,
+                    effectPerLevel: 0.012,
+                    effectText: (l) => `Glide power: +${(l * 1.2).toFixed(1)}%`,
+                    nextText: (l) =>
+                        `Glide power: +${((l + 1) * 1.2).toFixed(1)}%`,
+                },
+                thermal: {
+                    category: "flight",
+                    name: "🌡️ Thermal Catcher",
+                    description: "Passive upward air currents",
+                    baseCost: 280,
+                    maxLevel: 100,
+                    effectPerLevel: 0.005,
+                    effectText: (l) =>
+                        `Thermal chance: +${(l * 0.5).toFixed(1)}%`,
+                    nextText: (l) =>
+                        `Thermal chance: +${((l + 1) * 0.5).toFixed(1)}%`,
+                },
+                rocket: {
+                    category: "boost",
+                    name: "🚀 Rocket",
+                    description: "Thrust power",
+                    baseCost: 180,
+                    maxLevel: 100,
+                    effectPerLevel: 0.007,
+                    effectText: (l) => `Thrust: +${(l * 0.7).toFixed(1)}%`,
+                    nextText: (l) => `Thrust: +${((l + 1) * 0.7).toFixed(1)}%`,
+                },
+                fuel: {
+                    category: "boost",
+                    name: "⛽ Fuel Tank",
+                    description: "More energy capacity",
+                    baseCost: 80,
+                    maxLevel: 100,
+                    effectPerLevel: 1.5,
+                    effectText: (l) =>
+                        `Max energy: ${Math.floor(100 + l * 1.5)}`,
+                    nextText: (l) =>
+                        `Max energy: ${Math.floor(100 + (l + 1) * 1.5)}`,
+                },
+                fuelEfficiency: {
+                    category: "boost",
+                    name: "⚡ Efficiency",
+                    description: "Less energy consumption",
+                    baseCost: 220,
+                    maxLevel: 100,
+                    effectPerLevel: 0.008,
+                    effectText: (l) => `Energy use: -${(l * 0.8).toFixed(1)}%`,
+                    nextText: (l) =>
+                        `Energy use: -${((l + 1) * 0.8).toFixed(1)}%`,
+                },
+                airbrake: {
+                    category: "boost",
+                    name: "🛡️ Air Brake",
+                    description: "Hold ↓ to stabilize & reduce crash risk",
+                    baseCost: 250,
+                    maxLevel: 100,
+                    effectPerLevel: 0.007,
+                    effectText: (l) => `Brake power: +${(l * 0.7).toFixed(1)}%`,
+                    nextText: (l) =>
+                        `Brake power: +${((l + 1) * 0.7).toFixed(1)}%`,
+                },
+                weight: {
+                    category: "special",
+                    name: "🏈 Weight Reduction",
+                    description: "Lighter body",
+                    baseCost: 280,
+                    maxLevel: 100,
+                    effectPerLevel: 0.004,
+                    effectText: (l) => `Gravity: -${(l * 0.4).toFixed(1)}%`,
+                    nextText: (l) => `Gravity: -${((l + 1) * 0.4).toFixed(1)}%`,
+                },
+                style: {
+                    category: "special",
+                    name: "💨 Style Points",
+                    description: "Style bonus multiplier",
+                    baseCost: 320,
+                    maxLevel: 100,
+                    effectPerLevel: 0.01,
+                    effectText: (l) => `Style bonus: +${(l * 1).toFixed(0)}%`,
+                    nextText: (l) =>
+                        `Style bonus: +${((l + 1) * 1).toFixed(0)}%`,
+                },
+                luck: {
+                    category: "special",
+                    name: "🍀 Lucky Penguin",
+                    description: "Chance for 2x coins",
+                    baseCost: 400,
+                    maxLevel: 100,
+                    effectPerLevel: 0.005,
+                    effectText: (l) => `Luck: ${(l * 0.5).toFixed(1)}%`,
+                    nextText: (l) => `Luck: ${((l + 1) * 0.5).toFixed(1)}%`,
+                },
+                momentum: {
+                    category: "special",
+                    name: "🔄 Momentum Converter",
+                    description: "Diving converts height to speed",
+                    baseCost: 350,
+                    maxLevel: 100,
+                    effectPerLevel: 0.008,
+                    effectText: (l) => `Dive boost: +${(l * 0.8).toFixed(1)}%`,
+                    nextText: (l) =>
+                        `Dive boost: +${((l + 1) * 0.8).toFixed(1)}%`,
+                },
+                distMult: {
+                    category: "special",
+                    name: "💎 Distance Multiplier",
+                    description: "Bonus distance earnings",
+                    baseCost: 450,
+                    maxLevel: 100,
+                    effectPerLevel: 0.01,
+                    effectText: (l) => `Dist bonus: +${(l * 1).toFixed(0)}%`,
+                    nextText: (l) =>
+                        `Dist bonus: +${((l + 1) * 1).toFixed(0)}%`,
+                },
+            };
+            var CATEGORIES = {
+                launch: { name: "🚀 Launch", color: "#e74c3c" },
+                flight: { name: "🪂 Flight", color: "#3498db" },
+                boost: { name: "⚡ Boost", color: "#f39c12" },
+                special: { name: "✨ Special", color: "#9b59b6" },
+            };
+            var ACHIEVEMENTS = [
+                {
+                    id: "first_flight",
+                    name: "First Flight",
+                    desc: "Complete your first flight",
+                    check: (s) => s.totalFlights >= 1,
+                },
+                {
+                    id: "distance_100",
+                    name: "Getting Somewhere",
+                    desc: "Reach 100m distance",
+                    check: (s) => s.bestDistance >= 100,
+                },
+                {
+                    id: "distance_500",
+                    name: "Half Kilometer",
+                    desc: "Reach 500m distance",
+                    check: (s) => s.bestDistance >= 500,
+                },
+                {
+                    id: "distance_1000",
+                    name: "Kilometer Champion",
+                    desc: "Reach 1000m distance",
+                    check: (s) => s.bestDistance >= 1000,
+                },
+                {
+                    id: "distance_5000",
+                    name: "Mile High",
+                    desc: "Reach 5000m distance",
+                    check: (s) => s.bestDistance >= 5000,
+                },
+                {
+                    id: "distance_10000",
+                    name: "Legendary Flyer",
+                    desc: "Reach 10000m distance",
+                    check: (s) => s.bestDistance >= 10000,
+                },
+                {
+                    id: "height_50",
+                    name: "Up and Away",
+                    desc: "Reach 50m height",
+                    check: (s) => s.maxHeight >= 50,
+                },
+                {
+                    id: "height_200",
+                    name: "Sky High",
+                    desc: "Reach 200m height",
+                    check: (s) => s.maxHeight >= 200,
+                },
+                {
+                    id: "height_500",
+                    name: "Cloud Surfer",
+                    desc: "Reach 500m height",
+                    check: (s) => s.maxHeight >= 500,
+                },
+                {
+                    id: "height_1000",
+                    name: "Stratosphere",
+                    desc: "Reach 1000m height",
+                    check: (s) => s.maxHeight >= 1000,
+                },
+                {
+                    id: "speed_30",
+                    name: "Pace Maker",
+                    desc: "Reach speed 30",
+                    check: (s) => s.maxSpeed >= 30,
+                },
+                {
+                    id: "speed_50",
+                    name: "Speedy Penguin",
+                    desc: "Reach speed 50",
+                    check: (s) => s.maxSpeed >= 50,
+                },
+                {
+                    id: "speed_80",
+                    name: "Blazing Fast",
+                    desc: "Reach speed 80",
+                    check: (s) => s.maxSpeed >= 80,
+                },
+                {
+                    id: "flights_10",
+                    name: "Dedicated",
+                    desc: "Complete 10 flights",
+                    check: (s) => s.totalFlights >= 10,
+                },
+                {
+                    id: "flights_50",
+                    name: "Committed",
+                    desc: "Complete 50 flights",
+                    check: (s) => s.totalFlights >= 50,
+                },
+                {
+                    id: "flights_100",
+                    name: "Obsessed",
+                    desc: "Complete 100 flights",
+                    check: (s) => s.totalFlights >= 100,
+                },
+                {
+                    id: "earn_100",
+                    name: "Savings Start",
+                    desc: "Earn total $100",
+                    check: (s) => s.totalEarned >= 100,
+                },
+                {
+                    id: "earn_1000",
+                    name: "Money Maker",
+                    desc: "Earn total $1000",
+                    check: (s) => s.totalEarned >= 1000,
+                },
+                {
+                    id: "earn_10000",
+                    name: "Wealthy Penguin",
+                    desc: "Earn total $10000",
+                    check: (s) => s.totalEarned >= 10000,
+                },
+                {
+                    id: "upgrade_10",
+                    name: "Gear Up",
+                    desc: "Purchase 10 upgrades",
+                    check: (s) => s.totalUpgrades >= 10,
+                },
+                {
+                    id: "upgrade_50",
+                    name: "Fully Equipped",
+                    desc: "Purchase 50 upgrades",
+                    check: (s) => s.totalUpgrades >= 50,
+                },
+                {
+                    id: "upgrade_100",
+                    name: "Overpowered",
+                    desc: "Purchase 100 upgrades",
+                    check: (s) => s.totalUpgrades >= 100,
+                },
+                {
+                    id: "style_master",
+                    name: "Style Icon",
+                    desc: "Earn 1000 style points",
+                    check: (s) => s.totalStyle >= 1000,
+                },
+            ];
+
+            // ============================================
+            // GAME STATE & CONSTANTS
+            // ============================================
+            var GAME_WIDTH = 800,
+                GAME_HEIGHT = 500,
+                GROUND_Y = GAME_HEIGHT - 60,
+                RAMP_START_X = 80,
+                RAMP_END_X = 200;
+            var BASE_GRAVITY = 0.15,
+                BASE_DRAG = 0.993,
+                BASE_AIR_DRAG = 0.997;
+            var canvas, ctx;
+            var gameState = {
+                phase: "menu",
+                camera: { x: 0, y: 0 },
+                penguin: null,
+                particles: [],
+                ending: false,
+                statsTimeout: null,
+                thermalTimer: 0,
+            };
+            var saveData = {
+                money: 0,
+                upgrades: {},
+                achievements: [],
+                stats: {
+                    bestDistance: 0,
+                    bestHeight: 0,
+                    bestSpeed: 0,
+                    totalFlights: 0,
+                    totalEarned: 0,
+                    totalUpgrades: 0,
+                    totalStyle: 0,
+                    totalBoostTime: 0,
+                    bestNoUpgrade: 0,
+                    maxHeight: 0,
+                    maxSpeed: 0,
+                },
+            };
+            var input = {
+                up: false,
+                down: false,
+                left: false,
+                right: false,
+                boost: false,
+            };
+            var runStats = {
+                distance: 0,
+                maxSpeed: 0,
+                maxHeight: 0,
+                earned: 0,
+                style: 0,
+                boostTime: 0,
+            };
+            var lastTime = 0;
+            var hudCache = {
+                dist: -1,
+                speed: -1,
+                money: -1,
+                best: -1,
+                wind: -999,
+                energy: -1,
+                alt: -1,
+            };
+            var environment = { isNight: false };
+            var wind = { speed: 0, target: 0, timer: 0 };
+
+            // ============================================
+            // HELPERS
+            // ============================================
+            function lerpHex(c1, c2, t) {
+                const hex = (s) => parseInt(s, 16);
+                const r1 = hex(c1.slice(1, 3)),
+                    g1 = hex(c1.slice(3, 5)),
+                    b1 = hex(c1.slice(5, 7));
+                const r2 = hex(c2.slice(1, 3)),
+                    g2 = hex(c2.slice(3, 5)),
+                    b2 = hex(c2.slice(5, 7));
+                const r = Math.round(r1 + (r2 - r1) * t),
+                    g = Math.round(g1 + (g2 - g1) * t),
+                    b = Math.round(b1 + (b2 - b1) * t);
+                return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+            }
+
+            // ============================================
+            // INITIALIZATION & SAVE/LOAD
+            // ============================================
+            function init() {
+                canvas = document.getElementById("game");
+                ctx = canvas.getContext("2d");
+                canvas.width = GAME_WIDTH;
+                canvas.height = GAME_HEIGHT;
+                for (var key in UPGRADES) saveData.upgrades[key] = 0;
+                loadGame();
+                Sound.init();
+                setupInput();
+                setupUI();
+                resetPenguin();
+                if (!window.gameLoopStarted) {
+                    window.gameLoopStarted = true;
+                    requestAnimationFrame(gameLoop);
+                }
+            }
+            function saveGame() {
+                try {
+                    localStorage.setItem(
+                        "learnToFly_v3_save",
+                        JSON.stringify(saveData),
+                    );
+                } catch (e) {
+                    console.warn("Save error:", e);
+                }
+            }
+            function loadGame() {
+                try {
+                    var saved = localStorage.getItem("learnToFly_v3_save");
+                    if (saved) {
+                        var data = JSON.parse(saved);
+                        saveData.money = data.money || 0;
+                        saveData.achievements = data.achievements || [];
+                        if (data.upgrades)
+                            for (var k in data.upgrades)
+                                saveData.upgrades[k] = data.upgrades[k];
+                        if (data.stats)
+                            for (var s in data.stats)
+                                saveData.stats[s] = data.stats[s];
+                    }
+                } catch (e) {
+                    console.warn("Load error:", e);
+                }
+                for (var key in UPGRADES)
+                    if (saveData.upgrades[key] === undefined)
+                        saveData.upgrades[key] = 0;
+                updateHUD();
+            }
+            function getUpgradeCost(key) {
+                return Math.floor(
+                    UPGRADES[key].baseCost *
+                        Math.pow(1.15, saveData.upgrades[key] || 0),
+                );
+            }
+
+            // ============================================
+            // INPUT HANDLING
+            // ============================================
+            function setupInput() {
+                document.addEventListener("keydown", (e) => {
+                    if (e.key === " " || e.code === "Space") {
+                        e.preventDefault();
+                        handleBoostPress();
+                    }
+                    if (["ArrowUp", "w", "W"].includes(e.key)) input.up = true;
+                    if (["ArrowDown", "s", "S"].includes(e.key))
+                        input.down = true;
+                    if (["ArrowLeft", "a", "A"].includes(e.key))
+                        input.left = true;
+                    if (["ArrowRight", "d", "D"].includes(e.key))
+                        input.right = true;
+                    if (e.key === "Escape") handleEscape();
+                });
+                document.addEventListener("keyup", (e) => {
+                    if (e.key === " " || e.code === "Space")
+                        input.boost = false;
+                    if (["ArrowUp", "w", "W"].includes(e.key)) input.up = false;
+                    if (["ArrowDown", "s", "S"].includes(e.key))
+                        input.down = false;
+                    if (["ArrowLeft", "a", "A"].includes(e.key))
+                        input.left = false;
+                    if (["ArrowRight", "d", "D"].includes(e.key))
+                        input.right = false;
+                });
+                setupPointerButton("up-btn", "up");
+                setupPointerButton("down-btn", "down");
+                setupPointerButton("left-btn", "left");
+                setupPointerButton("right-btn", "right");
+                var boostBtn = document.getElementById("boost-btn");
+                if (boostBtn) {
+                    boostBtn.addEventListener("pointerdown", (e) => {
+                        e.preventDefault();
+                        handleBoostPress();
+                        boostBtn.classList.add("active");
+                        boostBtn.setPointerCapture(e.pointerId);
+                    });
+                    boostBtn.addEventListener("pointerup", (e) => {
+                        input.boost = false;
+                        boostBtn.classList.remove("active");
+                    });
+                    boostBtn.addEventListener("pointercancel", (e) => {
+                        input.boost = false;
+                        boostBtn.classList.remove("active");
+                    });
+                }
+            }
+            function setupPointerButton(id, key) {
+                var btn = document.getElementById(id);
+                if (!btn) return;
+                btn.addEventListener("pointerdown", (e) => {
+                    e.preventDefault();
+                    input[key] = true;
+                    btn.classList.add("active");
+                    btn.setPointerCapture(e.pointerId);
+                });
+                btn.addEventListener("pointerup", (e) => {
+                    input[key] = false;
+                    btn.classList.remove("active");
+                });
+                btn.addEventListener("pointercancel", (e) => {
+                    input[key] = false;
+                    btn.classList.remove("active");
+                });
+            }
+            function handleBoostPress() {
+                if (gameState.phase === "ready") launchPenguin();
+                else input.boost = true;
+            }
+            function handleEscape() {
+                if (gameState.phase === "crashed") showStats();
+                else if (
+                    gameState.phase === "flying" ||
+                    gameState.phase === "ready"
+                )
+                    showMenu();
+            }
+
+            // ============================================
+            // UI MANAGEMENT
+            // ============================================
+            function setupUI() {
+                document
+                    .getElementById("start-btn")
+                    ?.addEventListener("click", startGame);
+                document
+                    .getElementById("retry-btn")
+                    ?.addEventListener("click", () => {
+                        hideStats();
+                        startGame();
+                    });
+                document
+                    .getElementById("stats-shop-btn")
+                    ?.addEventListener("click", () => {
+                        hideStats();
+                        showShop();
+                    });
+                document
+                    .getElementById("shop-menu-btn")
+                    ?.addEventListener("click", () => {
+                        hideMenu();
+                        showShop();
+                    });
+                document
+                    .getElementById("shop-close")
+                    ?.addEventListener("click", () => {
+                        hideShop();
+                        startGame();
+                    });
+                document
+                    .getElementById("ach-btn")
+                    ?.addEventListener("click", showAchievements);
+                document
+                    .getElementById("ach-close")
+                    ?.addEventListener("click", hideAchievements);
+            }
+            function updateHUD() {
+                var m = Math.floor(saveData.money),
+                    b = Math.floor(saveData.stats.bestDistance);
+                if (m !== hudCache.money) {
+                    hudCache.money = m;
+                    document.getElementById("money-value").textContent = m;
+                }
+                if (b !== hudCache.best) {
+                    hudCache.best = b;
+                    document.getElementById("best").textContent = b;
+                }
+            }
+            function showMenu() {
+                clearOverlays();
+                document
+                    .getElementById("menu-overlay")
+                    ?.classList.remove("hidden");
+                gameState.phase = "menu";
+            }
+            function hideMenu() {
+                document
+                    .getElementById("menu-overlay")
+                    ?.classList.add("hidden");
+            }
+            function showStats() {
+                if (gameState.phase === "menu" || gameState.phase === "flying")
+                    return;
+                var statsEl = document.getElementById("stats-overlay");
+                if (!statsEl) return;
+                var isRecord = runStats.distance > saveData.stats.bestDistance;
+                document.getElementById("s-distance").textContent =
+                    Math.floor(runStats.distance) + "m";
+                document.getElementById("s-speed").textContent = Math.floor(
+                    runStats.maxSpeed,
+                );
+                document.getElementById("s-height").textContent =
+                    Math.floor(runStats.maxHeight) + "m";
+                document.getElementById("s-earned").textContent =
+                    "$" + Math.floor(runStats.earned);
+                document
+                    .getElementById("new-record")
+                    .classList.toggle("visible", isRecord);
+                statsEl.classList.add("visible");
+                gameState.phase = "crashed";
+            }
+            function hideStats() {
+                document
+                    .getElementById("stats-overlay")
+                    ?.classList.remove("visible");
+            }
+            function showShop() {
+                renderShop();
+                document
+                    .getElementById("shop-overlay")
+                    ?.classList.add("visible");
+            }
+            function hideShop() {
+                document
+                    .getElementById("shop-overlay")
+                    ?.classList.remove("visible");
+            }
+
+            function renderShop() {
+                var c = document.getElementById("shop-content"),
+                    m = document.getElementById("shop-money-val");
+                if (m) m.textContent = Math.floor(saveData.money);
+                if (!c) return;
+                c.innerHTML = "";
+
+                for (var catKey in CATEGORIES) {
+                    var header = document.createElement("div");
+                    header.className = "shop-category-header";
+                    header.textContent = CATEGORIES[catKey].name;
+                    c.appendChild(header);
+
+                    for (var key in UPGRADES) {
+                        var u = UPGRADES[key];
+                        if (u.category !== catKey) continue;
+                        var lvl = saveData.upgrades[key] || 0,
+                            maxed = lvl >= u.maxLevel,
+                            cost = getUpgradeCost(key),
+                            canBuy = saveData.money >= cost && !maxed;
+                        var item = document.createElement("div");
+                        item.className = "shop-item" + (maxed ? " maxed" : "");
+                        item.innerHTML = `
+                            <div class="shop-item-info">
+                                <div class="shop-item-name">${u.name} <span style="color:#5dade2;font-size:11px">Lv.${lvl}/${u.maxLevel}</span></div>
+                                <div class="shop-item-effect">${u.effectText(lvl)}</div>
+                            </div>
+                            <button class="shop-buy-btn" data-key="${key}" ${!canBuy ? "disabled" : ""}>${maxed ? "✅ MAX" : "💰 $" + cost}</button>
+                        `;
+                        c.appendChild(item);
+                    }
+                }
+
+                c.querySelectorAll(".shop-buy-btn").forEach((btn) => {
+                    btn.onclick = () => {
+                        if (btn.disabled) return;
+                        var k = btn.dataset.key,
+                            cost = getUpgradeCost(k);
+                        if (
+                            saveData.money >= cost &&
+                            saveData.upgrades[k] < UPGRADES[k].maxLevel
+                        ) {
+                            saveData.money -= cost;
+                            saveData.upgrades[k]++;
+                            saveData.stats.totalUpgrades++;
+                            saveGame();
+                            Sound.play("upgrade");
+                            renderShop();
+                            updateHUD();
+                        }
+                    };
+                });
+            }
+
+            function showAchievements() {
+                hideMenu();
+                var g = document.getElementById("ach-grid"),
+                    o = document.getElementById("achievements-overlay");
+                if (!g || !o) return;
+                g.innerHTML = "";
+                ACHIEVEMENTS.forEach((a) => {
+                    var unlocked = saveData.achievements.includes(a.id);
+                    var el = document.createElement("div");
+                    el.className = "ach-item" + (unlocked ? " unlocked" : "");
+                    el.innerHTML = `<div class="ach-name">${unlocked ? "🏆" : "🔒"} ${a.name}</div><div class="ach-desc">${a.desc}</div>${unlocked ? '<div class="ach-unlocked">✓ UNLOCKED</div>' : ""}`;
+                    g.appendChild(el);
+                });
+                o.classList.add("visible");
+            }
+            function hideAchievements() {
+                document
+                    .getElementById("achievements-overlay")
+                    ?.classList.remove("visible");
+                showMenu();
+            }
+            function checkAchievements() {
+                var newA = ACHIEVEMENTS.filter(
+                    (a) =>
+                        !saveData.achievements.includes(a.id) &&
+                        a.check(saveData.stats),
+                );
+                if (newA.length) {
+                    newA.forEach((a) => {
+                        saveData.achievements.push(a.id);
+                        showToast("🏆 Achievement: " + a.name + "!");
+                    });
+                    saveGame();
+                    Sound.play("achievement");
+                }
+            }
+            function showToast(msg) {
+                var c = document.getElementById("toast-container");
+                if (!c) return;
+                var t = document.createElement("div");
+                t.className = "toast";
+                t.textContent = msg;
+                c.appendChild(t);
+                setTimeout(() => t.remove(), 3000);
+            }
+            function clearOverlays() {
+                [
+                    "menu-overlay",
+                    "stats-overlay",
+                    "start-overlay",
+                    "shop-overlay",
+                    "achievements-overlay",
+                ].forEach((id) => {
+                    var el = document.getElementById(id);
+                    if (el) el.classList.remove("visible", "hidden");
+                });
+                document
+                    .getElementById("menu-overlay")
+                    ?.classList.add("hidden");
+            }
+
+            // ============================================
+            // GAME LOGIC (Fixed Orbit Bug + Slower Altitude Visuals)
+            // ============================================
+            function startGame() {
+                clearOverlays();
+                resetPenguin();
+                gameState.camera = { x: 0, y: 0 };
+                gameState.ending = false;
+                gameState.thermalTimer = 0;
+                if (gameState.statsTimeout)
+                    clearTimeout(gameState.statsTimeout);
+                runStats = {
+                    distance: 0,
+                    maxSpeed: 0,
+                    maxHeight: 0,
+                    earned: 0,
+                    style: 0,
+                    boostTime: 0,
+                };
+                gameState.phase = "ready";
+                gameState.particles = [];
+                environment.isNight = Math.random() < 0.5;
+                document
+                    .getElementById("start-overlay")
+                    ?.classList.add("visible");
+            }
+            function resetPenguin() {
+                gameState.penguin = {
+                    x: RAMP_START_X,
+                    y: GROUND_Y - 25,
+                    vx: 0,
+                    vy: 0,
+                    angle: 0,
+                    fuel: getMaxFuel(),
+                    maxFuel: getMaxFuel(),
+                    launched: false,
+                };
+            }
+            function getMaxFuel() {
+                return (
+                    100 +
+                    (saveData.upgrades.fuel || 0) * UPGRADES.fuel.effectPerLevel
+                );
+            }
+            function getLaunchSpeed() {
+                return (
+                    10 *
+                    (1 +
+                        (saveData.upgrades.ramp || 0) *
+                            UPGRADES.ramp.effectPerLevel) *
+                    (1 +
+                        (saveData.upgrades.launcher || 0) *
+                            UPGRADES.launcher.effectPerLevel)
+                );
+            }
+            function getGravity() {
+                return (
+                    BASE_GRAVITY *
+                    (1 -
+                        (saveData.upgrades.weight || 0) *
+                            UPGRADES.weight.effectPerLevel)
+                );
+            }
+            function getAirDrag() {
+                return (
+                    BASE_AIR_DRAG *
+                    (1 -
+                        (saveData.upgrades.aerodynamics || 0) *
+                            UPGRADES.aerodynamics.effectPerLevel)
+                );
+            }
+            function getGroundDrag() {
+                return (
+                    BASE_DRAG *
+                    (1 -
+                        (saveData.upgrades.sled || 0) *
+                            UPGRADES.sled.effectPerLevel)
+                );
+            }
+            function getGliderLift() {
+                return (
+                    (saveData.upgrades.glider || 0) *
+                    UPGRADES.glider.effectPerLevel
+                );
+            }
+            function getWingLift() {
+                return (
+                    (saveData.upgrades.wings || 0) *
+                    UPGRADES.wings.effectPerLevel
+                );
+            }
+            function getThrustPower() {
+                return (
+                    0.25 *
+                    (1 +
+                        (saveData.upgrades.rocket || 0) *
+                            UPGRADES.rocket.effectPerLevel)
+                );
+            }
+            function getFuelUse() {
+                return (
+                    0.4 *
+                    (1 -
+                        (saveData.upgrades.fuelEfficiency || 0) *
+                            UPGRADES.fuelEfficiency.effectPerLevel)
+                );
+            }
+            function getStyleBonus() {
+                return (
+                    1 +
+                    (saveData.upgrades.style || 0) *
+                        UPGRADES.style.effectPerLevel
+                );
+            }
+
+            function launchPenguin() {
+                var p = gameState.penguin,
+                    spd = getLaunchSpeed();
+                p.vx = spd;
+                p.vy = -spd * 0.6;
+                p.launched = true;
+                p.angle = -0.4;
+                gameState.phase = "flying";
+                document
+                    .getElementById("start-overlay")
+                    ?.classList.remove("visible");
+                Sound.play("launch");
+                for (var i = 0; i < 15; i++)
+                    spawnParticle(
+                        p.x,
+                        p.y + 15,
+                        -Math.random() * 4 - 2,
+                        Math.random() * 3 - 1,
+                        "rgba(255,255,255,",
+                        3 + Math.random() * 3,
+                        25 + Math.random() * 15,
+                    );
+            }
+
+            function updatePenguin(dt) {
+                var p = gameState.penguin;
+                if (!p || !p.launched) return;
+                var step = dt * 60;
+                var tiltSpeed = 2.5,
+                    maxAngle = Math.PI / 2.2;
+                if (input.up) p.angle -= tiltSpeed * dt;
+                if (input.down) p.angle += tiltSpeed * dt;
+                if (input.left) p.angle -= tiltSpeed * 0.5 * dt;
+                if (input.right) p.angle += tiltSpeed * 0.5 * dt;
+                p.angle = Math.max(-maxAngle, Math.min(maxAngle, p.angle));
+
+                var gyroLvl = saveData.upgrades.gyro || 0;
+                var gyroFactor = Math.pow(0.96 - gyroLvl * 0.0004, step);
+                if (!input.up && !input.down && !input.left && !input.right)
+                    p.angle *= gyroFactor;
+
+                var dirX = Math.cos(p.angle),
+                    dirY = Math.sin(p.angle);
+                var speed = Math.hypot(p.vx, p.vy);
+                var altitude = Math.max(0, GROUND_Y - 20 - p.y);
+
+                // 🔧 FIX: Slower thin-air scaling + steep climb penalties prevent orbit
+                var thinAir = Math.min(
+                    0.85,
+                    Math.max(0, (altitude - 400) / 2000),
+                );
+                var liftMult = 1 - thinAir;
+
+                var climbAngle = Math.max(0, -p.angle);
+                var stallFactor = Math.max(0.2, 1 - climbAngle / 0.9);
+
+                var hSpeed = Math.abs(p.vx);
+                var gl = getGliderLift(),
+                    wl = getWingLift();
+                if (speed > 3) {
+                    var liftForce =
+                        (gl * 0.08 + wl * hSpeed * 0.0006) *
+                        hSpeed *
+                        stallFactor *
+                        liftMult *
+                        step;
+                    p.vy -= liftForce;
+                }
+
+                if (input.down && p.vy > 2) {
+                    var paraLvl = saveData.upgrades.parachute || 0;
+                    var convert =
+                        Math.min(p.vy * 0.4, 3) * (1 + paraLvl * 0.012);
+                    p.vx += convert * step * 0.5;
+                    p.vy -= convert * step * 0.3;
+                }
+
+                if (input.down) {
+                    var brakeLvl = saveData.upgrades.airbrake || 0;
+                    p.angle *= Math.pow(0.92, step);
+                }
+
+                if (p.angle > 0.4 && p.vy > 3) {
+                    var momLvl = saveData.upgrades.momentum || 0;
+                    var diveBoost =
+                        Math.min(p.vy * 0.25, 2.5) * (1 + momLvl * 0.008);
+                    p.vx += diveBoost * step * 0.4;
+                    p.vy *= Math.pow(0.97, step);
+                }
+
+                gameState.thermalTimer += dt;
+                if (gameState.thermalTimer > 2.5) {
+                    gameState.thermalTimer = 0;
+                    var thermLvl = saveData.upgrades.thermal || 0;
+                    if (Math.random() < thermLvl * 0.005) {
+                        p.vy -= 1.5 * liftMult;
+                        for (var i = 0; i < 5; i++)
+                            spawnParticle(
+                                p.x,
+                                p.y + 10,
+                                (Math.random() - 0.5) * 2,
+                                -Math.random() * 2,
+                                "rgba(200,255,200,",
+                                3,
+                                20,
+                            );
+                    }
+                }
+
+                // 🔧 FIX: Boost suffers thin-air & steep-angle penalties. Prevents infinite vertical climb.
+                if (input.boost && p.fuel > 0) {
+                    var boostEff =
+                        Math.max(0.2, 1 - thinAir * 0.8) *
+                        Math.max(0.25, 1 - climbAngle * 0.65);
+                    var thrust = getThrustPower() * boostEff * step;
+                    p.vx += dirX * thrust;
+                    p.vy += dirY * thrust;
+                    p.fuel -= getFuelUse() * step;
+                    runStats.boostTime += dt;
+                    if (Math.random() < 0.6) {
+                        var cols = [
+                            "rgba(255,100,50,",
+                            "rgba(255,200,50,",
+                            "rgba(255,150,100,",
+                        ];
+                        spawnParticle(
+                            p.x - dirX * 18,
+                            p.y - dirY * 18,
+                            -dirX * (3 + Math.random() * 3) - p.vx * 0.2,
+                            -dirY * (3 + Math.random() * 3) - p.vy * 0.2,
+                            cols[Math.floor(Math.random() * 3)],
+                            4 + Math.random() * 4,
+                            15 + Math.random() * 10,
+                        );
+                    }
+                    Sound.play("boost");
+                }
+
+                p.vy += getGravity() * step;
+                var drag = Math.pow(getAirDrag(), step);
+                p.vx *= drag;
+                p.vy *= drag;
+
+                var wLvl = saveData.upgrades.windbreaker || 0;
+                var windForce = wind.speed * 0.035 * step;
+                if (windForce < 0)
+                    windForce *= Math.max(0.15, 1 - wLvl * 0.0085);
+                else windForce *= 1 + wLvl * 0.012;
+                p.vx += windForce;
+
+                p.x += p.vx * step;
+                p.y += p.vy * step;
+
+                // 🔧 FIX: Steep climb vertical dampener + hard cap
+                if (climbAngle > 0.6 && p.vy < -6) {
+                    p.vy *= Math.pow(0.93, step);
+                }
+                if (p.vy < -14) p.vy = -14;
+
+                if (speed > runStats.maxSpeed) runStats.maxSpeed = speed;
+                if (altitude > runStats.maxHeight)
+                    runStats.maxHeight = altitude;
+                if (speed > 15) runStats.style += dt * (speed - 10);
+
+                if (p.y >= GROUND_Y - 20) {
+                    p.y = GROUND_Y - 20;
+                    var brakeLvl = saveData.upgrades.airbrake || 0;
+                    var safeSpeed = 3 + brakeLvl * 0.05;
+                    if (
+                        speed > safeSpeed ||
+                        Math.abs(p.vy) > 2 ||
+                        speed < 1.5
+                    ) {
+                        endRun();
+                        return;
+                    }
+                    p.vx *= Math.pow(getGroundDrag(), step);
+                    p.vy = 0;
+                    p.angle *= Math.pow(0.85, step);
+                    if (Math.random() < 0.3)
+                        spawnParticle(
+                            p.x,
+                            p.y + 18,
+                            -Math.random() * 2,
+                            -Math.random() * 2,
+                            "rgba(255,255,255,",
+                            2 + Math.random() * 2,
+                            10 + Math.random() * 10,
+                        );
+                }
+            }
+
+            function spawnParticle(x, y, vx, vy, color, size, life) {
+                gameState.particles.push({
+                    x,
+                    y,
+                    vx,
+                    vy,
+                    color,
+                    size,
+                    life,
+                    maxLife: life,
+                });
+            }
+            function updateParticles(dt) {
+                var step = dt * 60;
+                for (var i = gameState.particles.length - 1; i >= 0; i--) {
+                    var p = gameState.particles[i];
+                    p.x += p.vx * step;
+                    p.y += p.vy * step;
+                    p.vy += 0.08 * step;
+                    p.life -= step;
+                    if (p.life <= 0) gameState.particles.splice(i, 1);
+                }
+            }
+            function updateCamera(dt) {
+                var p = gameState.penguin,
+                    step = dt * 60,
+                    lerp = 1 - Math.pow(1 - 0.12, step);
+                gameState.camera.x +=
+                    (p.x - GAME_WIDTH * 0.35 - gameState.camera.x) * lerp;
+                var targetY = Math.max(
+                    -1200,
+                    Math.min(0, p.y - GAME_HEIGHT * 0.4),
+                );
+                gameState.camera.y += (targetY - gameState.camera.y) * lerp;
+                if (gameState.camera.x < 0) gameState.camera.x = 0;
+            }
+
+            function endRun() {
+                if (gameState.phase === "crashed" || gameState.ending) return;
+                gameState.ending = true;
+                gameState.phase = "crashed";
+                document
+                    .getElementById("start-overlay")
+                    ?.classList.remove("visible");
+                Sound.play("crash");
+                var dist = Math.max(0, gameState.penguin.x - RAMP_END_X);
+                var distBonus =
+                    1 +
+                    (saveData.upgrades.distMult || 0) *
+                        UPGRADES.distMult.effectPerLevel;
+                var earned = Math.floor(
+                    (dist * 0.3 +
+                        runStats.maxSpeed * 5 +
+                        runStats.maxHeight * 2 +
+                        runStats.style * getStyleBonus()) *
+                        distBonus,
+                );
+                runStats.distance = dist;
+                runStats.earned = earned;
+                var luck =
+                    (saveData.upgrades.luck || 0) *
+                    UPGRADES.luck.effectPerLevel;
+                if (Math.random() < luck / 100) {
+                    runStats.earned *= 2;
+                    showToast("🍀 Lucky! 2x coins!");
+                }
+                saveData.money += runStats.earned;
+                saveData.stats.totalFlights++;
+                saveData.stats.totalEarned += runStats.earned;
+                saveData.stats.totalStyle += Math.floor(runStats.style);
+                saveData.stats.totalBoostTime += runStats.boostTime;
+                if (dist > saveData.stats.bestDistance)
+                    saveData.stats.bestDistance = dist;
+                if (runStats.maxHeight > saveData.stats.maxHeight)
+                    saveData.stats.maxHeight = runStats.maxHeight;
+                if (runStats.maxSpeed > saveData.stats.maxSpeed)
+                    saveData.stats.maxSpeed = runStats.maxSpeed;
+                saveGame();
+                updateHUD();
+                checkAchievements();
+                for (var i = 0; i < 20; i++)
+                    spawnParticle(
+                        gameState.penguin.x,
+                        gameState.penguin.y,
+                        (Math.random() - 0.5) * 10,
+                        -Math.random() * 6,
+                        "rgba(200,200,220,",
+                        3 + Math.random() * 4,
+                        25 + Math.random() * 20,
+                    );
+                gameState.statsTimeout = setTimeout(showStats, 600);
+            }
+
+            // ============================================
+            // RENDERING (Slower Altitude Darkening)
+            // ============================================
+            function render() {
+                var p = gameState.penguin;
+                var b = environment.isNight ? 0.25 : 1.0;
+                var alt = p ? Math.max(0, GROUND_Y - 20 - p.y) : 0;
+                // 🔧 FIX: Much slower, eased altitude factor for visual darkening
+                var altFactor = Math.min(
+                    1,
+                    Math.pow(Math.max(0, alt - 200) / 3500, 0.6),
+                );
+
+                var sky = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+                sky.addColorStop(
+                    0,
+                    lerpHex(
+                        lerpHex("#0a0a1a", "#1e3c72", b),
+                        "#050510",
+                        altFactor,
+                    ),
+                );
+                sky.addColorStop(
+                    0.4,
+                    lerpHex(
+                        lerpHex("#111122", "#2a5298", b),
+                        "#0a0a20",
+                        altFactor,
+                    ),
+                );
+                sky.addColorStop(
+                    0.7,
+                    lerpHex(
+                        lerpHex("#1a1a2e", "#87CEEB", b),
+                        "#151530",
+                        altFactor,
+                    ),
+                );
+                sky.addColorStop(
+                    1,
+                    lerpHex(
+                        lerpHex("#2a2a3e", "#b8d4e8", b),
+                        "#1a1a35",
+                        altFactor,
+                    ),
+                );
+                ctx.fillStyle = sky;
+                ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+                var starAlpha = Math.max(0, (0.5 - b) * 1.6) + altFactor * 0.3;
+                if (starAlpha > 0.01) {
+                    ctx.fillStyle = `rgba(255,255,255,${Math.min(1, starAlpha)})`;
+                    for (var i = 0; i < 40; i++) {
+                        var x =
+                                ((i * 173 + 50 - gameState.camera.x * 0.03) %
+                                    (GAME_WIDTH + 100)) -
+                                50,
+                            y = (i * 97 + 30) % (GAME_HEIGHT * 0.35);
+                        ctx.beginPath();
+                        ctx.arc(x, y, 0.5 + (i % 2), 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+
+                drawClouds(b, altFactor);
+                ctx.save();
+                ctx.translate(-gameState.camera.x, -gameState.camera.y);
+                drawGround(b);
+                drawRamp();
+
+                gameState.particles.forEach((p) => {
+                    var a = Math.max(0, p.life / p.maxLife);
+                    ctx.fillStyle = p.color + a + ")";
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size * a, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                drawPenguin();
+                ctx.restore();
+
+                if (
+                    gameState.phase === "flying" ||
+                    gameState.phase === "ready"
+                ) {
+                    var d = Math.max(0, p.x - RAMP_END_X),
+                        s = Math.floor(Math.hypot(p.vx, p.vy));
+                    var ePct = Math.max(
+                        0,
+                        Math.round((p.fuel / p.maxFuel) * 100),
+                    );
+                    var aVal = Math.floor(alt);
+
+                    if (d !== hudCache.dist) {
+                        hudCache.dist = d;
+                        document.getElementById("dist").textContent =
+                            Math.floor(d);
+                    }
+                    if (s !== hudCache.speed) {
+                        hudCache.speed = s;
+                        document.getElementById("speed").textContent = s;
+                    }
+                    if (ePct !== hudCache.energy) {
+                        hudCache.energy = ePct;
+                        document.getElementById("energy-val").textContent =
+                            ePct + "%";
+                    }
+                    if (aVal !== hudCache.alt) {
+                        hudCache.alt = aVal;
+                        document.getElementById("alt-value").textContent = aVal;
+                    }
+
+                    var wVal = Math.round(wind.speed);
+                    if (wVal !== hudCache.wind) {
+                        hudCache.wind = wVal;
+                        var arrow = wVal >= 0 ? "→" : "←";
+                        document.getElementById("wind-value").textContent =
+                            `${arrow} ${Math.abs(wVal)}`;
+                    }
+                }
+            }
+
+            function drawClouds(brightness, altFactor) {
+                var cloudAlpha = Math.max(
+                    0,
+                    0.2 + brightness * 0.5 - altFactor * 0.5,
+                );
+                if (cloudAlpha < 0.01) return;
+                ctx.fillStyle = `rgba(255,255,255,${cloudAlpha})`;
+                for (var i = 0; i < 6; i++) {
+                    var x =
+                            ((i * 200 + 100 - gameState.camera.x * 0.15) %
+                                (GAME_WIDTH + 200)) -
+                            100,
+                        y = 40 + (i % 3) * 30;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 20, 0, Math.PI * 2);
+                    ctx.arc(x + 20, y - 5, 16, 0, Math.PI * 2);
+                    ctx.arc(x + 38, y, 18, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            function drawGround(brightness) {
+                var g = ctx.createLinearGradient(
+                    0,
+                    GROUND_Y - 10,
+                    0,
+                    GAME_HEIGHT + 50,
+                );
+                g.addColorStop(0, lerpHex("#2a3b4c", "#e8f4f8", brightness));
+                g.addColorStop(0.5, lerpHex("#1e2b38", "#c8e6f0", brightness));
+                g.addColorStop(1, lerpHex("#15202b", "#a8d8ea", brightness));
+                ctx.fillStyle = g;
+                ctx.fillRect(
+                    gameState.camera.x - 10,
+                    GROUND_Y - 10,
+                    GAME_WIDTH + 20,
+                    GAME_HEIGHT - GROUND_Y + 60,
+                );
+                ctx.strokeStyle = lerpHex("#445566", "#ffffff", brightness);
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(gameState.camera.x - 10, GROUND_Y - 10);
+                ctx.lineTo(gameState.camera.x + GAME_WIDTH + 10, GROUND_Y - 10);
+                ctx.stroke();
+            }
+
+            function drawRamp() {
+                ctx.fillStyle = "#c0392b";
+                ctx.beginPath();
+                ctx.moveTo(RAMP_START_X - 20, GROUND_Y);
+                ctx.lineTo(RAMP_END_X, GROUND_Y - 70);
+                ctx.lineTo(RAMP_END_X + 25, GROUND_Y);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = "#e74c3c";
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(RAMP_START_X, GROUND_Y - 5);
+                ctx.lineTo(RAMP_END_X - 5, GROUND_Y - 65);
+                ctx.stroke();
+                if (gameState.phase === "ready") {
+                    ctx.fillStyle = "#f1c40f";
+                    ctx.font = "bold 20px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText("▶▶▶", RAMP_END_X + 10, GROUND_Y - 100);
+                }
+            }
+
+            function drawPenguin() {
+                var p = gameState.penguin;
+                if (!p) return;
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.angle);
+                ctx.fillStyle = "rgba(0,0,0,0.15)";
+                ctx.beginPath();
+                ctx.ellipse(0, 22, 16, 4, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = "#2c3e50";
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 14, 18, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = "#ecf0f1";
+                ctx.beginPath();
+                ctx.ellipse(2, 4, 8, 12, 0.2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = "#fff";
+                ctx.beginPath();
+                ctx.arc(-4, -8, 5, 0, Math.PI * 2);
+                ctx.arc(4, -8, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = "#000";
+                ctx.beginPath();
+                ctx.arc(-3, -8, 2.5, 0, Math.PI * 2);
+                ctx.arc(5, -8, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = "#e67e22";
+                ctx.beginPath();
+                ctx.moveTo(8, -4);
+                ctx.lineTo(16, -2);
+                ctx.lineTo(8, 0);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = "#2c3e50";
+                ctx.beginPath();
+                ctx.ellipse(-12, 0, 5, 10, -0.3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(12, 0, 5, 10, 0.3, 0, Math.PI * 2);
+                ctx.fill();
+                if ((saveData.upgrades.sled || 0) > 0) {
+                    ctx.fillStyle = "#8b4513";
+                    var w = 16 + (saveData.upgrades.sled || 0) * 0.15;
+                    ctx.fillRect(-w / 2, 16, w, 3);
+                    ctx.strokeStyle = "#a0522d";
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(-w / 2 - 3, 20);
+                    ctx.lineTo(w / 2 + 3, 20);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            if (
+                typeof CanvasRenderingContext2D !== "undefined" &&
+                !CanvasRenderingContext2D.prototype.roundRect
+            ) {
+                CanvasRenderingContext2D.prototype.roundRect = function (
+                    x,
+                    y,
+                    w,
+                    h,
+                    r,
+                ) {
+                    this.beginPath();
+                    this.moveTo(x + r, y);
+                    this.lineTo(x + w - r, y);
+                    this.quadraticCurveTo(x + w, y, x + w, y + r);
+                    this.lineTo(x + w, y + h - r);
+                    this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+                    this.lineTo(x + r, y + h);
+                    this.quadraticCurveTo(x, y + h, x, y + h - r);
+                    this.lineTo(x, y + r);
+                    this.quadraticCurveTo(x, y, x + r, y);
+                    this.closePath();
+                    return this;
+                };
+            }
+
+            // ============================================
+            // GAME LOOP
+            // ============================================
+            function gameLoop(ts) {
+                if (!lastTime) lastTime = ts;
+                var dt = Math.min((ts - lastTime) / 1000, 0.1);
+                lastTime = ts;
+
+                if (
+                    gameState.phase === "flying" ||
+                    gameState.phase === "ready"
+                ) {
+                    wind.timer += dt;
+                    if (wind.timer > 3 + Math.random() * 5) {
+                        wind.target = Math.random() * 6 - 3;
+                        wind.timer = 0;
+                    }
+                    wind.speed += (wind.target - wind.speed) * dt * 1.5;
+                }
+
+                if (gameState.phase === "flying") {
+                    updatePenguin(dt);
+                    updateParticles(dt);
+                    updateCamera(dt);
+                }
+                render();
+                requestAnimationFrame(gameLoop);
+            }
+            if (document.readyState === "loading")
+                document.addEventListener("DOMContentLoaded", init);
+            else init();
+        </script>
+    </body>
+</html>
