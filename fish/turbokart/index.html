@@ -2,1139 +2,1600 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Vampire Survivors Clone</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Turbo Kart Dash</title>
 <style>
-  /* === RESET & BASE === */
-  * { box-sizing: border-box; margin: 0; padding: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #111; font-family: 'Segoe UI', system-ui, sans-serif; color: #fff; }
-  
-  /* === CANVAS === */
-  #game { display: block; width: 100%; height: 100%; background: #1a1c1a; }
-  
-  /* === HUD === */
-  #hud { position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; padding: 10px; }
-  .hud-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
-  .bar-container { width: 200px; height: 14px; background: #333; border: 2px solid #555; border-radius: 7px; overflow: hidden; position: relative; }
-  .bar-fill { height: 100%; transition: width 0.2s; }
-  #hpBar { background: #e53935; }
-  #xpBar { background: #4caf50; }
-  .hud-text { font-size: 14px; font-weight: bold; text-shadow: 1px 1px 2px #000; }
-  #timer { font-size: 18px; text-align: center; margin: 0 auto; }
-  #levelDisplay { font-size: 16px; color: #ffd700; }
-  #killCount { font-size: 14px; color: #aaa; }
-  #weaponSlots { display: flex; gap: 6px; margin-top: 8px; }
-  .weapon-icon { width: 32px; height: 32px; background: #222; border: 2px solid #444; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
-  #muteBtn { pointer-events: auto; background: #333; border: 2px solid #555; color: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
-
-  /* === SCREENS === */
-  .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; z-index: 10; }
-  .screen.hidden { display: none; }
-  .screen h1 { font-size: 36px; color: #ff5252; text-shadow: 0 0 10px #ff0000; }
-  .screen h2 { font-size: 24px; color: #ffd700; }
-  .screen p { max-width: 400px; text-align: center; color: #ccc; line-height: 1.5; }
-  .btn { pointer-events: auto; background: #d32f2f; color: #fff; border: none; padding: 12px 24px; font-size: 18px; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 0 #b71c1c; transition: transform 0.1s; }
-  .btn:active { transform: translateY(4px); box-shadow: none; }
-  .btn-secondary { background: #444; box-shadow: 0 4px 0 #222; }
-  
-  /* === LEVEL UP === */
-  #levelUpScreen { background: rgba(0,0,0,0.9); }
-  .upgrade-card { background: #222; border: 2px solid #444; border-radius: 10px; padding: 15px; width: 220px; text-align: center; cursor: pointer; transition: 0.2s; }
-  .upgrade-card:hover { border-color: #ffd700; background: #2a2a2a; transform: scale(1.05); }
-  .upgrade-card h3 { color: #ffd700; margin-bottom: 5px; }
-  .upgrade-card p { font-size: 13px; color: #aaa; }
-  .upgrade-card .lvl { font-size: 11px; color: #4caf50; margin-top: 5px; }
-  #upgradeContainer { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
-
-  /* === JOYSTICK === */
-  #joystick { position: absolute; bottom: 30px; left: 30px; width: 120px; height: 120px; pointer-events: auto; z-index: 5; }
-  #joystickBase { width: 100%; height: 100%; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; position: relative; }
-  #joystickKnob { width: 50px; height: 50px; background: rgba(255,255,255,0.5); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-  
-  /* === GAME OVER === */
-  #statsGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; background: #222; padding: 15px; border-radius: 8px; }
-  #statsGrid span { color: #aaa; }
-  #statsGrid b { color: #fff; text-align: right; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+canvas { display: block; width: 100%; height: 100%; }
 </style>
 </head>
 <body>
-
-<canvas id="game"></canvas>
-
-<div id="hud">
-  <div class="hud-row">
-    <div>
-      <div id="levelDisplay">LV 1</div>
-      <div class="bar-container"><div id="hpBar" class="bar-fill" style="width:100%"></div></div>
-      <div class="hud-text" id="hpText">100 / 100</div>
-    </div>
-    <div id="timer">00:00</div>
-    <div style="text-align:right">
-      <div id="killCount">Kills: 0</div>
-      <button id="muteBtn">🔊</button>
-    </div>
-  </div>
-  <div class="bar-container" style="width:100%; max-width:400px; margin:0 auto;"><div id="xpBar" class="bar-fill" style="width:0%"></div></div>
-  <div id="weaponSlots"></div>
-</div>
-
-<div id="menuScreen" class="screen">
-  <h1>🧛 NIGHT SURVIVORS</h1>
-  <p>Move to survive. Attacks are automatic. Collect gems to level up and choose upgrades. How long can you last?</p>
-  <p style="font-size:12px; color:#888;">Desktop: WASD / Arrows | Mobile: Virtual Joystick</p>
-  <button class="btn" id="startBtn">START GAME</button>
-</div>
-
-<div id="levelUpScreen" class="screen hidden">
-  <h2>⬆️ LEVEL UP!</h2>
-  <p>Choose an upgrade:</p>
-  <div id="upgradeContainer"></div>
-</div>
-
-<div id="gameOverScreen" class="screen hidden">
-  <h1>💀 GAME OVER</h1>
-  <div id="statsGrid">
-    <span>Time Survived:</span><b id="statTime">00:00</b>
-    <span>Level:</span><b id="statLevel">1</b>
-    <span>Kills:</span><b id="statKills">0</b>
-    <span>Enemies Defeated:</span><b id="statBosses">0</b>
-  </div>
-  <button class="btn" id="restartBtn">TRY AGAIN</button>
-</div>
-
-<div id="joystick">
-  <div id="joystickBase"><div id="joystickKnob"></div></div>
-</div>
-
+<canvas id="gameCanvas"></canvas>
 <script>
-'use strict';
+// ============================================================
+// TURBO KART DASH - Arcade Racing Game
+// ============================================================
 
-/* =========================================================
-   CONFIGURATION & DATA TABLES
-   ========================================================= */
-const CFG = {
-  PLAYER: { radius: 14, baseHp: 100, baseSpeed: 130, baseArmor: 0, baseMight: 1, baseArea: 1, baseCooldown: 1, baseRegen: 0, magnet: 80 },
-  XP: { base: 10, scale: 1.25, gemValue: 1, gemMagnetSpeed: 300 },
-  SPAWN: { baseRate: 0.8, maxEnemies: 350, radiusOffset: 150, cullDist: 1600 },
-  DIFFICULTY: { hpScale: 0.015, countScale: 0.012, bossInterval: 120 },
-  COLORS: { bg: '#1a1c1a', grid: '#242624', player: '#4fc3f7', playerHit: '#ff5252', xp: '#00e676', dmg: '#ffeb3b' }
-};
-
-const WEAPONS = {
-  wand:      { name:'Magic Wand', icon:'🪄', desc:'Fires at nearest enemy', maxLv:8, baseDmg:10, baseCd:1.2, baseArea:1, baseCount:1, color:'#2196f3' },
-  whip:      { name:'Whip', icon:'🔗', desc:'Horizontal slash left & right', maxLv:8, baseDmg:15, baseCd:1.8, baseArea:1, baseCount:1, color:'#795548' },
-  axe:       { name:'Axe', icon:'🪓', desc:'Arc throw with gravity, pierces', maxLv:8, baseDmg:25, baseCd:2.2, baseArea:1, baseCount:1, color:'#607d8b' },
-  holywater: { name:'Holy Water', icon:'💧', desc:'Ground pool DoT zone', maxLv:8, baseDmg:8, baseCd:3.0, baseArea:1, baseCount:1, color:'#03a9f4' },
-  garlic:    { name:'Garlic', icon:'🧄', desc:'Persistent aura, knocks back', maxLv:8, baseDmg:5, baseCd:0.8, baseArea:1, baseCount:1, color:'#fff9c4' },
-  lightning: { name:'Lightning', icon:'⚡', desc:'Random strikes in radius', maxLv:8, baseDmg:20, baseCd:2.5, baseArea:1, baseCount:1, color:'#ffeb3b' },
-  firewand:  { name:'Fire Wand', icon:'🔥', desc:'Piercing fireball, explodes on kill', maxLv:8, baseDmg:20, baseCd:1.5, baseArea:1, baseCount:1, color:'#ff5722' },
-  knife:     { name:'Knife', icon:'🔪', desc:'Rapid fire in move direction', maxLv:8, baseDmg:8, baseCd:0.6, baseArea:1, baseCount:1, color:'#b0bec5' },
-  book:      { name:'Holy Book', icon:'📖', desc:'Orbits player, damages on contact', maxLv:8, baseDmg:12, baseCd:0.1, baseArea:1, baseCount:1, color:'#9c27b0' },
-  runetracer:{ name:'Runetracer', icon:'🔮', desc:'Bouncing projectile, returns', maxLv:8, baseDmg:14, baseCd:1.8, baseArea:1, baseCount:1, color:'#e040fb' }
-};
-
-const PASSIVES = {
-  maxHp: { name:'Max HP', icon:'❤️', desc:'+10% Max HP', maxLv:5 },
-  speed: { name:'Speed', icon:'👟', desc:'+10% Move Speed', maxLv:5 },
-  armor: { name:'Armor', icon:'🛡️', desc:'+1 Flat Damage Reduction', maxLv:5 },
-  might: { name:'Might', icon:'💪', desc:'+10% Damage', maxLv:5 },
-  area:  { name:'Area', icon:'📐', desc:'+10% Weapon Area', maxLv:5 },
-  cooldown:{ name:'Cooldown', icon:'⏱️', desc:'-10% Weapon Cooldown', maxLv:5 }
-};
-
-const ENEMIES = {
-  bat:      { name:'Bat', hp:15, speed:85, dmg:6, radius:8, color:'#9e9e9e', xp:1, ai:'chase' },
-  skeleton: { name:'Skeleton', hp:35, speed:65, dmg:10, radius:10, color:'#e0e0e0', xp:2, ai:'chase' },
-  zombie:   { name:'Zombie', hp:60, speed:45, dmg:14, radius:12, color:'#4caf50', xp:3, ai:'chase', trail:true },
-  ghost:    { name:'Ghost', hp:40, speed:100, dmg:12, radius:9, color:'#b3e5fc', xp:2, ai:'phase' },
-  spider:   { name:'Spider', hp:20, speed:110, dmg:8, radius:7, color:'#3e2723', xp:1, ai:'chase', cluster:true },
-  archer:   { name:'Archer', hp:45, speed:60, dmg:15, radius:10, color:'#ff9800', xp:3, ai:'ranged' },
-  slime:    { name:'Slime', hp:50, speed:40, dmg:10, radius:14, color:'#8bc34a', xp:2, ai:'chase', split:true },
-  golem:    { name:'Golem', hp:150, speed:30, dmg:25, radius:18, color:'#78909c', xp:8, ai:'chase', armor:5 },
-  wraith:   { name:'Wraith', hp:70, speed:90, dmg:18, radius:11, color:'#673ab7', xp:5, ai:'teleport' },
-  demon:    { name:'Demon', hp:120, speed:70, dmg:22, radius:15, color:'#d32f2f', xp:6, ai:'chase', enrage:true },
-  boss:     { name:'Boss', hp:800, speed:35, dmg:40, radius:28, color:'#ff1744', xp:50, ai:'boss', armor:10 }
-};
-
-/* =========================================================
-   AUDIO SYSTEM (Web Audio API - Procedural)
-   ========================================================= */
-class AudioManager {
-  constructor() {
-    this.ctx = null;
-    this.muted = false;
-    this.masterGain = null;
-    this.initialized = false;
-  }
-  init() {
-    if (this.initialized) return;
-    try {
-      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-      this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.value = 0.3;
-      this.masterGain.connect(this.ctx.destination);
-      this.initialized = true;
-    } catch(e) { console.warn('Audio not supported'); }
-  }
-  resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); }
-  toggleMute() {
-    this.muted = !this.muted;
-    if (this.masterGain) this.masterGain.gain.value = this.muted ? 0 : 0.3;
-    return this.muted;
-  }
-  play(type) {
-    if (!this.initialized || this.muted) return;
-    const t = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.connect(gain);
-    gain.connect(this.masterGain);
-    
-    switch(type) {
-      case 'shoot':
-        osc.type = 'triangle'; osc.frequency.setValueAtTime(600, t); osc.frequency.exponentialRampToValueAtTime(300, t+0.1);
-        gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.01, t+0.1);
-        osc.start(t); osc.stop(t+0.1); break;
-      case 'hit':
-        osc.type = 'square'; osc.frequency.setValueAtTime(150, t); osc.frequency.exponentialRampToValueAtTime(50, t+0.15);
-        gain.gain.setValueAtTime(0.15, t); gain.gain.exponentialRampToValueAtTime(0.01, t+0.15);
-        osc.start(t); osc.stop(t+0.15); break;
-      case 'pickup':
-        osc.type = 'sine'; osc.frequency.setValueAtTime(800, t); osc.frequency.linearRampToValueAtTime(1200, t+0.1);
-        gain.gain.setValueAtTime(0.1, t); gain.gain.linearRampToValueAtTime(0, t+0.15);
-        osc.start(t); osc.stop(t+0.15); break;
-      case 'levelup':
-        osc.type = 'sine'; osc.frequency.setValueAtTime(440, t); osc.frequency.setValueAtTime(554, t+0.1); osc.frequency.setValueAtTime(659, t+0.2);
-        gain.gain.setValueAtTime(0.2, t); gain.gain.linearRampToValueAtTime(0, t+0.4);
-        osc.start(t); osc.stop(t+0.4); break;
-      case 'hurt':
-        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, t); osc.frequency.exponentialRampToValueAtTime(80, t+0.2);
-        gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.01, t+0.2);
-        osc.start(t); osc.stop(t+0.2); break;
-      case 'explosion':
-        // Noise buffer for explosion
-        const bufferSize = this.ctx.sampleRate * 0.3;
-        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for(let i=0;i<bufferSize;i++) data[i] = Math.random()*2-1;
-        const noise = this.ctx.createBufferSource();
-        noise.buffer = buffer;
-        const noiseGain = this.ctx.createGain();
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'lowpass'; filter.frequency.value = 800;
-        noise.connect(filter); filter.connect(noiseGain); noiseGain.connect(this.masterGain);
-        noiseGain.gain.setValueAtTime(0.3, t); noiseGain.gain.exponentialRampToValueAtTime(0.01, t+0.3);
-        noise.start(t); noise.stop(t+0.3); break;
-      case 'death':
-        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300, t); osc.frequency.exponentialRampToValueAtTime(50, t+0.4);
-        gain.gain.setValueAtTime(0.15, t); gain.gain.exponentialRampToValueAtTime(0.01, t+0.4);
-        osc.start(t); osc.stop(t+0.4); break;
-    }
-  }
-}
-const audio = new AudioManager();
-
-/* =========================================================
-   INPUT HANDLER (Keyboard + Touch Joystick)
-   ========================================================= */
-class InputHandler {
-  constructor() {
-    this.keys = {};
-    this.joystick = { x: 0, y: 0, active: false, touchId: null };
-    this.base = document.getElementById('joystickBase');
-    this.knob = document.getElementById('joystickKnob');
-    this.baseRect = null;
-    this.maxDist = 35;
-    this.setupKeyboard();
-    this.setupTouch();
-  }
-  setupKeyboard() {
-    window.addEventListener('keydown', e => this.keys[e.code] = true);
-    window.addEventListener('keyup', e => this.keys[e.code] = false);
-  }
-  setupTouch() {
-    const zone = document.getElementById('joystick');
-    zone.addEventListener('touchstart', e => {
-      e.preventDefault();
-      audio.resume();
-      const t = e.changedTouches[0];
-      this.joystick.touchId = t.identifier;
-      this.joystick.active = true;
-      this.baseRect = this.base.getBoundingClientRect();
-      this.updateKnob(t.clientX, t.clientY);
-    }, {passive:false});
-    window.addEventListener('touchmove', e => {
-      if (!this.joystick.active) return;
-      for (let t of e.changedTouches) {
-        if (t.identifier === this.joystick.touchId) {
-          this.updateKnob(t.clientX, t.clientY);
-          break;
-        }
-      }
-    }, {passive:false});
-    const endTouch = e => {
-      for (let t of e.changedTouches) {
-        if (t.identifier === this.joystick.touchId) {
-          this.joystick.active = false;
-          this.joystick.x = 0; this.joystick.y = 0;
-          this.knob.style.transform = `translate(-50%, -50%)`;
-          break;
-        }
-      }
-    };
-    window.addEventListener('touchend', endTouch);
-    window.addEventListener('touchcancel', endTouch);
-  }
-  updateKnob(cx, cy) {
-    const cxRel = cx - (this.baseRect.left + this.baseRect.width/2);
-    const cyRel = cy - (this.baseRect.top + this.baseRect.height/2);
-    const dist = Math.hypot(cxRel, cyRel);
-    const clamp = Math.min(dist, this.maxDist);
-    const angle = Math.atan2(cyRel, cxRel);
-    const nx = Math.cos(angle) * clamp;
-    const ny = Math.sin(angle) * clamp;
-    this.knob.style.transform = `translate(calc(-50% + ${nx}px), calc(-50% + ${ny}px))`;
-    this.joystick.x = nx / this.maxDist;
-    this.joystick.y = ny / this.maxDist;
-  }
-  getVector() {
-    let x = 0, y = 0;
-    if (this.keys['ArrowUp'] || this.keys['KeyW']) y -= 1;
-    if (this.keys['ArrowDown'] || this.keys['KeyS']) y += 1;
-    if (this.keys['ArrowLeft'] || this.keys['KeyA']) x -= 1;
-    if (this.keys['ArrowRight'] || this.keys['KeyD']) x += 1;
-    if (this.joystick.active) { x = this.joystick.x; y = this.joystick.y; }
-    const len = Math.hypot(x, y);
-    return len > 0 ? { x: x/len, y: y/len } : { x:0, y:0 };
-  }
-}
-const input = new InputHandler();
-
-/* =========================================================
-   GAME STATE & ENTITIES
-   ========================================================= */
-const canvas = document.getElementById('game');
+const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-let W, H;
 
-const game = {
-  state: 'MENU',
-  time: 0,
-  kills: 0,
-  bossesKilled: 0,
-  lastSpawn: 0,
-  lastBoss: 0,
-  paused: false,
-  cam: { x:0, y:0 },
-  player: null,
-  enemies: [],
-  projectiles: [],
-  gems: [],
-  particles: [],
-  dmgNumbers: [],
-  weapons: {}, // { id: { level, cdTimer, ... } }
-  passives: { maxHp:0, speed:0, armor:0, might:0, area:0, cooldown:0 },
-  level: 1,
-  xp: 0,
-  xpToNext: 10
-};
-
+// --- Resize handling ---
 function resize() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 }
 window.addEventListener('resize', resize);
 resize();
 
-function initGame() {
-  game.time = 0; game.kills = 0; game.bossesKilled = 0;
-  game.lastSpawn = 0; game.lastBoss = 0; game.paused = false;
-  game.enemies = []; game.projectiles = []; game.gems = []; game.particles = []; game.dmgNumbers = [];
-  game.weapons = {}; game.passives = { maxHp:0, speed:0, armor:0, might:0, area:0, cooldown:0 };
-  game.level = 1; game.xp = 0; game.xpToNext = 10;
-  game.player = {
-    x: 0, y: 0, vx: 0, vy: 0,
-    hp: CFG.PLAYER.baseHp, maxHp: CFG.PLAYER.baseHp,
-    radius: CFG.PLAYER.radius, flash: 0, invuln: 0,
-    facing: { x: 1, y: 0 }
-  };
-  // Start with Magic Wand
-  addWeapon('wand', 1);
-  updateHUD();
+// ============================================================
+// CONSTANTS
+// ============================================================
+const TOTAL_LAPS = 3;
+const ROAD_WIDTH = 180;
+const KART_SIZE = 18;
+const MAX_SPEED = 6;
+const ACCEL = 0.12;
+const BRAKE = 0.15;
+const REVERSE_MAX = 2;
+const FRICTION = 0.03;
+const OFF_ROAD_FRICTION = 0.08;
+const OFF_ROAD_MAX = 2.5;
+const TURN_SPEED = 0.045;
+const DRIFT_TURN_BONUS = 0.025;
+const DRIFT_FRICTION = 0.015;
+const BOOST_SPEED = 9;
+const BOOST_DURATION = 90;
+const AI_COUNT = 3;
+
+// ============================================================
+// AUDIO SYSTEM (Web Audio API)
+// ============================================================
+let audioCtx = null;
+let muted = false;
+
+function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 }
 
-/* =========================================================
-   WEAPON & PASSIVE LOGIC
-   ========================================================= */
-function getPlayerStats() {
-  const p = game.passives;
-  return {
-    hpMult: 1 + p.maxHp * 0.1,
-    speedMult: 1 + p.speed * 0.1,
-    armor: CFG.PLAYER.baseArmor + p.armor,
-    might: CFG.PLAYER.baseMight * (1 + p.might * 0.1),
-    area: CFG.PLAYER.baseArea * (1 + p.area * 0.1),
-    cdMult: Math.max(0.2, CFG.PLAYER.baseCooldown * (1 - p.cooldown * 0.1))
-  };
+function playTone(freq, duration, type = 'square', vol = 0.1) {
+    if (muted || !audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
 }
 
-function addWeapon(id, level) {
-  if (!game.weapons[id]) {
-    game.weapons[id] = { id, level, cdTimer: 0, data: WEAPONS[id] };
-    renderWeaponSlots();
-  } else {
-    game.weapons[id].level = Math.min(level, WEAPONS[id].maxLv);
-  }
+function playCountdownBeep() { playTone(600, 0.15, 'square', 0.12); }
+function playGoBeep() { playTone(900, 0.3, 'square', 0.15); }
+function playCoinPickup() { playTone(1200, 0.1, 'sine', 0.1); setTimeout(() => playTone(1600, 0.15, 'sine', 0.1), 80); }
+function playBoostSound() { playTone(300, 0.4, 'sawtooth', 0.08); }
+function playCollisionSound() { playTone(150, 0.2, 'sawtooth', 0.12); }
+function playLapSound() { playTone(800, 0.15, 'sine', 0.12); setTimeout(() => playTone(1000, 0.15, 'sine', 0.12), 120); setTimeout(() => playTone(1200, 0.2, 'sine', 0.12), 240); }
+function playFinishSound() { [0,150,300,450].forEach((d,i) => setTimeout(() => playTone(600+i*200, 0.25, 'sine', 0.12), d)); }
+function playItemSound() { playTone(500, 0.1, 'triangle', 0.1); setTimeout(() => playTone(700, 0.1, 'triangle', 0.1), 60); setTimeout(() => playTone(900, 0.15, 'triangle', 0.1), 120); }
+function playEngineSound(speed) {
+    if (muted || !audioCtx) return;
+    // subtle engine hum - only play occasionally
 }
 
-function levelUpWeapon(id) {
-  const w = game.weapons[id];
-  if (w && w.level < WEAPONS[id].maxLv) {
-    w.level++;
-    renderWeaponSlots();
-  }
-}
-
-function levelUpPassive(id) {
-  if (game.passives[id] < PASSIVES[id].maxLv) {
-    game.passives[id]++;
-  }
-  // Apply passive changes immediately
-  const s = getPlayerStats();
-  game.player.maxHp = Math.floor(CFG.PLAYER.baseHp * s.hpMult);
-  game.player.hp = Math.min(game.player.hp + 10, game.player.maxHp); // Small heal on level
-}
-
-function renderWeaponSlots() {
-  const container = document.getElementById('weaponSlots');
-  container.innerHTML = '';
-  for (const id in game.weapons) {
-    const w = game.weapons[id];
-    const div = document.createElement('div');
-    div.className = 'weapon-icon';
-    div.style.borderColor = w.data.color;
-    div.title = `${w.data.name} Lv.${w.level}`;
-    div.textContent = w.data.icon;
-    container.appendChild(div);
-  }
-}
-
-/* =========================================================
-   SPAWNING SYSTEM
-   ========================================================= */
-function spawnEnemies(dt) {
-  if (game.enemies.length >= CFG.SPAWN.maxEnemies) return;
-  
-  game.lastSpawn += dt;
-  const rate = CFG.SPAWN.baseRate * (1 + game.time * CFG.DIFFICULTY.countScale);
-  if (game.lastSpawn < 1 / rate) return;
-  game.lastSpawn = 0;
-
-  // Determine spawn pool based on time
-  const pool = [];
-  if (game.time >= 0) pool.push('bat');
-  if (game.time >= 30) pool.push('skeleton');
-  if (game.time >= 60) pool.push('zombie', 'spider');
-  if (game.time >= 90) pool.push('ghost');
-  if (game.time >= 150) pool.push('archer');
-  if (game.time >= 180) pool.push('slime');
-  if (game.time >= 240) pool.push('golem');
-  if (game.time >= 300) pool.push('wraith');
-  if (game.time >= 360) pool.push('demon');
-
-  const type = pool[Math.floor(Math.random() * pool.length)];
-  const base = ENEMIES[type];
-  const hpScale = 1 + game.time * CFG.DIFFICULTY.hpScale;
-  
-  // Spawn position outside viewport
-  const angle = Math.random() * Math.PI * 2;
-  const dist = Math.max(W, H) * 0.6 + CFG.SPAWN.radiusOffset;
-  const sx = game.player.x + Math.cos(angle) * dist;
-  const sy = game.player.y + Math.sin(angle) * dist;
-
-  const count = base.cluster ? 3 + Math.floor(Math.random()*3) : 1;
-  for(let i=0; i<count; i++) {
-    game.enemies.push({
-      id: Math.random().toString(36).substr(2,9),
-      type, x: sx + (Math.random()-0.5)*40, y: sy + (Math.random()-0.5)*40,
-      hp: Math.floor(base.hp * hpScale), maxHp: Math.floor(base.hp * hpScale),
-      speed: base.speed, dmg: base.dmg, radius: base.radius, color: base.color,
-      ai: base.ai, armor: base.armor || 0, xp: base.xp,
-      flash: 0, trailTimer: 0, teleportTimer: 0, enrage: false,
-      vx: 0, vy: 0
-    });
-  }
-
-  // Boss spawn
-  game.lastBoss += dt;
-  if (game.lastBoss >= CFG.DIFFICULTY.bossInterval) {
-    game.lastBoss = 0;
-    const bAngle = Math.random() * Math.PI * 2;
-    const bDist = Math.max(W, H) * 0.7;
-    const bossHpScale = 1 + (game.time / 60) * 0.8;
-    game.enemies.push({
-      id: 'boss_'+Date.now(), type:'boss',
-      x: game.player.x + Math.cos(bAngle)*bDist, y: game.player.y + Math.sin(bAngle)*bDist,
-      hp: Math.floor(ENEMIES.boss.hp * bossHpScale), maxHp: Math.floor(ENEMIES.boss.hp * bossHpScale),
-      speed: ENEMIES.boss.speed, dmg: ENEMIES.boss.dmg, radius: ENEMIES.boss.radius, color: ENEMIES.boss.color,
-      ai: 'boss', armor: ENEMIES.boss.armor, xp: ENEMIES.boss.xp,
-      flash: 0, trailTimer: 0, teleportTimer: 0, enrage: false, vx:0, vy:0
-    });
-  }
-}
-
-/* =========================================================
-   UPDATE LOOP
-   ========================================================= */
-function update(dt) {
-  if (game.paused || game.state !== 'PLAYING') return;
-  game.time += dt;
-
-  const stats = getPlayerStats();
-  const p = game.player;
-
-  // Player Movement
-  const dir = input.getVector();
-  if (dir.x !== 0 || dir.y !== 0) p.facing = { x: dir.x, y: dir.y };
-  const speed = CFG.PLAYER.baseSpeed * stats.speedMult;
-  p.vx = dir.x * speed;
-  p.vy = dir.y * speed;
-  p.x += p.vx * dt;
-  p.y += p.vy * dt;
-
-  // Timers
-  if (p.flash > 0) p.flash -= dt;
-  if (p.invuln > 0) p.invuln -= dt;
-
-  // Camera
-  game.cam.x += (p.x - W/2 - game.cam.x) * 0.1;
-  game.cam.y += (p.y - H/2 - game.cam.y) * 0.1;
-
-  // Weapons
-  updateWeapons(dt, stats);
-
-  // Projectiles
-  updateProjectiles(dt, stats);
-
-  // Enemies
-  updateEnemies(dt, p);
-
-  // Gems
-  updateGems(dt, p);
-
-  // Particles & Dmg Numbers
-  updateParticles(dt);
-  updateDmgNumbers(dt);
-
-  // Spawning
-  spawnEnemies(dt);
-
-  // Cull far enemies
-  game.enemies = game.enemies.filter(e => {
-    const d = Math.hypot(e.x - p.x, e.y - p.y);
-    return d < CFG.SPAWN.cullDist;
-  });
-
-  // HUD Timer
-  const mins = Math.floor(game.time / 60).toString().padStart(2,'0');
-  const secs = Math.floor(game.time % 60).toString().padStart(2,'0');
-  document.getElementById('timer').textContent = `${mins}:${secs}`;
-}
-
-/* =========================================================
-   WEAPON UPDATES
-   ========================================================= */
-function updateWeapons(dt, stats) {
-  const p = game.player;
-  for (const id in game.weapons) {
-    const w = game.weapons[id];
-    w.cdTimer -= dt;
-    if (w.cdTimer > 0) continue;
-
-    const cd = w.data.baseCd * stats.cdMult;
-    const dmg = w.data.baseDmg * stats.might * (1 + (w.level-1)*0.2);
-    const area = w.data.baseArea * stats.area * (1 + (w.level-1)*0.15);
-    const count = w.data.baseCount + Math.floor((w.level-1)/2);
-
-    w.cdTimer = cd;
-    audio.play('shoot');
-
-    switch(id) {
-      case 'wand': fireProjectile(p, count, dmg, area, 300, 0.6, '#2196f3', 'pierce'); break;
-      case 'whip': createWhip(p, dmg, area, count); break;
-      case 'axe': fireAxe(p, count, dmg, area); break;
-      case 'holywater': createPool(p, dmg, area, count); break;
-      case 'garlic': createAura(p, dmg, area, w.level); break;
-      case 'lightning': strikeLightning(p, dmg, area, count); break;
-      case 'firewand': fireProjectile(p, count, dmg, area, 250, 0.8, '#ff5722', 'explode'); break;
-      case 'knife': fireKnife(p, count, dmg, area); break;
-      case 'book': createOrbit(p, dmg, area, count, w.level); break;
-      case 'runetracer': fireProjectile(p, count, dmg, area, 280, 1.2, '#e040fb', 'bounce'); break;
-    }
-  }
-}
-
-function findNearestEnemies(origin, count, range) {
-  const sorted = game.enemies
-    .map(e => ({ e, d: Math.hypot(e.x-origin.x, e.y-origin.y) }))
-    .filter(o => o.d < range)
-    .sort((a,b) => a.d - b.d);
-  return sorted.slice(0, count).map(o => o.e);
-}
-
-function fireProjectile(origin, count, dmg, area, speed, life, color, type) {
-  const targets = findNearestEnemies(origin, count, 600);
-  if (targets.length === 0) {
-    // Fallback direction
-    const angle = Math.atan2(origin.facing.y, origin.facing.x);
-    game.projectiles.push({ x:origin.x, y:origin.y, vx:Math.cos(angle)*speed, vy:Math.sin(angle)*speed, dmg, radius:6*area, life, color, type, bounces: type==='bounce'?3:0, pierce: type==='pierce'?3:0 });
-    return;
-  }
-  for (const t of targets) {
-    const angle = Math.atan2(t.y - origin.y, t.x - origin.x);
-    game.projectiles.push({ x:origin.x, y:origin.y, vx:Math.cos(angle)*speed, vy:Math.sin(angle)*speed, dmg, radius:6*area, life, color, type, bounces: type==='bounce'?3:0, pierce: type==='pierce'?3:0 });
-  }
-}
-
-function fireKnife(origin, count, dmg, area) {
-  const angle = Math.atan2(origin.facing.y, origin.facing.x);
-  for(let i=0; i<count; i++) {
-    const spread = (i - (count-1)/2) * 0.15;
-    game.projectiles.push({ x:origin.x, y:origin.y, vx:Math.cos(angle+spread)*400, vy:Math.sin(angle+spread)*400, dmg, radius:4*area, life:0.5, color:'#b0bec5', type:'knife', pierce:1 });
-  }
-}
-
-function fireAxe(origin, count, dmg, area) {
-  for(let i=0; i<count; i++) {
-    const angle = -Math.PI/2 + (Math.random()-0.5)*0.8;
-    game.projectiles.push({ x:origin.x, y:origin.y, vx:Math.cos(angle)*200, vy:Math.sin(angle)*200, dmg, radius:8*area, life:1.5, color:'#607d8b', type:'axe', gravity:400, pierce:99 });
-  }
-}
-
-function createWhip(origin, dmg, area, count) {
-  const dir = origin.facing.x >= 0 ? 1 : -1;
-  for(let i=0; i<count; i++) {
-    const offset = (i - (count-1)/2) * 30;
-    game.projectiles.push({ x:origin.x + dir*20, y:origin.y + offset, vx:dir*600, vy:0, dmg, radius:12*area, life:0.2, color:'#795548', type:'whip', pierce:99 });
-  }
-}
-
-function createPool(origin, dmg, area, count) {
-  for(let i=0; i<count; i++) {
-    const ox = (Math.random()-0.5)*100;
-    const oy = (Math.random()-0.5)*100;
-    game.projectiles.push({ x:origin.x+ox, y:origin.y+oy, vx:0, vy:0, dmg:dmg*0.5, radius:25*area, life:3, color:'#03a9f4', type:'pool', tickTimer:0 });
-  }
-}
-
-function createAura(origin, dmg, area, level) {
-  // Garlic is a persistent zone attached to player, implemented as a projectile that follows player
-  game.projectiles.push({ x:origin.x, y:origin.y, vx:0, vy:0, dmg:dmg*0.3, radius:35*area, life:0.8, color:'#fff9c4', type:'aura', tickTimer:0, knockback:50+level*10 });
-}
-
-function strikeLightning(origin, dmg, area, count) {
-  const targets = findNearestEnemies(origin, count, 500);
-  for(const t of targets) {
-    t.hp -= dmg;
-    t.flash = 0.1;
-    spawnParticles(t.x, t.y, '#ffeb3b', 5);
-    audio.play('hit');
-    game.dmgNumbers.push({ x:t.x, y:t.y-20, val:Math.floor(dmg), life:0.6, vy:-40 });
-    if(t.hp <= 0) killEnemy(t);
-  }
-  // Visual bolt
-  if(targets.length > 0) {
-    const t = targets[0];
-    game.particles.push({ x:origin.x, y:origin.y, tx:t.x, ty:t.y, life:0.2, color:'#ffeb3b', type:'line' });
-  }
-}
-
-function createOrbit(origin, dmg, area, count, level) {
-  const speed = 2 + level * 0.3;
-  const radius = 50 * area;
-  for(let i=0; i<count; i++) {
-    const angle = (Math.PI*2/count)*i + game.time*speed;
-    game.projectiles.push({ x:origin.x+Math.cos(angle)*radius, y:origin.y+Math.sin(angle)*radius, vx:0, vy:0, dmg, radius:10*area, life:2, color:'#9c27b0', type:'orbit', angle, radius, speed, owner:origin });
-  }
-}
-
-/* =========================================================
-   PROJECTILE UPDATES
-   ========================================================= */
-function updateProjectiles(dt, stats) {
-  for(let i=game.projectiles.length-1; i>=0; i--) {
-    const p = game.projectiles[i];
-    p.life -= dt;
-    if(p.life <= 0) { game.projectiles.splice(i,1); continue; }
-
-    if(p.type === 'orbit') {
-      p.angle += p.speed * dt;
-      p.x = p.owner.x + Math.cos(p.angle) * p.radius;
-      p.y = p.owner.y + Math.sin(p.angle) * p.radius;
-    } else if(p.type === 'pool' || p.type === 'aura') {
-      if(p.type === 'aura') { p.x = game.player.x; p.y = game.player.y; }
-      p.tickTimer -= dt;
-      if(p.tickTimer <= 0) {
-        p.tickTimer = 0.3;
-        // DoT to enemies in radius
-        for(const e of game.enemies) {
-          if(Math.hypot(e.x-p.x, e.y-p.y) < p.radius + e.radius) {
-            damageEnemy(e, p.dmg, p.knockback ? {x:e.x-game.player.x, y:e.y-game.player.y} : null);
-          }
-        }
-      }
-      continue;
-    } else {
-      if(p.gravity) p.vy += p.gravity * dt;
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-    }
-
-    // Collision with enemies
-    for(let j=game.enemies.length-1; j>=0; j--) {
-      const e = game.enemies[j];
-      if(Math.hypot(p.x-e.x, p.y-e.y) < p.radius + e.radius) {
-        damageEnemy(e, p.dmg, p.type==='aura'?{x:e.x-game.player.x,y:e.y-game.player.y}:null);
-        if(p.type === 'explode' && e.hp <= 0) {
-          // Explosion on kill
-          audio.play('explosion');
-          spawnParticles(e.x, e.y, '#ff5722', 10);
-          for(const ex of game.enemies) {
-            if(ex !== e && Math.hypot(ex.x-e.x, ex.y-e.y) < 60) damageEnemy(ex, p.dmg*0.5);
-          }
-        }
-        if(p.type === 'bounce' && p.bounces > 0) {
-          p.bounces--;
-          const angle = Math.atan2(game.player.y - p.y, game.player.x - p.x);
-          p.vx = Math.cos(angle) * 250; p.vy = Math.sin(angle) * 250;
-        } else if(p.pierce > 0) {
-          p.pierce--;
-        } else {
-          game.projectiles.splice(i,1);
-          break;
-        }
-      }
-    }
-  }
-}
-
-function damageEnemy(e, dmg, knockDir) {
-  const stats = getPlayerStats();
-  const finalDmg = Math.max(1, dmg - (e.armor||0));
-  e.hp -= finalDmg;
-  e.flash = 0.1;
-  audio.play('hit');
-  game.dmgNumbers.push({ x:e.x, y:e.y-15, val:Math.floor(finalDmg), life:0.5, vy:-50 });
-  if(knockDir) {
-    const len = Math.hypot(knockDir.x, knockDir.y) || 1;
-    e.x += (knockDir.x/len) * 20;
-    e.y += (knockDir.y/len) * 20;
-  }
-  if(e.hp <= 0) killEnemy(e);
-}
-
-function killEnemy(e) {
-  if(e.hp > -999) { // Prevent double kill
-    e.hp = -999;
-    game.kills++;
-    if(e.type === 'boss') game.bossesKilled++;
-    audio.play('death');
-    spawnParticles(e.x, e.y, e.color, 8);
-    // Drop XP
-    const count = Math.max(1, Math.floor(e.xp / 2));
-    for(let i=0; i<count; i++) {
-      game.gems.push({ x:e.x+(Math.random()-0.5)*20, y:e.y+(Math.random()-0.5)*20, val: Math.ceil(e.xp/count), vy:-50, life:0 });
-    }
-    // Slime split
-    if(e.split && e.radius > 8) {
-      for(let k=0;k<2;k++) {
-        game.enemies.push({ ...e, id:Math.random().toString(36).substr(2,9), hp:Math.floor(e.maxHp*0.4), maxHp:Math.floor(e.maxHp*0.4), radius:e.radius*0.7, speed:e.speed*1.2, split:false, xp:1 });
-      }
-    }
-  }
-}
-
-/* =========================================================
-   ENEMY UPDATES
-   ========================================================= */
-function updateEnemies(dt, player) {
-  for(let i=game.enemies.length-1; i>=0; i--) {
-    const e = game.enemies[i];
-    if(e.hp <= 0) { game.enemies.splice(i,1); continue; }
-    
-    e.flash = Math.max(0, e.flash - dt);
-    const dx = player.x - e.x;
-    const dy = player.y - e.y;
-    const dist = Math.hypot(dx, dy);
-    const dirX = dx / (dist || 1);
-    const dirY = dy / (dist || 1);
-
-    // AI Behaviors
-    let moveX = dirX, moveY = dirY, speed = e.speed;
-    
-    if(e.ai === 'ranged' && dist < 250) { moveX = -dirX; moveY = -dirY; }
-    if(e.ai === 'teleport') {
-      e.teleportTimer -= dt;
-      if(e.teleportTimer <= 0 && dist > 150) {
-        e.x += dirX * 100; e.y += dirY * 100;
-        e.teleportTimer = 2 + Math.random();
-        spawnParticles(e.x, e.y, '#673ab7', 4);
-      }
-      speed *= 0.5;
-    }
-    if(e.ai === 'boss') {
-      speed = e.speed * (1 + game.time*0.001);
-      if(Math.random() < 0.005) { // Boss charge
-        e.vx = dirX * 300; e.vy = dirY * 300;
-      }
-    }
-    if(e.enrage && e.hp < e.maxHp * 0.3 && !e.enraged) {
-      e.enraged = true; e.speed *= 1.5; e.dmg *= 1.5; e.color = '#ff0000';
-    }
-
-    e.vx = e.vx ? e.vx * 0.9 : moveX * speed;
-    e.vy = e.vy ? e.vy * 0.9 : moveY * speed;
-    e.x += e.vx * dt;
-    e.y += e.vy * dt;
-
-    // Zombie trail
-    if(e.trail) {
-      e.trailTimer -= dt;
-      if(e.trailTimer <= 0) {
-        e.trailTimer = 0.5;
-        game.projectiles.push({ x:e.x, y:e.y, vx:0, vy:0, dmg:2, radius:15, life:2, color:'#388e3c', type:'pool', tickTimer:0 });
-      }
-    }
-
-    // Player Collision
-    if(dist < e.radius + player.radius && player.invuln <= 0) {
-      damagePlayer(e.dmg);
-      player.invuln = 0.5;
-      player.flash = 0.2;
-      // Knockback player
-      player.x -= dirX * 30;
-      player.y -= dirY * 30;
-    }
-  }
-}
-
-function damagePlayer(dmg) {
-  const stats = getPlayerStats();
-  const final = Math.max(1, dmg - stats.armor);
-  game.player.hp -= final;
-  audio.play('hurt');
-  game.dmgNumbers.push({ x:game.player.x, y:game.player.y-20, val:`-${Math.floor(final)}`, life:0.6, vy:-40, color:'#ff5252' });
-  if(game.player.hp <= 0) gameOver();
-}
-
-/* =========================================================
-   GEMS & XP
-   ========================================================= */
-function updateGems(dt, player) {
-  const magnet = CFG.PLAYER.magnet + game.level * 5;
-  for(let i=game.gems.length-1; i>=0; i--) {
-    const g = game.gems[i];
-    g.vy += 200 * dt; // Gravity drop
-    g.y += g.vy * dt;
-    if(g.vy > 0) g.vy *= 0.9;
-    g.life += dt;
-
-    const dx = player.x - g.x;
-    const dy = player.y - g.y;
-    const dist = Math.hypot(dx, dy);
-    
-    if(dist < magnet) {
-      const speed = CFG.XP.gemMagnetSpeed;
-      g.x += (dx/dist) * speed * dt;
-      g.y += (dy/dist) * speed * dt;
-    }
-    if(dist < player.radius + 5) {
-      addXP(g.val);
-      audio.play('pickup');
-      game.gems.splice(i, 1);
-    }
-  }
-}
-
-function addXP(amount) {
-  game.xp += amount;
-  while(game.xp >= game.xpToNext) {
-    game.xp -= game.xpToNext;
-    game.level++;
-    game.xpToNext = Math.floor(CFG.XP.base * Math.pow(CFG.XP.scale, game.level));
-    audio.play('levelup');
-    showLevelUp();
-  }
-  updateHUD();
-}
-
-function updateHUD() {
-  const p = game.player;
-  const stats = getPlayerStats();
-  p.maxHp = Math.floor(CFG.PLAYER.baseHp * stats.hpMult);
-  document.getElementById('hpBar').style.width = `${Math.max(0, (p.hp/p.maxHp)*100)}%`;
-  document.getElementById('hpText').textContent = `${Math.ceil(p.hp)} / ${p.maxHp}`;
-  document.getElementById('xpBar').style.width = `${(game.xp/game.xpToNext)*100}%`;
-  document.getElementById('levelDisplay').textContent = `LV ${game.level}`;
-  document.getElementById('killCount').textContent = `Kills: ${game.kills}`;
-}
-
-/* =========================================================
-   PARTICLES & DAMAGE NUMBERS
-   ========================================================= */
-function spawnParticles(x, y, color, count) {
-  for(let i=0; i<count; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const speed = 50 + Math.random() * 100;
-    game.particles.push({ x, y, vx:Math.cos(angle)*speed, vy:Math.sin(angle)*speed, life:0.3+Math.random()*0.3, color, radius:2+Math.random()*3 });
-  }
-}
-
-function updateParticles(dt) {
-  for(let i=game.particles.length-1; i>=0; i--) {
-    const p = game.particles[i];
-    p.life -= dt;
-    if(p.life <= 0) { game.particles.splice(i,1); continue; }
-    p.x += p.vx * dt; p.y += p.vy * dt;
-    p.vx *= 0.95; p.vy *= 0.95;
-  }
-}
-
-function updateDmgNumbers(dt) {
-  for(let i=game.dmgNumbers.length-1; i>=0; i--) {
-    const d = game.dmgNumbers[i];
-    d.life -= dt; d.y += d.vy * dt;
-    if(d.life <= 0) game.dmgNumbers.splice(i,1);
-  }
-}
-
-/* =========================================================
-   RENDERING
-   ========================================================= */
-function render() {
-  ctx.fillStyle = CFG.COLORS.bg;
-  ctx.fillRect(0, 0, W, H);
-
-  ctx.save();
-  ctx.translate(-game.cam.x, -game.cam.y);
-
-  // Grid
-  const gridSize = 100;
-  const startX = Math.floor(game.cam.x / gridSize) * gridSize;
-  const startY = Math.floor(game.cam.y / gridSize) * gridSize;
-  ctx.strokeStyle = CFG.COLORS.grid;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  for(let x=startX; x<game.cam.x+W+gridSize; x+=gridSize) { ctx.moveTo(x, game.cam.y); ctx.lineTo(x, game.cam.y+H); }
-  for(let y=startY; y<game.cam.y+H+gridSize; y+=gridSize) { ctx.moveTo(game.cam.x, y); ctx.lineTo(game.cam.x+W, y); }
-  ctx.stroke();
-
-  // Gems
-  for(const g of game.gems) {
-    ctx.fillStyle = CFG.COLORS.xp;
-    ctx.beginPath();
-    ctx.moveTo(g.x, g.y-4); ctx.lineTo(g.x+4, g.y); ctx.lineTo(g.x, g.y+4); ctx.lineTo(g.x-4, g.y);
-    ctx.fill();
-  }
-
-  // Projectiles
-  for(const p of game.projectiles) {
-    ctx.fillStyle = p.color;
-    ctx.globalAlpha = Math.min(1, p.life * 3);
-    if(p.type === 'pool') {
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2); ctx.fill();
-      ctx.globalAlpha *= 0.3; ctx.fill();
-    } else if(p.type === 'line') {
-      ctx.strokeStyle = p.color; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.tx, p.ty); ctx.stroke();
-    } else {
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  // Enemies
-  for(const e of game.enemies) {
-    ctx.fillStyle = e.flash > 0 ? '#fff' : e.color;
-    ctx.beginPath(); ctx.arc(e.x, e.y, e.radius, 0, Math.PI*2); ctx.fill();
-    // HP bar
-    if(e.hp < e.maxHp) {
-      ctx.fillStyle = '#333'; ctx.fillRect(e.x-10, e.y-e.radius-8, 20, 4);
-      ctx.fillStyle = '#f44336'; ctx.fillRect(e.x-10, e.y-e.radius-8, 20*(e.hp/e.maxHp), 4);
-    }
-  }
-
-  // Player
-  const p = game.player;
-  ctx.fillStyle = p.flash > 0 ? CFG.COLORS.playerHit : CFG.COLORS.player;
-  ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(p.x + p.facing.x*4, p.y + p.facing.y*4 - 2, 3, 0, Math.PI*2); ctx.fill();
-
-  // Particles
-  for(const pt of game.particles) {
-    ctx.fillStyle = pt.color;
-    ctx.globalAlpha = pt.life * 3;
-    ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.radius, 0, Math.PI*2); ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-
-  // Damage Numbers
-  ctx.font = 'bold 14px sans-serif';
-  ctx.textAlign = 'center';
-  for(const d of game.dmgNumbers) {
-    ctx.fillStyle = d.color || CFG.COLORS.dmg;
-    ctx.globalAlpha = Math.min(1, d.life * 3);
-    ctx.fillText(d.val, d.x, d.y);
-  }
-  ctx.globalAlpha = 1;
-
-  ctx.restore();
-
-  // Minimap
-  drawMinimap();
-}
-
-function drawMinimap() {
-  const size = 120;
-  const scale = 0.06;
-  const mx = W - size - 10, my = H - size - 10;
-  
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  ctx.fillRect(mx, my, size, size);
-  ctx.strokeStyle = '#444'; ctx.strokeRect(mx, my, size, size);
-
-  const cx = mx + size/2, cy = my + size/2;
-  const px = game.player.x, py = game.player.y;
-
-  // Viewport bounds
-  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-  ctx.strokeRect(cx - (W/2)*scale, cy - (H/2)*scale, W*scale, H*scale);
-
-  // Enemies
-  ctx.fillStyle = '#f44336';
-  for(const e of game.enemies) {
-    const dx = (e.x - px) * scale;
-    const dy = (e.y - py) * scale;
-    if(Math.abs(dx)<size/2 && Math.abs(dy)<size/2) {
-      ctx.fillRect(cx+dx-1, cy+dy-1, e.type==='boss'?4:2, e.type==='boss'?4:2);
-    }
-  }
-
-  // Gems
-  ctx.fillStyle = '#00e676';
-  for(const g of game.gems) {
-    const dx = (g.x - px) * scale;
-    const dy = (g.y - py) * scale;
-    if(Math.abs(dx)<size/2 && Math.abs(dy)<size/2) ctx.fillRect(cx+dx, cy+dy, 1, 1);
-  }
-
-  // Player
-  ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2); ctx.fill();
-}
-
-/* =========================================================
-   LEVEL UP SYSTEM
-   ========================================================= */
-function showLevelUp() {
-  game.paused = true;
-  const container = document.getElementById('upgradeContainer');
-  container.innerHTML = '';
-  
-  const options = [];
-  // Available weapons
-  for(const id in WEAPONS) {
-    const w = game.weapons[id];
-    if(!w || w.level < WEAPONS[id].maxLv) {
-      options.push({ type:'weapon', id, name:WEAPONS[id].name, icon:WEAPONS[id].icon, desc:WEAPONS[id].desc, lvl: w ? w.level+1 : 1 });
-    }
-  }
-  // Available passives
-  for(const id in PASSIVES) {
-    if(game.passives[id] < PASSIVES[id].maxLv) {
-      options.push({ type:'passive', id, name:PASSIVES[id].name, icon:PASSIVES[id].icon, desc:PASSIVES[id].desc, lvl: game.passives[id]+1 });
-    }
-  }
-
-  // Shuffle & pick 3
-  for(let i=options.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [options[i],options[j]]=[options[j],options[i]]; }
-  const choices = options.slice(0, 3);
-
-  for(const c of choices) {
-    const card = document.createElement('div');
-    card.className = 'upgrade-card';
-    card.innerHTML = `<h3>${c.icon} ${c.name}</h3><p>${c.desc}</p><div class="lvl">Level ${c.lvl}</div>`;
-    card.onclick = () => {
-      if(c.type === 'weapon') {
-        if(game.weapons[c.id]) levelUpWeapon(c.id);
-        else addWeapon(c.id, 1);
-      } else {
-        levelUpPassive(c.id);
-      }
-      document.getElementById('levelUpScreen').classList.add('hidden');
-      game.paused = false;
-      updateHUD();
+// ============================================================
+// TRACK DEFINITION
+// ============================================================
+// Track center waypoints (closed loop)
+const trackWaypoints = [
+    {x: 400, y: 300},
+    {x: 800, y: 250},
+    {x: 1200, y: 280},
+    {x: 1500, y: 400},
+    {x: 1650, y: 600},
+    {x: 1600, y: 850},
+    {x: 1450, y: 1050},
+    {x: 1200, y: 1150},
+    {x: 900, y: 1100},
+    {x: 650, y: 950},
+    {x: 500, y: 750},
+    {x: 350, y: 600},
+    {x: 250, y: 450},
+    {x: 300, y: 350},
+];
+
+// Compute smooth track using Catmull-Rom spline interpolation
+function catmullRom(p0, p1, p2, p3, t) {
+    const t2 = t * t, t3 = t2 * t;
+    return {
+        x: 0.5 * ((2*p1.x) + (-p0.x+p2.x)*t + (2*p0.x-5*p1.x+4*p2.x-p3.x)*t2 + (-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
+        y: 0.5 * ((2*p1.y) + (-p0.y+p2.y)*t + (2*p0.y-5*p1.y+4*p2.y-p3.y)*t2 + (-p0.y+3*p1.y-3*p2.y+p3.y)*t3)
     };
-    container.appendChild(card);
-  }
-  document.getElementById('levelUpScreen').classList.remove('hidden');
 }
 
-/* =========================================================
-   GAME FLOW & UI
-   ========================================================= */
-function gameOver() {
-  game.state = 'GAME_OVER';
-  const mins = Math.floor(game.time / 60).toString().padStart(2,'0');
-  const secs = Math.floor(game.time % 60).toString().padStart(2,'0');
-  document.getElementById('statTime').textContent = `${mins}:${secs}`;
-  document.getElementById('statLevel').textContent = game.level;
-  document.getElementById('statKills').textContent = game.kills;
-  document.getElementById('statBosses').textContent = game.bossesKilled;
-  document.getElementById('gameOverScreen').classList.remove('hidden');
+function generateSmoothTrack(waypoints, segmentsPerPoint = 20) {
+    const pts = [];
+    const n = waypoints.length;
+    for (let i = 0; i < n; i++) {
+        const p0 = waypoints[(i - 1 + n) % n];
+        const p1 = waypoints[i];
+        const p2 = waypoints[(i + 1) % n];
+        const p3 = waypoints[(i + 2) % n];
+        for (let j = 0; j < segmentsPerPoint; j++) {
+            pts.push(catmullRom(p0, p1, p2, p3, j / segmentsPerPoint));
+        }
+    }
+    return pts;
 }
 
-function startGame() {
-  audio.init(); audio.resume();
-  initGame();
-  game.state = 'PLAYING';
-  document.getElementById('menuScreen').classList.add('hidden');
-  document.getElementById('gameOverScreen').classList.add('hidden');
-  document.getElementById('levelUpScreen').classList.add('hidden');
+const trackPoints = generateSmoothTrack(trackWaypoints, 25);
+
+// Compute track edges
+function computeTrackEdges(points, width) {
+    const left = [], right = [];
+    const n = points.length;
+    for (let i = 0; i < n; i++) {
+        const next = points[(i + 1) % n];
+        const prev = points[(i - 1 + n) % n];
+        const dx = next.x - prev.x;
+        const dy = next.y - prev.y;
+        const len = Math.sqrt(dx*dx + dy*dy) || 1;
+        const nx = -dy / len * width / 2;
+        const ny = dx / len * width / 2;
+        left.push({x: points[i].x + nx, y: points[i].y + ny});
+        right.push({x: points[i].x - nx, y: points[i].y - ny});
+    }
+    return {left, right};
 }
 
-document.getElementById('startBtn').onclick = startGame;
-document.getElementById('restartBtn').onclick = startGame;
-document.getElementById('muteBtn').onclick = function() {
-  const muted = audio.toggleMute();
-  this.textContent = muted ? '🔇' : '🔊';
-};
+const trackEdges = computeTrackEdges(trackPoints, ROAD_WIDTH);
 
-/* =========================================================
-   MAIN LOOP
-   ========================================================= */
+// Narrow section: reduce width for a segment
+for (let i = 150; i < 200; i++) {
+    const idx = i % trackPoints.length;
+    const next = trackPoints[(idx + 1) % trackPoints.length];
+    const prev = trackPoints[(idx - 1 + trackPoints.length) % trackPoints.length];
+    const dx = next.x - prev.x, dy = next.y - prev.y;
+    const len = Math.sqrt(dx*dx + dy*dy) || 1;
+    const narrowWidth = 110;
+    const nx = -dy / len * narrowWidth / 2, ny = dx / len * narrowWidth / 2;
+    trackEdges.left[idx] = {x: trackPoints[idx].x + nx, y: trackPoints[idx].y + ny};
+    trackEdges.right[idx] = {x: trackPoints[idx].x - nx, y: trackPoints[idx].y - ny};
+}
+
+// Checkpoints (indices along track)
+const checkpointIndices = [0, Math.floor(trackPoints.length * 0.25), Math.floor(trackPoints.length * 0.5), Math.floor(trackPoints.length * 0.75)];
+const startLineIndex = 0;
+
+// Get track width at index
+function getTrackWidthAt(idx) {
+    const l = trackEdges.left[idx], r = trackEdges.right[idx];
+    return Math.sqrt((l.x-r.x)**2 + (l.y-r.y)**2);
+}
+
+// Check if point is on track
+function isOnTrack(x, y) {
+    // Check against all track segments
+    const n = trackPoints.length;
+    for (let i = 0; i < n; i++) {
+        const l = trackEdges.left[i], r = trackEdges.right[i];
+        const l2 = trackEdges.left[(i+1)%n], r2 = trackEdges.right[(i+1)%n];
+        if (pointInQuad(x, y, l, r, r2, l2)) return true;
+    }
+    return false;
+}
+
+function pointInQuad(px, py, a, b, c, d) {
+    // Simple check: point in convex quad using cross products
+    function cross(ox, oy, ax, ay, bx, by) {
+        return (ax-ox)*(by-oy) - (ay-oy)*(bx-ox);
+    }
+    const c1 = cross(px, py, a.x, a.y, b.x, b.y);
+    const c2 = cross(px, py, b.x, b.y, c.x, c.y);
+    const c3 = cross(px, py, c.x, c.y, d.x, d.y);
+    const c4 = cross(px, py, d.x, d.y, a.x, a.y);
+    return (c1 >= 0 && c2 >= 0 && c3 >= 0 && c4 >= 0) || (c1 <= 0 && c2 <= 0 && c3 <= 0 && c4 <= 0);
+}
+
+// Find closest track point index
+function closestTrackIndex(x, y) {
+    let minDist = Infinity, minIdx = 0;
+    for (let i = 0; i < trackPoints.length; i++) {
+        const d = (x - trackPoints[i].x)**2 + (y - trackPoints[i].y)**2;
+        if (d < minDist) { minDist = d; minIdx = i; }
+    }
+    return minIdx;
+}
+
+// Push kart back onto track if out of bounds
+function constrainToTrack(kart) {
+    const idx = closestTrackIndex(kart.x, kart.y);
+    const l = trackEdges.left[idx], r = trackEdges.right[idx];
+    const cx = (l.x + r.x) / 2, cy = (l.y + r.y) / 2;
+    const hw = getTrackWidthAt(idx) / 2 - KART_SIZE;
+
+    // Project kart position onto the track normal
+    const next = trackPoints[(idx + 1) % trackPoints.length];
+    const prev = trackPoints[(idx - 1 + trackPoints.length) % trackPoints.length];
+    const dx = next.x - prev.x, dy = next.y - prev.y;
+    const len = Math.sqrt(dx*dx + dy*dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+
+    const toKartX = kart.x - cx, toKartY = kart.y - cy;
+    const dot = toKartX * nx + toKartY * ny;
+
+    if (Math.abs(dot) > hw) {
+        const push = (Math.abs(dot) - hw) * Math.sign(dot);
+        kart.x -= nx * push;
+        kart.y -= ny * push;
+        kart.speed *= 0.7;
+        playCollisionSound();
+    }
+}
+
+// ============================================================
+// ITEMS / POWERUPS
+// ============================================================
+class Item {
+    constructor(x, y, type) {
+        this.x = x; this.y = y; this.type = type;
+        this.collected = false; this.respawnTimer = 0;
+        this.animTimer = Math.random() * Math.PI * 2;
+    }
+}
+
+// Place items on track
+const items = [];
+const coins = [];
+const boostPads = [];
+
+// Place coins along track
+for (let i = 0; i < 30; i++) {
+    const idx = Math.floor(i * trackPoints.length / 30);
+    const p = trackPoints[idx];
+    const next = trackPoints[(idx+1)%trackPoints.length];
+    const dx = next.x - p.x, dy = next.y - p.y;
+    const len = Math.sqrt(dx*dx+dy*dy)||1;
+    const nx = -dy/len, ny = dx/len;
+    const offset = (Math.random() - 0.5) * ROAD_WIDTH * 0.5;
+    coins.push(new Item(p.x + nx*offset, p.y + ny*offset, 'coin'));
+}
+
+// Place boost pads
+const boostPadIndices = [Math.floor(trackPoints.length*0.15), Math.floor(trackPoints.length*0.45), Math.floor(trackPoints.length*0.75)];
+boostPadIndices.forEach(idx => {
+    const p = trackPoints[idx];
+    boostPads.push(new Item(p.x, p.y, 'boost'));
+});
+
+// Place mystery boxes
+const mysteryIndices = [Math.floor(trackPoints.length*0.1), Math.floor(trackPoints.length*0.35), Math.floor(trackPoints.length*0.6), Math.floor(trackPoints.length*0.85)];
+mysteryIndices.forEach(idx => {
+    const p = trackPoints[idx];
+    const next = trackPoints[(idx+1)%trackPoints.length];
+    const dx = next.x - p.x, dy = next.y - p.y;
+    const len = Math.sqrt(dx*dx+dy*dy)||1;
+    const nx = -dy/len, ny = dx/len;
+    items.push(new Item(p.x + nx*40, p.y + ny*40, 'mystery'));
+    items.push(new Item(p.x - nx*40, p.y - ny*40, 'mystery'));
+});
+
+// ============================================================
+// PARTICLE SYSTEM
+// ============================================================
+class Particle {
+    constructor(x, y, vx, vy, life, color, size) {
+        this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+        this.life = life; this.maxLife = life;
+        this.color = color; this.size = size;
+    }
+    update() {
+        this.x += this.vx; this.y += this.vy;
+        this.life--;
+        this.vx *= 0.98; this.vy *= 0.98;
+    }
+    draw(ctx, camX, camY) {
+        const alpha = this.life / this.maxLife;
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x - camX - this.size/2, this.y - camY - this.size/2, this.size, this.size);
+        ctx.globalAlpha = 1;
+    }
+}
+
+const particles = [];
+
+function spawnParticles(x, y, count, color, speed = 2, life = 20, size = 3) {
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = Math.random() * speed;
+        particles.push(new Particle(x, y, Math.cos(angle)*spd, Math.sin(angle)*spd, life + Math.random()*10, color, size));
+    }
+}
+
+// Skid marks
+const skidMarks = [];
+class SkidMark {
+    constructor(x, y, alpha) {
+        this.x = x; this.y = y; this.alpha = alpha; this.life = 120;
+    }
+}
+
+// ============================================================
+// KART BASE CLASS
+// ============================================================
+class Kart {
+    constructor(x, y, angle, color, name) {
+        this.x = x; this.y = y;
+        this.angle = angle;
+        this.speed = 0;
+        this.color = color;
+        this.name = name;
+        this.width = KART_SIZE;
+        this.height = KART_SIZE * 1.4;
+        this.lap = 0;
+        this.checkpoint = 0;
+        this.totalProgress = 0;
+        this.coins = 0;
+        this.score = 0;
+        this.boostTimer = 0;
+        this.shieldTimer = 0;
+        this.handlingTimer = 0;
+        this.drifting = false;
+        this.driftAngle = 0;
+        this.position = 1;
+        this.finished = false;
+        this.finishTime = 0;
+        this.itemType = null;
+        this.itemTimer = 0;
+        this.flashTimer = 0;
+        this.lastTrackIndex = 0;
+    }
+
+    get maxSpeed() {
+        let ms = MAX_SPEED;
+        if (this.boostTimer > 0) ms = BOOST_SPEED;
+        if (!isOnTrack(this.x, this.y)) ms = OFF_ROAD_MAX;
+        return ms;
+    }
+
+    get accel() {
+        let a = ACCEL;
+        if (this.handlingTimer > 0) a *= 1.2;
+        return a;
+    }
+
+    get turnSpeed() {
+        let ts = TURN_SPEED;
+        if (this.drifting) ts += DRIFT_TURN_BONUS;
+        if (this.handlingTimer > 0) ts *= 1.3;
+        return ts;
+    }
+
+    updatePhysics() {
+        // Friction
+        let fric = FRICTION;
+        if (!isOnTrack(this.x, this.y)) fric = OFF_ROAD_FRICTION;
+        if (this.drifting) fric = DRIFT_FRICTION;
+
+        if (this.speed > 0) {
+            this.speed -= fric;
+            if (this.speed < 0) this.speed = 0;
+        } else if (this.speed < 0) {
+            this.speed += fric;
+            if (this.speed > 0) this.speed = 0;
+        }
+
+        // Clamp speed
+        this.speed = Math.max(-REVERSE_MAX, Math.min(this.maxSpeed, this.speed));
+
+        // Move
+        const moveAngle = this.angle + this.driftAngle;
+        this.x += Math.cos(moveAngle) * this.speed;
+        this.y += Math.sin(moveAngle) * this.speed;
+
+        // Timers
+        if (this.boostTimer > 0) this.boostTimer--;
+        if (this.shieldTimer > 0) this.shieldTimer--;
+        if (this.handlingTimer > 0) this.handlingTimer--;
+        if (this.flashTimer > 0) this.flashTimer--;
+
+        // Constrain to track
+        constrainToTrack(this);
+
+        // Track progress
+        this.lastTrackIndex = closestTrackIndex(this.x, this.y);
+
+        // Checkpoints
+        this.updateCheckpoints();
+
+        // Drift particles
+        if (this.drifting && Math.abs(this.speed) > 2) {
+            const backX = this.x - Math.cos(this.angle) * this.height * 0.4;
+            const backY = this.y - Math.sin(this.angle) * this.height * 0.4;
+            if (Math.random() < 0.5) {
+                particles.push(new Particle(backX + (Math.random()-0.5)*8, backY + (Math.random()-0.5)*8,
+                    (Math.random()-0.5)*0.5, (Math.random()-0.5)*0.5, 30, '#555', 3));
+            }
+            skidMarks.push(new SkidMark(backX + (Math.random()-0.5)*6, backY + (Math.random()-0.5)*6, 0.4));
+        }
+
+        // Boost particles
+        if (this.boostTimer > 0 && Math.abs(this.speed) > 3) {
+            const backX = this.x - Math.cos(this.angle) * this.height * 0.5;
+            const backY = this.y - Math.sin(this.angle) * this.height * 0.5;
+            particles.push(new Particle(backX, backY,
+                -Math.cos(this.angle)*3 + (Math.random()-0.5)*2,
+                -Math.sin(this.angle)*3 + (Math.random()-0.5)*2,
+                15, Math.random() < 0.5 ? '#f80' : '#ff0', 4));
+        }
+    }
+
+    updateCheckpoints() {
+        const idx = this.lastTrackIndex;
+        const n = trackPoints.length;
+
+        // Check if crossed next checkpoint
+        const nextCp = checkpointIndices[this.checkpoint % checkpointIndices.length];
+        const distToCp = Math.abs(idx - nextCp);
+        const wrapDist = Math.abs(idx - nextCp + n);
+        const wrapDist2 = Math.abs(idx - nextCp - n);
+        const minDist = Math.min(distToCp, wrapDist, wrapDist2);
+
+        if (minDist < 15) {
+            this.checkpoint++;
+            if (this.checkpoint > 0 && this.checkpoint % checkpointIndices.length === 0) {
+                this.lap++;
+                if (this === player) playLapSound();
+            }
+        }
+
+        // Total progress for ranking
+        this.totalProgress = this.lap * n + idx;
+    }
+
+    draw(ctx, camX, camY) {
+        const sx = this.x - camX;
+        const sy = this.y - camY;
+
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(this.angle + this.driftAngle);
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(-this.width/2 + 2, -this.height/2 + 2, this.width, this.height);
+
+        // Kart body
+        const flash = this.flashTimer > 0 && this.flashTimer % 4 < 2;
+        if (this.shieldTimer > 0) {
+            ctx.strokeStyle = `rgba(0,200,255,${0.5 + Math.sin(Date.now()*0.01)*0.3})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.width + 4, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Main body
+        ctx.fillStyle = flash ? '#fff' : this.color;
+        ctx.beginPath();
+        ctx.roundRect(-this.width/2, -this.height/2, this.width, this.height, 4);
+        ctx.fill();
+
+        // Stripe
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.fillRect(-this.width/4, -this.height/2 + 2, this.width/2, this.height - 4);
+
+        // Wheels
+        ctx.fillStyle = '#222';
+        ctx.fillRect(-this.width/2 - 3, -this.height/2 + 2, 4, 6);
+        ctx.fillRect(this.width/2 - 1, -this.height/2 + 2, 4, 6);
+        ctx.fillRect(-this.width/2 - 3, this.height/2 - 8, 4, 6);
+        ctx.fillRect(this.width/2 - 1, this.height/2 - 8, 4, 6);
+
+        // Driver head
+        ctx.fillStyle = '#ffcc88';
+        ctx.beginPath();
+        ctx.arc(0, -2, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Helmet
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(0, -3, 4, Math.PI, 0);
+        ctx.fill();
+
+        ctx.restore();
+
+        // Name tag
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.name, sx, sy - this.height - 6);
+    }
+}
+
+// ============================================================
+// PLAYER
+// ============================================================
+const keys = {};
+window.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+class Player extends Kart {
+    constructor() {
+        const startPos = trackPoints[startLineIndex];
+        const next = trackPoints[(startLineIndex + 1) % trackPoints.length];
+        const angle = Math.atan2(next.y - startPos.y, next.x - startPos.x);
+        super(startPos.x, startPos.y - 30, angle, '#e03030', 'YOU');
+    }
+
+    update() {
+        if (this.finished) return;
+
+        const up = keys['ArrowUp'] || keys['KeyW'];
+        const down = keys['ArrowDown'] || keys['KeyS'];
+        const left = keys['ArrowLeft'] || keys['KeyA'];
+        const right = keys['ArrowRight'] || keys['KeyD'];
+        const drift = keys['Space'];
+        const boost = keys['ShiftLeft'] || keys['ShiftRight'];
+
+        // Accelerate / brake
+        if (up) {
+            this.speed += this.accel;
+        }
+        if (down) {
+            if (this.speed > 0) {
+                this.speed -= BRAKE;
+            } else {
+                this.speed -= ACCEL * 0.5;
+            }
+        }
+
+        // Steering
+        const speedFactor = Math.min(1, Math.abs(this.speed) / 3);
+        if (left) this.angle -= this.turnSpeed * speedFactor;
+        if (right) this.angle += this.turnSpeed * speedFactor;
+
+        // Drift
+        this.drifting = drift && Math.abs(this.speed) > 2;
+        if (this.drifting) {
+            if (left) this.driftAngle -= DRIFT_TURN_BONUS * speedFactor;
+            if (right) this.driftAngle += DRIFT_TURN_BONUS * speedFactor;
+            this.driftAngle = Math.max(-0.5, Math.min(0.5, this.driftAngle));
+        } else {
+            this.driftAngle *= 0.9;
+        }
+
+        // Use boost item
+        if (boost && this.itemType === 'boost') {
+            this.boostTimer = BOOST_DURATION;
+            this.itemType = null;
+            playBoostSound();
+            screenShake = 8;
+        }
+
+        // Use shield item
+        if (boost && this.itemType === 'shield') {
+            this.shieldTimer = 300;
+            this.itemType = null;
+            playItemSound();
+        }
+
+        this.updatePhysics();
+        this.collectItems();
+    }
+
+    collectItems() {
+        // Coins
+        coins.forEach(c => {
+            if (!c.collected) {
+                const d = (this.x - c.x)**2 + (this.y - c.y)**2;
+                if (d < (KART_SIZE + 10)**2) {
+                    c.collected = true;
+                    c.respawnTimer = 600;
+                    this.coins++;
+                    this.score += 10;
+                    playCoinPickup();
+                    spawnParticles(c.x, c.y, 8, '#ffd700', 3, 20, 3);
+                }
+            }
+        });
+
+        // Boost pads
+        boostPads.forEach(b => {
+            const d = (this.x - b.x)**2 + (this.y - b.y)**2;
+            if (d < (KART_SIZE + 25)**2 && this.boostTimer <= 0) {
+                this.boostTimer = 45;
+                playBoostSound();
+                spawnParticles(this.x, this.y, 12, '#f80', 4, 15, 4);
+            }
+        });
+
+        // Mystery boxes
+        items.forEach(it => {
+            if (!it.collected) {
+                const d = (this.x - it.x)**2 + (this.y - it.y)**2;
+                if (d < (KART_SIZE + 12)**2) {
+                    it.collected = true;
+                    it.respawnTimer = 900;
+                    this.grantRandomItem();
+                    playItemSound();
+                    spawnParticles(it.x, it.y, 15, '#f0f', 4, 25, 3);
+                }
+            }
+        });
+    }
+
+    grantRandomItem() {
+        const r = Math.random();
+        if (r < 0.35) {
+            this.itemType = 'boost';
+        } else if (r < 0.6) {
+            this.itemType = 'shield';
+        } else if (r < 0.8) {
+            this.score += 50;
+        } else {
+            this.handlingTimer = 300;
+        }
+    }
+}
+
+// ============================================================
+// AI RACER
+// ============================================================
+class AIKart extends Kart {
+    constructor(startIdx, color, name, speedMod) {
+        const startPos = trackPoints[startIdx];
+        const next = trackPoints[(startIdx + 1) % trackPoints.length];
+        const angle = Math.atan2(next.y - startPos.y, next.x - startPos.x);
+        super(startPos.x, startPos.y, angle, color, name);
+        this.targetIdx = (startIdx + 20) % trackPoints.length;
+        this.speedMod = speedMod;
+        this.wobble = Math.random() * Math.PI * 2;
+    }
+
+    update() {
+        if (this.finished) return;
+
+        // Follow track waypoints
+        const target = trackPoints[this.targetIdx];
+        const dx = target.x - this.x;
+        const dy = target.y - this.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        const targetAngle = Math.atan2(dy, dx);
+
+        // Smooth angle turning
+        let angleDiff = targetAngle - this.angle;
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+        const turnAmt = Math.min(Math.abs(angleDiff), this.turnSpeed * 1.5) * Math.sign(angleDiff);
+        this.angle += turnAmt;
+
+        // Speed control
+        const targetSpeed = (MAX_SPEED * 0.75 + this.speedMod) * (1 - Math.abs(turnAmt) * 3);
+        if (this.speed < targetSpeed) {
+            this.speed += this.accel * 0.8;
+        } else {
+            this.speed -= FRICTION * 2;
+        }
+
+        // Advance target
+        if (dist < 60) {
+            this.targetIdx = (this.targetIdx + 10) % trackPoints.length;
+        }
+
+        // Add slight wobble for variety
+        this.wobble += 0.02;
+        this.x += Math.sin(this.wobble) * 0.3;
+
+        this.drifting = false;
+        this.updatePhysics();
+
+        // Check if finished
+        if (this.lap >= TOTAL_LAPS && !this.finished) {
+            this.finished = true;
+            this.finishTime = raceTimer;
+        }
+    }
+}
+
+// ============================================================
+// GAME STATE
+// ============================================================
+let player;
+let aiRacers = [];
+let gameState = 'title'; // title, countdown, racing, paused, finished
+let raceTimer = 0;
+let countdownTimer = 0;
+let countdownValue = 3;
+let screenShake = 0;
+let cameraX = 0, cameraY = 0;
+let targetCamX = 0, targetCamY = 0;
+let raceStartTime = 0;
+let finishPlace = 0;
+let aiFinishCount = 0;
+
+function initGame() {
+    player = new Player();
+    aiRacers = [
+        new AIKart(5, '#3080e0', 'BLU', 0.3),
+        new AIKart(10, '#30c030', 'GRN', 0.1),
+        new AIKart(15, '#e0c030', 'YLW', -0.1),
+    ];
+    // Offset AI start positions
+    aiRacers.forEach((ai, i) => {
+        const idx = (startLineIndex + 3 + i * 5) % trackPoints.length;
+        const p = trackPoints[idx];
+        ai.x = p.x;
+        ai.y = p.y;
+        ai.lastTrackIndex = idx;
+        ai.targetIdx = (idx + 20) % trackPoints.length;
+    });
+
+    raceTimer = 0;
+    countdownTimer = 0;
+    countdownValue = 3;
+    screenShake = 0;
+    finishPlace = 0;
+    aiFinishCount = 0;
+    particles.length = 0;
+    skidMarks.length = 0;
+
+    // Reset items
+    coins.forEach(c => { c.collected = false; c.respawnTimer = 0; });
+    items.forEach(it => { it.collected = false; it.respawnTimer = 0; });
+}
+
+// ============================================================
+// CAMERA
+// ============================================================
+function updateCamera() {
+    targetCamX = player.x - canvas.width / 2;
+    targetCamY = player.y - canvas.height / 2;
+    cameraX += (targetCamX - cameraX) * 0.08;
+    cameraY += (targetCamY - cameraY) * 0.08;
+
+    if (screenShake > 0) {
+        cameraX += (Math.random() - 0.5) * screenShake;
+        cameraY += (Math.random() - 0.5) * screenShake;
+        screenShake *= 0.85;
+        if (screenShake < 0.5) screenShake = 0;
+    }
+}
+
+// ============================================================
+// COLLISION BETWEEN KARTS
+// ============================================================
+function checkKartCollisions() {
+    const allKarts = [player, ...aiRacers];
+    for (let i = 0; i < allKarts.length; i++) {
+        for (let j = i + 1; j < allKarts.length; j++) {
+            const a = allKarts[i], b = allKarts[j];
+            const dx = b.x - a.x, dy = b.y - a.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const minDist = KART_SIZE * 2;
+            if (dist < minDist && dist > 0) {
+                const overlap = minDist - dist;
+                const nx = dx / dist, ny = dy / dist;
+                a.x -= nx * overlap * 0.5;
+                a.y -= ny * overlap * 0.5;
+                b.x += nx * overlap * 0.5;
+                b.y += ny * overlap * 0.5;
+
+                // Bounce speeds
+                const relSpeed = (a.speed - b.speed) * 0.3;
+                a.speed -= relSpeed;
+                b.speed += relSpeed;
+
+                if (a.shieldTimer <= 0 && b.shieldTimer <= 0) {
+                    if (a === player || b === player) {
+                        playCollisionSound();
+                        screenShake = 5;
+                    }
+                }
+
+                if (a === player) a.flashTimer = 10;
+                if (b === player) b.flashTimer = 10;
+            }
+        }
+    }
+}
+
+// ============================================================
+// RANKING
+// ============================================================
+function updateRankings() {
+    const allKarts = [player, ...aiRacers];
+    allKarts.sort((a, b) => b.totalProgress - a.totalProgress);
+    allKarts.forEach((k, i) => k.position = i + 1);
+}
+
+// ============================================================
+// DRAWING FUNCTIONS
+// ============================================================
+
+function drawTrack() {
+    const n = trackPoints.length;
+
+    // Grass background
+    ctx.fillStyle = '#2a7a2a';
+    ctx.fillRect(cameraX, cameraY, canvas.width, canvas.height);
+
+    // Grass texture
+    ctx.fillStyle = '#257025';
+    for (let gx = Math.floor(cameraX/50)*50; gx < cameraX + canvas.width + 50; gx += 50) {
+        for (let gy = Math.floor(cameraY/50)*50; gy < cameraY + canvas.height + 50; gy += 50) {
+            if ((Math.floor(gx/50) + Math.floor(gy/50)) % 2 === 0) {
+                ctx.fillRect(gx - cameraX, gy - cameraY, 50, 50);
+            }
+        }
+    }
+
+    // Draw track road
+    ctx.beginPath();
+    ctx.moveTo(trackEdges.left[0].x - cameraX, trackEdges.left[0].y - cameraY);
+    for (let i = 1; i < n; i++) {
+        ctx.lineTo(trackEdges.left[i].x - cameraX, trackEdges.left[i].y - cameraY);
+    }
+    for (let i = n - 1; i >= 0; i--) {
+        ctx.lineTo(trackEdges.right[i].x - cameraX, trackEdges.right[i].y - cameraY);
+    }
+    ctx.closePath();
+    ctx.fillStyle = '#555';
+    ctx.fill();
+
+    // Road surface detail - lighter center
+    ctx.beginPath();
+    const centerL = [], centerR = [];
+    for (let i = 0; i < n; i++) {
+        const l = trackEdges.left[i], r = trackEdges.right[i];
+        const cx = (l.x+r.x)/2, cy = (l.y+r.y)/2;
+        const dx = l.x - cx, dy = l.y - cy;
+        centerL.push({x: cx + dx*0.3, y: cy + dy*0.3});
+        centerR.push({x: cx - dx*0.3, y: cy - dy*0.3});
+    }
+    ctx.moveTo(centerL[0].x - cameraX, centerL[0].y - cameraY);
+    for (let i = 1; i < n; i++) ctx.lineTo(centerL[i].x - cameraX, centerL[i].y - cameraY);
+    for (let i = n-1; i >= 0; i--) ctx.lineTo(centerR[i].x - cameraX, centerR[i].y - cameraY);
+    ctx.closePath();
+    ctx.fillStyle = '#666';
+    ctx.fill();
+
+    // Track border (rumble strips)
+    for (let i = 0; i < n; i += 2) {
+        const l = trackEdges.left[i], l2 = trackEdges.left[(i+1)%n];
+        const r = trackEdges.right[i], r2 = trackEdges.right[(i+1)%n];
+        ctx.strokeStyle = (Math.floor(i/2) % 2 === 0) ? '#e03030' : '#fff';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(l.x - cameraX, l.y - cameraY);
+        ctx.lineTo(l2.x - cameraX, l2.y - cameraY);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(r.x - cameraX, r.y - cameraY);
+        ctx.lineTo(r2.x - cameraX, r2.y - cameraY);
+        ctx.stroke();
+    }
+
+    // Center line dashes
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([15, 15]);
+    ctx.beginPath();
+    ctx.moveTo(trackPoints[0].x - cameraX, trackPoints[0].y - cameraY);
+    for (let i = 1; i < n; i++) {
+        ctx.lineTo(trackPoints[i].x - cameraX, trackPoints[i].y - cameraY);
+    }
+    ctx.closePath();
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Start/finish line
+    const sl = trackEdges.left[startLineIndex], sr = trackEdges.right[startLineIndex];
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(sl.x - cameraX, sl.y - cameraY);
+    ctx.lineTo(sr.x - cameraX, sr.y - cameraY);
+    ctx.stroke();
+
+    // Checkerboard pattern on start line
+    const slDx = sr.x - sl.x, slDy = sr.y - sl.y;
+    const slLen = Math.sqrt(slDx*slDx + slDy*slDy);
+    const slNx = slDx/slLen, slNy = slDy/slLen;
+    const perpX = -slNy, perpY = slNx;
+    for (let c = 0; c < 10; c++) {
+        const t = c / 10;
+        const bx = sl.x + slDx * t;
+        const by = sl.y + slDy * t;
+        ctx.fillStyle = c % 2 === 0 ? '#fff' : '#000';
+        ctx.fillRect(bx - cameraX - 4 + perpX*3, by - cameraY - 4 + perpY*3, 8, 8);
+        ctx.fillStyle = c % 2 === 0 ? '#000' : '#fff';
+        ctx.fillRect(bx - cameraX - 4 - perpX*3, by - cameraY - 4 - perpY*3, 8, 8);
+    }
+
+    // Decorations - trees around the track
+    drawDecorations();
+}
+
+function drawDecorations() {
+    // Simple trees scattered around the outside of the track
+    const treePositions = [
+        {x: 100, y: 100}, {x: 200, y: 150}, {x: 1700, y: 200},
+        {x: 1800, y: 500}, {x: 1750, y: 900}, {x: 1600, y: 1200},
+        {x: 1300, y: 1300}, {x: 800, y: 1250}, {x: 400, y: 1100},
+        {x: 100, y: 800}, {x: 50, y: 500}, {x: 150, y: 200},
+        {x: 1000, y: 100}, {x: 1400, y: 150}, {x: 600, y: 1200},
+        {x: 300, y: 900}, {x: 1700, y: 1100}, {x: 1100, y: 1350},
+    ];
+
+    treePositions.forEach(t => {
+        const sx = t.x - cameraX, sy = t.y - cameraY;
+        if (sx < -50 || sx > canvas.width + 50 || sy < -50 || sy > canvas.height + 50) return;
+
+        // Tree shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.beginPath();
+        ctx.arc(sx + 3, sy + 3, 14, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Tree trunk
+        ctx.fillStyle = '#654321';
+        ctx.fillRect(sx - 3, sy - 2, 6, 10);
+
+        // Tree canopy
+        ctx.fillStyle = '#1a6a1a';
+        ctx.beginPath();
+        ctx.arc(sx, sy - 6, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#2a8a2a';
+        ctx.beginPath();
+        ctx.arc(sx - 2, sy - 8, 8, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
+function drawSkidMarks() {
+    skidMarks.forEach(s => {
+        ctx.fillStyle = `rgba(30,30,30,${s.alpha})`;
+        ctx.fillRect(s.x - cameraX - 2, s.y - cameraY - 2, 4, 4);
+    });
+}
+
+function drawItems() {
+    const time = Date.now() * 0.003;
+
+    // Coins
+    coins.forEach(c => {
+        if (c.collected) return;
+        const sx = c.x - cameraX, sy = c.y - cameraY;
+        if (sx < -30 || sx > canvas.width + 30 || sy < -30 || sy > canvas.height + 30) return;
+
+        const sparkle = Math.sin(time + c.x) * 0.3 + 0.7;
+        ctx.fillStyle = `rgba(255,215,0,${sparkle})`;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#daa520';
+        ctx.beginPath();
+        ctx.arc(sx, sy, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('$', sx, sy + 3);
+    });
+
+    // Boost pads
+    boostPads.forEach(b => {
+        const sx = b.x - cameraX, sy = b.y - cameraY;
+        if (sx < -40 || sx > canvas.width + 40 || sy < -40 || sy > canvas.height + 40) return;
+
+        const pulse = Math.sin(time * 2) * 0.3 + 0.7;
+        ctx.fillStyle = `rgba(255,100,0,${pulse * 0.6})`;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 22, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Arrow symbols
+        ctx.fillStyle = '#ff8800';
+        ctx.font = 'bold 16px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('»', sx, sy + 5);
+
+        // Glow ring
+        ctx.strokeStyle = `rgba(255,200,0,${pulse * 0.5})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 25 + Math.sin(time*3)*3, 0, Math.PI * 2);
+        ctx.stroke();
+    });
+
+    // Mystery boxes
+    items.forEach(it => {
+        if (it.collected) return;
+        const sx = it.x - cameraX, sy = it.y - cameraY;
+        if (sx < -30 || sx > canvas.width + 30 || sy < -30 || sy > canvas.height + 30) return;
+
+        const bob = Math.sin(time + it.x * 0.1) * 3;
+        const glow = Math.sin(time * 2 + it.y * 0.1) * 0.3 + 0.7;
+
+        // Glow
+        ctx.fillStyle = `rgba(200,0,255,${glow * 0.3})`;
+        ctx.beginPath();
+        ctx.arc(sx, sy + bob, 16, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Box
+        ctx.fillStyle = '#a020f0';
+        ctx.fillRect(sx - 8, sy - 8 + bob, 16, 16);
+        ctx.strokeStyle = '#d080ff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(sx - 8, sy - 8 + bob, 16, 16);
+
+        // Question mark
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('?', sx, sy + 4 + bob);
+    });
+}
+
+function drawHUD() {
+    const pad = 15;
+    const barW = 180;
+    const barH = 14;
+
+    // Semi-transparent HUD background
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.beginPath();
+    ctx.roundRect(pad, pad, 220, 180, 10);
+    ctx.fill();
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'left';
+
+    let y = pad + 22;
+    const lineHeight = 22;
+
+    // Position
+    const posSuffix = player.position === 1 ? 'st' : player.position === 2 ? 'nd' : player.position === 3 ? 'rd' : 'th';
+    ctx.fillStyle = player.position === 1 ? '#ffd700' : '#fff';
+    ctx.fillText(`Position: ${player.position}${posSuffix} / ${AI_COUNT + 1}`, pad + 10, y);
+    y += lineHeight;
+
+    // Lap
+    ctx.fillStyle = '#fff';
+    ctx.fillText(`Lap: ${Math.min(player.lap + 1, TOTAL_LAPS)} / ${TOTAL_LAPS}`, pad + 10, y);
+    y += lineHeight;
+
+    // Timer
+    const mins = Math.floor(raceTimer / 3600);
+    const secs = Math.floor((raceTimer % 3600) / 60);
+    const frac = Math.floor((raceTimer % 60) * 10 / 6);
+    ctx.fillText(`Time: ${mins}:${String(secs).padStart(2,'0')}.${String(frac).padStart(2,'0')}`, pad + 10, y);
+    y += lineHeight;
+
+    // Speed
+    const speedPct = Math.abs(player.speed) / BOOST_SPEED;
+    ctx.fillText('Speed:', pad + 10, y);
+    ctx.fillStyle = '#333';
+    ctx.fillRect(pad + 75, y - 10, barW - 60, barH);
+    const speedColor = player.boostTimer > 0 ? '#f80' : speedPct > 0.7 ? '#0f0' : '#0af';
+    ctx.fillStyle = speedColor;
+    ctx.fillRect(pad + 75, y - 10, (barW - 60) * speedPct, barH);
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(pad + 75, y - 10, barW - 60, barH);
+    y += lineHeight;
+
+    // Coins / Score
+    ctx.fillStyle = '#ffd700';
+    ctx.fillText(`Coins: ${player.coins}  Score: ${player.score}`, pad + 10, y);
+    y += lineHeight;
+
+    // Item
+    if (player.itemType) {
+        ctx.fillStyle = '#f0f';
+        const itemLabel = player.itemType === 'boost' ? '🔥 BOOST (Shift)' : player.itemType === 'shield' ? '🛡️ SHIELD (Shift)' : '';
+        ctx.fillText(`Item: ${itemLabel}`, pad + 10, y);
+    } else if (player.boostTimer > 0) {
+        ctx.fillStyle = '#f80';
+        ctx.fillText(`BOOST ACTIVE!`, pad + 10, y);
+    } else if (player.shieldTimer > 0) {
+        ctx.fillStyle = '#0cf';
+        ctx.fillText(`SHIELD ACTIVE`, pad + 10, y);
+    } else if (player.handlingTimer > 0) {
+        ctx.fillStyle = '#0f0';
+        ctx.fillText(`HANDLING UP`, pad + 10, y);
+    }
+    y += lineHeight;
+
+    // Mute indicator
+    if (muted) {
+        ctx.fillStyle = '#f55';
+        ctx.font = '12px monospace';
+        ctx.fillText('[MUTED]', pad + 10, y);
+    }
+
+    // --- Mini-map ---
+    drawMiniMap();
+
+    // --- Boost bar (bottom center) ---
+    if (player.boostTimer > 0) {
+        const bw = 200, bh = 10;
+        const bx = canvas.width/2 - bw/2, by = canvas.height - 40;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
+        ctx.fillStyle = '#f80';
+        ctx.fillRect(bx, by, bw * (player.boostTimer / BOOST_DURATION), bh);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('BOOST', canvas.width/2, by - 5);
+    }
+}
+
+function drawMiniMap() {
+    const mapSize = 140;
+    const mapX = canvas.width - mapSize - 15;
+    const mapY = 15;
+
+    // Background
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.beginPath();
+    ctx.roundRect(mapX - 5, mapY - 5, mapSize + 10, mapSize + 10, 8);
+    ctx.fill();
+
+    // Find track bounds
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    trackPoints.forEach(p => {
+        minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+        minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+    });
+    const rangeX = maxX - minX || 1;
+    const rangeY = maxY - minY || 1;
+    const scale = (mapSize - 20) / Math.max(rangeX, rangeY);
+    const offX = mapX + (mapSize - rangeX * scale) / 2;
+    const offY = mapY + (mapSize - rangeY * scale) / 2;
+
+    // Draw track
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    trackPoints.forEach((p, i) => {
+        const mx = offX + (p.x - minX) * scale;
+        const my = offY + (p.y - minY) * scale;
+        if (i === 0) ctx.moveTo(mx, my);
+        else ctx.lineTo(mx, my);
+    });
+    ctx.closePath();
+    ctx.stroke();
+
+    // Draw karts
+    const allKarts = [player, ...aiRacers];
+    allKarts.forEach(k => {
+        const mx = offX + (k.x - minX) * scale;
+        const my = offY + (k.y - minY) * scale;
+        ctx.fillStyle = k === player ? '#fff' : k.color;
+        ctx.beginPath();
+        ctx.arc(mx, my, k === player ? 4 : 3, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
+// ============================================================
+// SCREENS
+// ============================================================
+
+function drawTitleScreen() {
+    // Background
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Animated background particles
+    const time = Date.now() * 0.001;
+    for (let i = 0; i < 50; i++) {
+        const x = (Math.sin(time + i * 1.3) * 0.5 + 0.5) * canvas.width;
+        const y = (Math.cos(time * 0.7 + i * 0.9) * 0.5 + 0.5) * canvas.height;
+        ctx.fillStyle = `rgba(${100 + i*3},${50 + i*2},${200 + i},0.3)`;
+        ctx.beginPath();
+        ctx.arc(x, y, 2 + Math.sin(time + i) * 1, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Title
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.min(64, canvas.width * 0.08)}px monospace`;
+    ctx.fillText('TURBO KART DASH', canvas.width/2, canvas.height * 0.25);
+
+    // Subtitle
+    ctx.font = `${Math.min(24, canvas.width * 0.03)}px monospace`;
+    ctx.fillStyle = '#f80';
+    ctx.fillText('🏁 Arcade Racing Championship 🏁', canvas.width/2, canvas.height * 0.33);
+
+    // Controls box
+    const boxW = 400, boxH = 260;
+    const boxX = canvas.width/2 - boxW/2, boxY = canvas.height * 0.42;
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.beginPath();
+    ctx.roundRect(boxX, boxY, boxW, boxH, 12);
+    ctx.fill();
+    ctx.strokeStyle = '#f80';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.font = '14px monospace';
+    ctx.fillStyle = '#fff';
+    let cy = boxY + 28;
+    const controls = [
+        '🎮 CONTROLS',
+        '',
+        '↑ / W  —  Accelerate',
+        '↓ / S  —  Brake / Reverse',
+        '← / A  —  Steer Left',
+        '→ / D  —  Steer Right',
+        'SPACE  —  Drift',
+        'SHIFT  —  Use Item / Boost',
+        'M  —  Toggle Mute',
+        'P  —  Pause',
+        'R  —  Restart',
+    ];
+    controls.forEach(line => {
+        if (line.includes('CONTROLS')) {
+            ctx.fillStyle = '#f80';
+            ctx.font = 'bold 16px monospace';
+        } else {
+            ctx.fillStyle = '#ccc';
+            ctx.font = '13px monospace';
+        }
+        ctx.fillText(line, canvas.width/2, cy);
+        cy += 22;
+    });
+
+    // Start prompt
+    const blink = Math.sin(time * 3) > 0;
+    if (blink) {
+        ctx.fillStyle = '#ffd700';
+        ctx.font = `bold ${Math.min(28, canvas.width * 0.035)}px monospace`;
+        ctx.fillText('Press ENTER to Start', canvas.width/2, canvas.height * 0.88);
+    }
+
+    ctx.fillStyle = '#666';
+    ctx.font = '11px monospace';
+    ctx.fillText('An original arcade racing game — No copyrighted content', canvas.width/2, canvas.height * 0.95);
+}
+
+function drawCountdownScreen() {
+    drawTrack();
+    drawSkidMarks();
+    drawItems();
+    aiRacers.forEach(ai => ai.draw(ctx, cameraX, cameraY));
+    player.draw(ctx, cameraX, cameraY);
+    drawHUD();
+
+    // Countdown overlay
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.textAlign = 'center';
+    const scale = 1 + (countdownTimer % 60) / 60 * 0.3;
+    ctx.save();
+    ctx.translate(canvas.width/2, canvas.height/2);
+    ctx.scale(scale, scale);
+
+    if (countdownValue > 0) {
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 120px monospace';
+        ctx.fillText(countdownValue, 0, 40);
+    } else {
+        ctx.fillStyle = '#0f0';
+        ctx.font = 'bold 100px monospace';
+        ctx.fillText('GO!', 0, 40);
+    }
+    ctx.restore();
+}
+
+function drawPauseScreen() {
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 48px monospace';
+    ctx.fillText('PAUSED', canvas.width/2, canvas.height/2 - 20);
+    ctx.font = '20px monospace';
+    ctx.fillStyle = '#aaa';
+    ctx.fillText('Press P to Resume', canvas.width/2, canvas.height/2 + 30);
+}
+
+function drawFinishScreen() {
+    // Background
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.textAlign = 'center';
+
+    // Title
+    ctx.fillStyle = '#ffd700';
+    ctx.font = `bold ${Math.min(48, canvas.width * 0.06)}px monospace`;
+    ctx.fillText('🏆 RACE COMPLETE! 🏆', canvas.width/2, canvas.height * 0.15);
+
+    // Results box
+    const boxW = 420, boxH = 300;
+    const boxX = canvas.width/2 - boxW/2, boxY = canvas.height * 0.22;
+    ctx.fillStyle = 'rgba(20,20,40,0.9)';
+    ctx.beginPath();
+    ctx.roundRect(boxX, boxY, boxW, boxH, 12);
+    ctx.fill();
+    ctx.strokeStyle = '#ffd700';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.font = '18px monospace';
+    let ry = boxY + 40;
+
+    const placeStr = finishPlace === 1 ? '1st' : finishPlace === 2 ? '2nd' : finishPlace === 3 ? '3rd' : '4th';
+    ctx.fillStyle = finishPlace === 1 ? '#ffd700' : '#fff';
+    ctx.font = 'bold 28px monospace';
+    ctx.fillText(`Finish: ${placeStr} Place`, canvas.width/2, ry);
+    ry += 45;
+
+    ctx.font = '18px monospace';
+    ctx.fillStyle = '#fff';
+    const mins = Math.floor(raceTimer / 3600);
+    const secs = Math.floor((raceTimer % 3600) / 60);
+    const frac = Math.floor((raceTimer % 60) * 10 / 6);
+    ctx.fillText(`Time: ${mins}:${String(secs).padStart(2,'0')}.${String(frac).padStart(2,'0')}`, canvas.width/2, ry);
+    ry += 30;
+
+    ctx.fillStyle = '#ffd700';
+    ctx.fillText(`Coins: ${player.coins}`, canvas.width/2, ry);
+    ry += 30;
+
+    ctx.fillStyle = '#0f0';
+    ctx.fillText(`Score: ${player.score}`, canvas.width/2, ry);
+    ry += 30;
+
+    ctx.fillStyle = '#aaa';
+    ctx.fillText(`Laps Completed: ${TOTAL_LAPS}`, canvas.width/2, ry);
+    ry += 30;
+
+    // AI results
+    ctx.font = '14px monospace';
+    ctx.fillStyle = '#888';
+    ry += 10;
+    const allKarts = [player, ...aiRacers].sort((a,b) => {
+        if (a.finished && b.finished) return a.finishTime - b.finishTime;
+        if (a.finished) return -1;
+        if (b.finished) return 1;
+        return b.totalProgress - a.totalProgress;
+    });
+    allKarts.forEach((k, i) => {
+        const pStr = i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : '4th';
+        ctx.fillStyle = k === player ? '#fff' : k.color;
+        ctx.fillText(`${pStr} — ${k.name}${k === player ? ' (YOU)' : ''}`, canvas.width/2, ry);
+        ry += 20;
+    });
+
+    // Restart prompt
+    const blink = Math.sin(Date.now() * 0.003 * 3) > 0;
+    if (blink) {
+        ctx.fillStyle = '#f80';
+        ctx.font = 'bold 22px monospace';
+        ctx.fillText('Press ENTER or R to Race Again', canvas.width/2, canvas.height * 0.88);
+    }
+}
+
+// ============================================================
+// GAME LOOP
+// ============================================================
 let lastTime = 0;
-function loop(timestamp) {
-  const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
-  lastTime = timestamp;
+let frameCount = 0;
 
-  if(game.state === 'PLAYING') {
-    update(dt);
-    render();
-  } else if(game.state === 'MENU' || game.state === 'GAME_OVER') {
-    // Render background grid even in menus
-    ctx.fillStyle = CFG.COLORS.bg;
-    ctx.fillRect(0, 0, W, H);
-  }
+function gameLoop(timestamp) {
+    requestAnimationFrame(gameLoop);
 
-  requestAnimationFrame(loop);
+    const dt = Math.min(timestamp - lastTime, 33);
+    lastTime = timestamp;
+    frameCount++;
+
+    // Handle global keys
+    if (keys['KeyM'] && frameCount % 10 === 0) {
+        muted = !muted;
+    }
+
+    if (keys['KeyR'] && frameCount % 15 === 0) {
+        initGame();
+        gameState = 'countdown';
+        countdownTimer = 0;
+        countdownValue = 3;
+    }
+
+    // State machine
+    switch (gameState) {
+        case 'title':
+            drawTitleScreen();
+            if (keys['Enter'] || keys['Space']) {
+                initAudio();
+                initGame();
+                gameState = 'countdown';
+                countdownTimer = 0;
+                countdownValue = 3;
+            }
+            break;
+
+        case 'countdown':
+            updateCamera();
+            drawCountdownScreen();
+            countdownTimer++;
+            if (countdownTimer % 60 === 0 && countdownTimer <= 180) {
+                if (countdownValue > 0) playCountdownBeep();
+                countdownValue--;
+            }
+            if (countdownTimer > 240) {
+                gameState = 'racing';
+                playGoBeep();
+                raceStartTime = Date.now();
+            }
+            break;
+
+        case 'racing':
+            if (keys['KeyP'] && frameCount % 15 === 0) {
+                gameState = 'paused';
+                break;
+            }
+
+            // Update
+            player.update();
+            aiRacers.forEach(ai => ai.update());
+            checkKartCollisions();
+            updateRankings();
+            updateCamera();
+
+            // Update particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+
+            // Update skid marks
+            for (let i = skidMarks.length - 1; i >= 0; i--) {
+                skidMarks[i].life--;
+                skidMarks[i].alpha *= 0.995;
+                if (skidMarks[i].life <= 0) skidMarks.splice(i, 1);
+            }
+
+            // Respawn items
+            coins.forEach(c => {
+                if (c.collected) {
+                    c.respawnTimer--;
+                    if (c.respawnTimer <= 0) c.collected = false;
+                }
+            });
+            items.forEach(it => {
+                if (it.collected) {
+                    it.respawnTimer--;
+                    if (it.respawnTimer <= 0) it.collected = false;
+                }
+            });
+
+            // Race timer
+            raceTimer += 1; // ~60fps ticks
+
+            // Check finish
+            if (player.lap >= TOTAL_LAPS && !player.finished) {
+                player.finished = true;
+                player.finishTime = raceTimer;
+                finishPlace = player.position;
+                playFinishSound();
+                setTimeout(() => { gameState = 'finished'; }, 1500);
+            }
+
+            // AI finish tracking
+            aiRacers.forEach(ai => {
+                if (ai.finished && ai.finishTime === raceTimer) {
+                    aiFinishCount++;
+                }
+            });
+
+            // Draw
+            drawTrack();
+            drawSkidMarks();
+            drawItems();
+
+            // Draw particles behind karts
+            particles.forEach(p => p.draw(ctx, cameraX, cameraY));
+
+            // Sort karts by Y for draw order
+            const sortedKarts = [player, ...aiRacers].sort((a,b) => a.y - b.y);
+            sortedKarts.forEach(k => k.draw(ctx, cameraX, cameraY));
+
+            drawHUD();
+
+            // Speed lines during boost
+            if (player.boostTimer > 0) {
+                ctx.strokeStyle = 'rgba(255,200,0,0.3)';
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 8; i++) {
+                    const lx = Math.random() * canvas.width;
+                    const ly = Math.random() * canvas.height;
+                    ctx.beginPath();
+                    ctx.moveTo(lx, ly);
+                    ctx.lineTo(lx - Math.cos(player.angle) * 40, ly - Math.sin(player.angle) * 40);
+                    ctx.stroke();
+                }
+            }
+            break;
+
+        case 'paused':
+            // Draw game frozen
+            drawTrack();
+            drawSkidMarks();
+            drawItems();
+            particles.forEach(p => p.draw(ctx, cameraX, cameraY));
+            [player, ...aiRacers].sort((a,b) => a.y - b.y).forEach(k => k.draw(ctx, cameraX, cameraY));
+            drawHUD();
+            drawPauseScreen();
+
+            if (keys['KeyP'] && frameCount % 15 === 0) {
+                gameState = 'racing';
+            }
+            break;
+
+        case 'finished':
+            drawTrack();
+            drawSkidMarks();
+            drawItems();
+            particles.forEach(p => p.draw(ctx, cameraX, cameraY));
+            [player, ...aiRacers].sort((a,b) => a.y - b.y).forEach(k => k.draw(ctx, cameraX, cameraY));
+            drawFinishScreen();
+
+            if (keys['Enter'] || keys['KeyR']) {
+                initGame();
+                gameState = 'countdown';
+                countdownTimer = 0;
+                countdownValue = 3;
+            }
+            break;
+    }
 }
-requestAnimationFrame(loop);
 
-// Prevent zoom/scroll on mobile
-document.addEventListener('gesturestart', e => e.preventDefault());
-document.addEventListener('touchmove', e => { if(e.scale !== 1) e.preventDefault(); }, {passive:false});
+// ============================================================
+// POLYFILL for roundRect if needed
+// ============================================================
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+        if (typeof r === 'number') r = [r, r, r, r];
+        const [tl, tr, br, bl] = r;
+        this.moveTo(x + tl, y);
+        this.lineTo(x + w - tr, y);
+        this.quadraticCurveTo(x + w, y, x + w, y + tr);
+        this.lineTo(x + w, y + h - br);
+        this.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+        this.lineTo(x + bl, y + h);
+        this.quadraticCurveTo(x, y + h, x, y + h - bl);
+        this.lineTo(x, y + tl);
+        this.quadraticCurveTo(x, y, x + tl, y);
+        this.closePath();
+        return this;
+    };
+}
+
+// ============================================================
+// START
+// ============================================================
+requestAnimationFrame(gameLoop);
+
 </script>
 </body>
 </html>
