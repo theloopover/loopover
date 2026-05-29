@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Geometry Rush</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+background: #000;
+display: flex;
+justify-content: center;
+align-items: center;
+height: 100vh;
+overflow: hidden;
+font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+user-select: none;
+}
+canvas {
+display: block;
+image-rendering: pixelated;
+}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+// Responsive sizing
+function resize() {
+const ratio = 16 / 9;
+let w = window.innerWidth;
+let h = window.innerHeight;
+if (w / h > ratio) {
+canvas.height = h;
+canvas.width = h * ratio;
+} else {
+canvas.width = w;
+canvas.height = w / ratio;
+}
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Audio System
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+function initAudio() {
+if (!audioCtx) audioCtx = new AudioCtx();
+}
+
+function playSound(type, freq, duration, vol = 0.3) {
+if (!audioCtx) return;
+const osc = audioCtx.createOscillator();
+const gain = audioCtx.createGain();
+osc.connect(gain);
+gain.connect(audioCtx.destination);
+osc.type = type;
+osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+osc.start();
+osc.stop(audioCtx.currentTime + duration);
+}
+
+function playJump() { playSound('square', 520, 0.1, 0.15); }
+function playDeath() {
+playSound('sawtooth', 200, 0.3, 0.2);
+playSound('square', 150, 0.4, 0.15);
+}
+function playComplete() {
+[523, 659, 784, 1047].forEach((f, i) => {
+setTimeout(() => playSound('square', f, 0.3, 0.15), i * 120);
+});
+}
+function playClick() { playSound('square', 800, 0.05, 0.1); }
+
+// Beat system
+let beatTime = 0;
+let beatInterval = 0;
+let lastBeat = 0;
+let beatPulse = 0;
+
+function startBeat(bpm) {
+beatInterval = 60 / bpm;
+beatTime = 0;
+lastBeat = 0;
+}
+
+function updateBeat(dt) {
+if (beatInterval <= 0) return;
+beatTime += dt;
+if (beatTime - lastBeat >= beatInterval) {
+lastBeat = beatTime;
+beatPulse = 1;
+playSound('square', 80, 0.08, 0.08);
+}
+beatPulse *= 0.9;
+}
+
+// Game Constants
+const GROUND_Y = 0.78;
+const GRAVITY = 0.85;
+const JUMP_VEL = -12.5;
+const PLAYER_SIZE = 40;
+const GAME_SPEED = 7.5;
+
+// Game State
+let gameState = 'menu'; // menu, levels, playing, dead, complete
+let currentLevel = 0;
+let attempts = 0;
+let bestProgress = {};
+let player = {};
+let camera = { x: 0 };
+let particles = [];
+let trailParticles = [];
+let groundParticles = [];
+let bgStars = [];
+let shakeAmount = 0;
+let deathTimer = 0;
+let completeTimer = 0;
+let menuPulse = 0;
+let selectedLevel = 0;
+let levelScroll = 0;
+
+// Generate background stars
+for (let i = 0; i < 100; i++) {
+bgStars.push({
+x: Math.random() * 3000,
+y: Math.random() * 0.6,
+size: Math.random() * 2 + 0.5,
+speed: Math.random() * 0.3 + 0.1,
+brightness: Math.random() * 0.5 + 0.3
+});
+}
+
+// Level Definitions
+const LEVELS = [
+{
+name: "Stereo Madness",
+difficulty: "Easy",
+difficultyNum: 1,
+bpm: 140,
+bgColor1: '#1a0a3e',
+bgColor2: '#0d1b2a',
+groundColor: '#2a1a5e',
+groundLine: '#7b2ff7',
+playerColor: '#00ff88',
+spikeColor: '#ff4444',
+blockColor: '#4a3a8e',
+accentColor: '#7b2ff7',
+speed: 7,
+objects: []
+},
+{
+name: "Back on Track",
+difficulty: "Normal",
+difficultyNum: 2,
+bpm: 150,
+bgColor1: '#1a2a0a',
+bgColor2: '#0a1a1a',
+groundColor: '#2a4a1a',
+groundLine: '#44ff44',
+playerColor: '#ff8800',
+spikeColor: '#ff2222',
+blockColor: '#3a5a2a',
+accentColor: '#44ff44',
+speed: 7.5,
+objects: []
+},
+{
+name: "Polargeist",
+difficulty: "Hard",
+difficultyNum: 3,
+bpm: 160,
+bgColor1: '#2a0a1a',
+bgColor2: '#1a0a2a',
+groundColor: '#4a1a2a',
+groundLine: '#ff44aa',
+playerColor: '#44ddff',
+spikeColor: '#ff4444',
+blockColor: '#5a2a3a',
+accentColor: '#ff44aa',
+speed: 8,
+objects: []
+},
+{
+name: "Dry Out",
+difficulty: "Harder",
+difficultyNum: 4,
+bpm: 155,
+bgColor1: '#2a2a0a',
+bgColor2: '#1a1a0a',
+groundColor: '#4a4a1a',
+groundLine: '#ffdd44',
+playerColor: '#ff44dd',
+spikeColor: '#ff4444',
+blockColor: '#5a5a2a',
+accentColor: '#ffdd44',
+speed: 8.5,
+objects: []
+},
+{
+name: "Can't Let Go",
+difficulty: "Insane",
+difficultyNum: 5,
+bpm: 170,
+bgColor1: '#2a0a0a',
+bgColor2: '#0a0a1a',
+groundColor: '#4a1a1a',
+groundLine: '#ff6644',
+playerColor: '#44ffaa',
+spikeColor: '#ff2222',
+blockColor: '#5a2a2a',
+accentColor: '#ff6644',
+speed: 9,
+objects: []
+}
+];
+
+// Level Generation Functions
+function addSpike(level, x) {
+level.objects.push({ type: 'spike', x: x, w: 40, h: 40 });
+}
+function addBlock(level, x, yOff = 0, w = 40, h = 40) {
+level.objects.push({ type: 'block', x: x, yOff: yOff, w: w, h: h });
+}
+function addDoubleSpike(level, x) {
+level.objects.push({ type: 'spike', x: x, w: 40, h: 40 });
+level.objects.push({ type: 'spike', x: x + 40, w: 40, h: 40 });
+}
+function addTripleSpike(level, x) {
+level.objects.push({ type: 'spike', x: x, w: 40, h: 40 });
+level.objects.push({ type: 'spike', x: x + 40, w: 40, h: 40 });
+level.objects.push({ type: 'spike', x: x + 80, w: 40, h: 40 });
+}
+function addPillar(level, x, height) {
+level.objects.push({ type: 'block', x: x, yOff: 0, w: 40, h: 40 * height });
+}
+function addPlatform(level, x, yOff, width) {
+level.objects.push({ type: 'block', x: x, yOff: yOff, w: width * 40, h: 40 });
+}
+function addSpikeOnBlock(level, x, blockH) {
+level.objects.push({ type: 'block', x: x, yOff: 0, w: 40, h: 40 * blockH });
+level.objects.push({ type: 'spike', x: x, yOff: -40 * blockH, w: 40, h: 40 });
+}
+
+// Generate Level 1 - Stereo Madness (Easy)
+function genLevel1() {
+const l = LEVELS[0];
+l.objects = [];
+const s = 200; // start offset
+// Section 1: Introduction - simple single spikes
+addSpike(l, s + 400);
+addSpike(l, s + 650);
+addSpike(l, s + 900);
+// Section 2: Double spike introduction
+addDoubleSpike(l, s + 1200);
+addSpike(l, s + 1500);
+// Section 3: Block introduction
+addBlock(l, s + 1800);
+addSpike(l, s + 2050);
+addBlock(l, s + 2300);
+addSpike(l, s + 2550);
+// Section 4: Block with spike on top
+addSpikeOnBlock(l, s + 2850, 1);
+addSpike(l, s + 3150);
+// Section 5: Simple platform
+addPlatform(l, s + 3400, 1, 3);
+addSpike(l, s + 3800);
+// Section 6: Combination
+addSpike(l, s + 4100);
+addBlock(l, s + 4350);
+addSpike(l, s + 4600);
+addDoubleSpike(l, s + 4900);
+// Section 7: Pillar intro
+addPillar(l, s + 5300, 2);
+addSpike(l, s + 5600);
+// Section 8: Finale
+addSpike(l, s + 5900);
+addSpike(l, s + 6150);
+addDoubleSpike(l, s + 6450);
+addSpike(l, s + 6750);
+addBlock(l, s + 7000);
+addSpike(l, s + 7250);
+l.length = s + 7600;
+}
+
+// Generate Level 2 - Back on Track (Normal)
+function genLevel2() {
+const l = LEVELS[1];
+l.objects = [];
+const s = 200;
+// Section 1: Warm up
+addSpike(l, s + 350);
+addDoubleSpike(l, s + 600);
+addSpike(l, s + 900);
+// Section 2: Blocks and spikes
+addBlock(l, s + 1150);
+addSpike(l, s + 1350);
+addBlock(l, s + 1550);
+addDoubleSpike(l, s + 1800);
+// Section 3: Elevated threats
+addSpikeOnBlock(l, s + 2100, 1);
+addSpike(l, s + 2400);
+addSpikeOnBlock(l, s + 2650, 1);
+// Section 4: Platforming
+addPlatform(l, s + 2950, 1, 2);
+addSpike(l, s + 3250);
+addPlatform(l, s + 3500, 2, 2);
+addSpike(l, s + 3850);
+// Section 5: Pillars
+addPillar(l, s + 4100, 2);
+addSpike(l, s + 4350);
+addPillar(l, s + 4600, 3);
+addDoubleSpike(l, s + 4900);
+// Section 6: Combo section
+addSpike(l, s + 5200);
+addBlock(l, s + 5400);
+addSpike(l, s + 5600);
+addSpikeOnBlock(l, s + 5850, 1);
+addDoubleSpike(l, s + 6150);
+// Section 7: Tight timing
+addTripleSpike(l, s + 6500);
+addSpike(l, s + 6850);
+addBlock(l, s + 7050);
+addSpike(l, s + 7250);
+// Section 8: Finale
+addSpikeOnBlock(l, s + 7500, 2);
+addDoubleSpike(l, s + 7850);
+addSpike(l, s + 8150);
+addTripleSpike(l, s + 8400);
+l.length = s + 8800;
+}
+
+// Generate Level 3 - Polargeist (Hard)
+function genLevel3() {
+const l = LEVELS[2];
+l.objects = [];
+const s = 200;
+// Section 1: Quick start
+addDoubleSpike(l, s + 300);
+addSpike(l, s + 500);
+addTripleSpike(l, s + 700);
+// Section 2: Block patterns
+addBlock(l, s + 950);
+addSpike(l, s + 1100);
+addBlock(l, s + 1250);
+addSpike(l, s + 1400);
+addDoubleSpike(l, s + 1600);
+// Section 3: Elevated danger
+addSpikeOnBlock(l, s + 1850, 1);
+addSpikeOnBlock(l, s + 2100, 2);
+addSpike(l, s + 2350);
+addTripleSpike(l, s + 2550);
+// Section 4: Platform gauntlet
+addPlatform(l, s + 2800, 1, 2);
+addSpike(l, s + 3050);
+addPlatform(l, s + 3250, 2, 1);
+addSpike(l, s + 3450);
+addPlatform(l, s + 3650, 1, 2);
+addDoubleSpike(l, s + 3950);
+// Section 5: Pillar maze
+addPillar(l, s + 4200, 2);
+addSpike(l, s + 4400);
+addPillar(l, s + 4600, 3);
+addSpike(l, s + 4850);
+addPillar(l, s + 5050, 2);
+addTripleSpike(l, s + 5300);
+// Section 6: Rapid fire
+addSpike(l, s + 5600);
+addSpike(l, s + 5780);
+addSpike(l, s + 5960);
+addDoubleSpike(l, s + 6200);
+addSpike(l, s + 6450);
+// Section 7: Complex patterns
+addSpikeOnBlock(l, s + 6700, 1);
+addSpike(l, s + 6900);
+addSpikeOnBlock(l, s + 7100, 2);
+addDoubleSpike(l, s + 7350);
+addBlock(l, s + 7600);
+addTripleSpike(l, s + 7800);
+// Section 8: Intense finale
+addSpike(l, s + 8100);
+addSpike(l, s + 8280);
+addSpikeOnBlock(l, s + 8500, 1);
+addTripleSpike(l, s + 8800);
+addDoubleSpike(l, s + 9100);
+addSpike(l, s + 9350);
+l.length = s + 9700;
+}
+
+// Generate Level 4 - Dry Out (Harder)
+function genLevel4() {
+const l = LEVELS[3];
+l.objects = [];
+const s = 200;
+// Section 1: Aggressive start
+addTripleSpike(l, s + 280);
+addSpike(l, s + 500);
+addDoubleSpike(l, s + 680);
+addSpike(l, s + 880);
+// Section 2: Block chaos
+addBlock(l, s + 1050);
+addSpike(l, s + 1200);
+addBlock(l, s + 1350);
+addSpike(l, s + 1500);
+addBlock(l, s + 1650);
+addTripleSpike(l, s + 1850);
+// Section 3: Tower section
+addSpikeOnBlock(l, s + 2100, 2);
+addSpike(l, s + 2300);
+addSpikeOnBlock(l, s + 2500, 3);
+addDoubleSpike(l, s + 2750);
+// Section 4: Platform precision
+addPlatform(l, s + 3000, 2, 1);
+addSpike(l, s + 3180);
+addPlatform(l, s + 3350, 1, 1);
+addSpike(l, s + 3530);
+addPlatform(l, s + 3700, 3, 1);
+addTripleSpike(l, s + 3950);
+// Section 5: Spike corridor
+addSpike(l, s + 4200);
+addSpike(l, s + 4360);
+addSpike(l, s + 4520);
+addSpike(l, s + 4680);
+addDoubleSpike(l, s + 4900);
+// Section 6: Mixed nightmare
+addSpikeOnBlock(l, s + 5150, 1);
+addSpike(l, s + 5350);
+addPillar(l, s + 5550, 2);
+addSpike(l, s + 5750);
+addSpikeOnBlock(l, s + 5950, 2);
+addTripleSpike(l, s + 6200);
+// Section 7: Speed section
+addSpike(l, s + 6450);
+addSpike(l, s + 6600);
+addBlock(l, s + 6750);
+addSpike(l, s + 6900);
+addDoubleSpike(l, s + 7100);
+addSpike(l, s + 7300);
+addTripleSpike(l, s + 7500);
+// Section 8: Brutal finale
+addSpikeOnBlock(l, s + 7800, 2);
+addSpike(l, s + 8000);
+addSpike(l, s + 8160);
+addPillar(l, s + 8360, 3);
+addTripleSpike(l, s + 8600);
+addDoubleSpike(l, s + 8900);
+addSpike(l, s + 9150);
+l.length = s + 9500;
+}
+
+// Generate Level 5 - Can't Let Go (Insane)
+function genLevel5() {
+const l = LEVELS[4];
+l.objects = [];
+const s = 200;
+// Section 1: No mercy start
+addTripleSpike(l, s + 250);
+addSpike(l, s + 430);
+addTripleSpike(l, s + 600);
+addDoubleSpike(l, s + 800);
+// Section 2: Block hell
+addBlock(l, s + 980);
+addSpike(l, s + 1120);
+addBlock(l, s + 1260);
+addSpike(l, s + 1400);
+addBlock(l, s + 1540);
+addSpike(l, s + 1680);
+addTripleSpike(l, s + 1880);
+// Section 3: Tower of doom
+addSpikeOnBlock(l, s + 2100, 3);
+addSpike(l, s + 2280);
+addSpikeOnBlock(l, s + 2460, 2);
+addSpike(l, s + 2640);
+addSpikeOnBlock(l, s + 2820, 3);
+addTripleSpike(l, s + 3050);
+// Section 4: Micro platforms
+addPlatform(l, s + 3280, 2, 1);
+addSpike(l, s + 3440);
+addPlatform(l, s + 3600, 3, 1);
+addSpike(l, s + 3760);
+addPlatform(l, s + 3920, 1, 1);
+addSpike(l, s + 4080);
+addTripleSpike(l, s + 4300);
+// Section 5: Spike rain
+addSpike(l, s + 4500);
+addSpike(l, s + 4640);
+addSpike(l, s + 4780);
+addSpike(l, s + 4920);
+addSpike(l, s + 5060);
+addDoubleSpike(l, s + 5260);
+// Section 6: The wall
+addPillar(l, s + 5500, 3);
+addSpike(l, s + 5680);
+addPillar(l, s + 5860, 4);
+addSpike(l, s + 6060);
+addPillar(l, s + 6240, 3);
+addTripleSpike(l, s + 6480);
+// Section 7: Impossible section
+addSpikeOnBlock(l, s + 6720, 2);
+addSpike(l, s + 6880);
+addSpikeOnBlock(l, s + 7040, 3);
+addSpike(l, s + 7220);
+addDoubleSpike(l, s + 7400);
+addSpike(l, s + 7580);
+addTripleSpike(l, s + 7780);
+// Section 8: Final gauntlet
+addSpike(l, s + 8000);
+addSpike(l, s + 8140);
+addSpike(l, s + 8280);
+addSpikeOnBlock(l, s + 8480, 2);
+addTripleSpike(l, s + 8720);
+addPillar(l, s + 8960, 3);
+addTripleSpike(l, s + 9200);
+addDoubleSpike(l, s + 9480);
+addSpike(l, s + 9700);
+l.length = s + 10100;
+}
+
+// Initialize levels
+genLevel1();
+genLevel2();
+genLevel3();
+genLevel4();
+genLevel5();
+
+// Player
+function resetPlayer() {
+player = {
+x: 100,
+y: 0,
+vy: 0,
+rotation: 0,
+onGround: true,
+dead: false,
+size: PLAYER_SIZE
+};
+camera.x = 0;
+particles = [];
+trailParticles = [];
+groundParticles = [];
+shakeAmount = 0;
+deathTimer = 0;
+completeTimer = 0;
+}
+
+// Particles
+function spawnDeathParticles(x, y, color) {
+for (let i = 0; i < 30; i++) {
+const angle = Math.random() * Math.PI * 2;
+const speed = Math.random() * 8 + 2;
+particles.push({
+x: x, y: y,
+vx: Math.cos(angle) * speed,
+vy: Math.sin(angle) * speed,
+size: Math.random() * 6 + 2,
+life: 1,
+decay: Math.random() * 0.02 + 0.015,
+color: color,
+type: 'death'
+});
+}
+}
+
+function spawnTrailParticle(x, y, color) {
+trailParticles.push({
+x: x, y: y,
+size: Math.random() * 4 + 2,
+life: 1,
+decay: 0.04,
+color: color
+});
+}
+
+function spawnGroundParticle(x, y, color) {
+groundParticles.push({
+x: x, y: y,
+vx: Math.random() * 2 - 1,
+vy: -Math.random() * 3 - 1,
+size: Math.random() * 3 + 1,
+life: 1,
+decay: 0.03,
+color: color
+});
+}
+
+function spawnCompleteParticles(x, y, color) {
+for (let i = 0; i < 50; i++) {
+const angle = Math.random() * Math.PI * 2;
+const speed = Math.random() * 10 + 3;
+particles.push({
+x: x, y: y,
+vx: Math.cos(angle) * speed,
+vy: Math.sin(angle) * speed,
+size: Math.random() * 8 + 3,
+life: 1,
+decay: Math.random() * 0.01 + 0.008,
+color: color,
+type: 'complete'
+});
+}
+}
+
+// Collision Detection
+function getGroundY() {
+return canvas.height * GROUND_Y;
+}
+
+function getPlayerRect() {
+const gy = getGroundY();
+return {
+x: player.x - player.size / 2,
+y: gy + player.y - player.size,
+w: player.size,
+h: player.size
+};
+}
+
+function getObjectRect(obj) {
+const gy = getGroundY();
+const yOff = obj.yOff || 0;
+if (obj.type === 'spike') {
+return {
+x: obj.x,
+y: gy + yOff - obj.h,
+w: obj.w,
+h: obj.h,
+type: 'spike'
+};
+} else {
+return {
+x: obj.x,
+y: gy + yOff - obj.h,
+w: obj.w,
+h: obj.h,
+type: 'block'
+};
+}
+}
+
+function rectsOverlap(a, b) {
+// Shrink player hitbox slightly for fairness
+const shrink = 6;
+return a.x + shrink < b.x + b.w &&
+a.x + a.w - shrink > b.x &&
+a.y + shrink < b.y + b.h &&
+a.y + a.h - shrink > b.y;
+}
+
+function spikeCollision(playerRect, spikeRect) {
+// Triangle collision for spikes
+const shrink = 8;
+const px = playerRect.x + shrink;
+const py = playerRect.y + shrink;
+const pw = playerRect.w - shrink * 2;
+const ph = playerRect.h - shrink * 2;
+
+// Spike triangle points
+const sx = spikeRect.x;
+const sy = spikeRect.y;
+const sw = spikeRect.w;
+const sh = spikeRect.h;
+
+// Check if player rect overlaps the spike triangle
+// Simplified: use a smaller rect for the spike
+const spikeHitbox = {
+x: sx + sw * 0.2,
+y: sy + sh * 0.3,
+w: sw * 0.6,
+h: sh * 0.7
+};
+
+return px < spikeHitbox.x + spikeHitbox.w &&
+px + pw > spikeHitbox.x &&
+py < spikeHitbox.y + spikeHitbox.h &&
+py + ph > spikeHitbox.y;
+}
+
+// Input
+let inputDown = false;
+let inputPressed = false;
+
+function handleInput(down) {
+inputDown = down;
+if (down) inputPressed = true;
+}
+
+document.addEventListener('keydown', (e) => {
+if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+e.preventDefault();
+handleInput(true);
+}
+});
+document.addEventListener('keyup', (e) => {
+if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+handleInput(false);
+}
+});
+canvas.addEventListener('mousedown', (e) => {
+e.preventDefault();
+handleInput(true);
+});
+canvas.addEventListener('mouseup', () => handleInput(false));
+canvas.addEventListener('touchstart', (e) => {
+e.preventDefault();
+handleInput(true);
+});
+canvas.addEventListener('touchend', (e) => {
+e.preventDefault();
+handleInput(false);
+});
+
+// Drawing functions
+function drawSpike(x, y, w, h, color) {
+ctx.fillStyle = color;
+ctx.beginPath();
+ctx.moveTo(x, y + h);
+ctx.lineTo(x + w / 2, y);
+ctx.lineTo(x + w, y + h);
+ctx.closePath();
+ctx.fill();
+
+// Inner highlight
+ctx.fillStyle = 'rgba(255,255,255,0.2)';
+ctx.beginPath();
+ctx.moveTo(x + w * 0.25, y + h);
+ctx.lineTo(x + w / 2, y + h * 0.2);
+ctx.lineTo(x + w * 0.5, y + h);
+ctx.closePath();
+ctx.fill();
+
+// Outline
+ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+ctx.lineWidth = 1.5;
+ctx.beginPath();
+ctx.moveTo(x, y + h);
+ctx.lineTo(x + w / 2, y);
+ctx.lineTo(x + w, y + h);
+ctx.closePath();
+ctx.stroke();
+}
+
+function drawBlock(x, y, w, h, color) {
+ctx.fillStyle = color;
+ctx.fillRect(x, y, w, h);
+
+// Top highlight
+ctx.fillStyle = 'rgba(255,255,255,0.15)';
+ctx.fillRect(x, y, w, h * 0.15);
+
+// Inner border
+ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+ctx.lineWidth = 1;
+ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+
+// Outline
+ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+ctx.strokeRect(x, y, w, h);
+}
+
+function drawPlayer(px, py, size, rotation, color) {
+ctx.save();
+ctx.translate(px, py);
+ctx.rotate(rotation);
+
+// Glow
+ctx.shadowColor = color;
+ctx.shadowBlur = 20;
+
+// Main body
+ctx.fillStyle = color;
+ctx.fillRect(-size / 2, -size / 2, size, size);
+
+// Inner design
+ctx.fillStyle = 'rgba(255,255,255,0.3)';
+ctx.fillRect(-size / 2 + 4, -size / 2 + 4, size - 8, size - 8);
+
+// Icon (eye-like design)
+ctx.fillStyle = color;
+ctx.fillRect(-size / 2 + 8, -size / 2 + 8, size - 16, size - 16);
+
+// Eye
+ctx.fillStyle = '#fff';
+ctx.fillRect(-6, -8, 12, 12);
+ctx.fillStyle = '#000';
+ctx.fillRect(-3, -5, 6, 6);
+
+ctx.shadowBlur = 0;
+ctx.restore();
+}
+
+function drawGround(level) {
+const gy = getGroundY();
+const w = canvas.width;
+
+// Ground fill
+const grad = ctx.createLinearGradient(0, gy, 0, canvas.height);
+grad.addColorStop(0, level.groundColor);
+grad.addColorStop(1, level.bgColor2);
+ctx.fillStyle = grad;
+ctx.fillRect(0, gy, w, canvas.height - gy);
+
+// Ground line with glow
+ctx.shadowColor = level.groundLine;
+ctx.shadowBlur = 10 + beatPulse * 15;
+ctx.strokeStyle = level.groundLine;
+ctx.lineWidth = 3;
+ctx.beginPath();
+ctx.moveTo(0, gy);
+ctx.lineTo(w, gy);
+ctx.stroke();
+ctx.shadowBlur = 0;
+
+// Grid lines on ground
+ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+ctx.lineWidth = 1;
+const gridSize = 40;
+const offsetX = -(camera.x % gridSize);
+for (let x = offsetX; x < w; x += gridSize) {
+ctx.beginPath();
+ctx.moveTo(x, gy);
+ctx.lineTo(x, canvas.height);
+ctx.stroke();
+}
+for (let y = gy + gridSize; y < canvas.height; y += gridSize) {
+ctx.beginPath();
+ctx.moveTo(0, y);
+ctx.lineTo(w, y);
+ctx.stroke();
+}
+}
+
+function drawBackground(level) {
+const w = canvas.width;
+const h = canvas.height;
+
+// Sky gradient
+const grad = ctx.createLinearGradient(0, 0, 0, h * GROUND_Y);
+grad.addColorStop(0, level.bgColor1);
+grad.addColorStop(1, level.bgColor2);
+ctx.fillStyle = grad;
+ctx.fillRect(0, 0, w, h);
+
+// Stars
+bgStars.forEach(star => {
+const sx = ((star.x - camera.x * star.speed) % (w + 100) + w + 100) % (w + 100) - 50;
+const sy = star.y * h;
+const brightness = star.brightness + beatPulse * 0.3;
+ctx.fillStyle = `rgba(255,255,255,${brightness})`;
+ctx.fillRect(sx, sy, star.size, star.size);
+});
+
+// Background pulse effect
+if (beatPulse > 0.1) {
+ctx.fillStyle = `rgba(255,255,255,${beatPulse * 0.03})`;
+ctx.fillRect(0, 0, w, h);
+}
+}
+
+function drawProgressBar(level) {
+const w = canvas.width;
+const progress = Math.min(1, (player.x - 100) / (level.length - 100));
+const barW = w * 0.4;
+const barH = 8;
+const barX = (w - barW) / 2;
+const barY = 25;
+
+// Background
+ctx.fillStyle = 'rgba(255,255,255,0.15)';
+ctx.fillRect(barX, barY, barW, barH);
+
+// Fill
+const grad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+grad.addColorStop(0, level.playerColor);
+grad.addColorStop(1, level.accentColor);
+ctx.fillStyle = grad;
+ctx.fillRect(barX, barY, barW * progress, barH);
+
+// Border
+ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+ctx.lineWidth = 1;
+ctx.strokeRect(barX, barY, barW, barH);
+
+// Percentage text
+ctx.fillStyle = '#fff';
+ctx.font = 'bold 14px "Segoe UI", sans-serif';
+ctx.textAlign = 'center';
+ctx.fillText(Math.floor(progress * 100) + '%', w / 2, barY + barH + 18);
+
+// Level name
+ctx.font = 'bold 16px "Segoe UI", sans-serif';
+ctx.textAlign = 'left';
+ctx.fillStyle = 'rgba(255,255,255,0.7)';
+ctx.fillText(level.name, 15, 30);
+
+// Attempt counter
+ctx.textAlign = 'right';
+ctx.font = '14px "Segoe UI", sans-serif';
+ctx.fillText('Attempt ' + attempts, w - 15, 30);
+}
+
+function drawParticles() {
+// Trail particles
+trailParticles.forEach(p => {
+ctx.globalAlpha = p.life * 0.5;
+ctx.fillStyle = p.color;
+ctx.fillRect(p.x - camera.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+});
+
+// Ground particles
+groundParticles.forEach(p => {
+ctx.globalAlpha = p.life;
+ctx.fillStyle = p.color;
+ctx.fillRect(p.x - camera.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+});
+
+// Death/complete particles
+particles.forEach(p => {
+ctx.globalAlpha = p.life;
+ctx.fillStyle = p.color;
+if (p.type === 'death' || p.type === 'complete') {
+ctx.save();
+ctx.translate(p.x - camera.x, p.y);
+ctx.rotate(p.life * 3);
+ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+ctx.restore();
+} else {
+ctx.fillRect(p.x - camera.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+}
+});
+
+ctx.globalAlpha = 1;
+}
+
+// Menu Drawing
+function drawMenu() {
+const w = canvas.width;
+const h = canvas.height;
+
+// Background
+const grad = ctx.createLinearGradient(0, 0, 0, h);
+grad.addColorStop(0, '#1a0a3e');
+grad.addColorStop(1, '#0a0a1a');
+ctx.fillStyle = grad;
+ctx.fillRect(0, 0, w, h);
+
+// Animated background cubes
+const time = Date.now() / 1000;
+for (let i = 0; i < 15; i++) {
+const bx = ((i * 137 + time * 30) % (w + 100)) - 50;
+const by = h * 0.3 + Math.sin(time * 2 + i) * 100 + i * 30;
+const bs = 20 + Math.sin(time + i) * 5;
+ctx.globalAlpha = 0.1;
+ctx.fillStyle = '#7b2ff7';
+ctx.save();
+ctx.translate(bx, by);
+ctx.rotate(time * 2 + i);
+ctx.fillRect(-bs / 2, -bs / 2, bs, bs);
+ctx.restore();
+}
+ctx.globalAlpha = 1;
+
+// Title
+ctx.save();
+const titleScale = 1 + Math.sin(time * 3) * 0.03;
+ctx.translate(w / 2, h * 0.25);
+ctx.scale(titleScale, titleScale);
+
+ctx.shadowColor = '#7b2ff7';
+ctx.shadowBlur = 30;
+ctx.fillStyle = '#fff';
+ctx.font = 'bold 64px "Segoe UI", sans-serif';
+ctx.textAlign = 'center';
+ctx.fillText('GEOMETRY RUSH', 0, 0);
+ctx.shadowBlur = 0;
+
+// Subtitle
+ctx.font = '18px "Segoe UI", sans-serif';
+ctx.fillStyle = 'rgba(255,255,255,0.5)';
+ctx.fillText('A Rhythm Platformer', 0, 35);
+ctx.restore();
+
+// Play button
+const btnW = 250;
+const btnH = 60;
+const btnX = w / 2 - btnW / 2;
+const btnY = h * 0.5;
+
+const hover = isMouseInRect(btnX, btnY, btnW, btnH);
+ctx.fillStyle = hover ? '#8b3ff7' : '#6b2fd7';
+ctx.shadowColor = '#7b2ff7';
+ctx.shadowBlur = hover ? 25 : 15;
+roundRect(btnX, btnY, btnW, btnH, 10);
+ctx.fill();
+ctx.shadowBlur = 0;
+
+ctx.fillStyle = '#fff';
+ctx.font = 'bold 28px "Segoe UI", sans-serif';
+ctx.textAlign = 'center';
+ctx.fillText('▶  PLAY', w / 2, btnY + btnH / 2 + 9);
+
+// Credits
+ctx.font = '13px "Segoe UI", sans-serif';
+ctx.fillStyle = 'rgba(255,255,255,0.3)';
+ctx.textAlign = 'center';
+ctx.fillText('Click or press Space to jump', w / 2, h * 0.85);
+ctx.fillText('5 Levels • Increasing Difficulty', w / 2, h * 0.9);
+}
+
+function drawLevelSelect() {
+const w = canvas.width;
+const h = canvas.height;
+
+// Background
+const grad = ctx.createLinearGradient(0, 0, 0, h);
+grad.addColorStop(0, '#1a0a3e');
+grad.addColorStop(1, '#0a0a1a');
+ctx.fillStyle = grad;
+ctx.fillRect(0, 0, w, h);
+
+// Title
+ctx.fillStyle = '#fff';
+ctx.font = 'bold 36px "Segoe UI", sans-serif';
+ctx.textAlign = 'center';
+ctx.fillText('SELECT LEVEL', w / 2, 60);
+
+// Level cards
+const cardW = 200;
+const cardH = 260;
+const gap = 30;
+const totalW = LEVELS.length * cardW + (LEVELS.length - 1) * gap;
+let startX = (w - totalW) / 2;
+const cardY = h * 0.2;
+
+LEVELS.forEach((level, i) => {
+const cx = startX + i * (cardW + gap);
+const cy = cardY;
+const hover = isMouseInRect(cx, cy, cardW, cardH);
+
+// Card background
+ctx.fillStyle = hover ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)';
+roundRect(cx, cy, cardW, cardH, 12);
+ctx.fill();
+
+// Card border
+ctx.strokeStyle = level.accentColor;
+ctx.lineWidth = hover ? 3 : 1.5;
+ctx.globalAlpha = hover ? 1 : 0.5;
+roundRect(cx, cy, cardW, cardH, 12);
+ctx.stroke();
+ctx.globalAlpha = 1;
+
+// Level number
+ctx.fillStyle = level.accentColor;
+ctx.font = 'bold 48px "Segoe UI", sans-serif';
+ctx.textAlign = 'center';
+ctx.fillText(i + 1, cx + cardW / 2, cy + 65);
+
+// Level name
+ctx.fillStyle = '#fff';
+ctx.font = 'bold 16px "Segoe UI", sans-serif';
+ctx.fillText(level.name, cx + cardW / 2, cy + 100);
+
+// Difficulty
+const diffColors = ['#44ff44', '#ffdd44', '#ff8844', '#ff4444', '#ff22ff'];
+ctx.fillStyle = diffColors[i];
+ctx.font = '14px "Segoe UI", sans-serif';
+ctx.fillText(level.difficulty, cx + cardW / 2, cy + 125);
+
+// Difficulty stars
+for (let s = 0; s < 5; s++) {
+ctx.fillStyle = s < level.difficultyNum ? diffColors[i] : 'rgba(255,255,255,0.15)';
+ctx.font = '16px "Segoe UI", sans-serif';
+ctx.fillText('★', cx + cardW / 2 - 32 + s * 16, cy + 150);
+}
+
+// Best progress
+const best = bestProgress[i] || 0;
+ctx.fillStyle = 'rgba(255,255,255,0.4)';
+ctx.font = '12px "Segoe UI", sans-serif';
+ctx.fillText('Best: ' + Math.floor(best * 100) + '%', cx + cardW / 2, cy + 185);
+
+// Progress bar on card
+const pbarW = cardW - 40;
+const pbarH = 6;
+const pbarX = cx + 20;
+const pbarY = cy + 195;
+ctx.fillStyle = 'rgba(255,255,255,0.1)';
+ctx.fillRect(pbarX, pbarY, pbarW, pbarH);
+ctx.fillStyle = level.accentColor;
+ctx.fillRect(pbarX, pbarY, pbarW * best, pbarH);
+
+// Play button on card
+const pbtnY = cy + cardH - 50;
+ctx.fillStyle = hover ? level.accentColor : 'rgba(255,255,255,0.15)';
+ctx.font = 'bold 16px "Segoe UI", sans-serif';
+ctx.fillText('PLAY', cx + cardW / 2, pbtnY + 5);
+});
+
+// Back button
+const backBtnW = 100;
+const backBtnH = 40;
+const backBtnX = 20;
+const backBtnY = h - 60;
+const backHover = isMouseInRect(backBtnX, backBtnY, backBtnW, backBtnH);
+ctx.fillStyle = backHover ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)';
+roundRect(backBtnX, backBtnY, backBtnW, backBtnH, 8);
+ctx.fill();
+ctx.fillStyle = '#fff';
+ctx.font = '16px "Segoe UI", sans-serif';
+ctx.textAlign = 'center';
+ctx.fillText('← BACK', backBtnX + backBtnW / 2, backBtnY + backBtnH / 2 + 5);
+}
+
+function roundRect(x, y, w, h, r) {
+ctx.beginPath();
+ctx.moveTo(x + r, y);
+ctx.lineTo(x + w - r, y);
+ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+ctx.lineTo(x + w, y + h - r);
+ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+ctx.lineTo(x + r, y + h);
+ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+ctx.lineTo(x, y + r);
+ctx.quadraticCurveTo(x, y, x + r, y);
+ctx.closePath();
+}
+
+function isMouseInRect(x, y, w, h) {
+return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
+}
+
+let mouseX = 0, mouseY = 0;
+canvas.addEventListener('mousemove', (e) => {
+const rect = canvas.getBoundingClientRect();
+mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+});
+
+// Click handler
+canvas.addEventListener('click', (e) => {
+initAudio();
+const rect = canvas.getBoundingClientRect();
+const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+if (gameState === 'menu') {
+const btnW = 250, btnH = 60;
+const btnX = canvas.width / 2 - btnW / 2;
+const btnY = canvas.height * 0.5;
+if (mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + btnH) {
+playClick();
+gameState = 'levels';
+}
+} else if (gameState === 'levels') {
+const w = canvas.width;
+const h = canvas.height;
+const cardW = 200, cardH = 260, gap = 30;
+const totalW = LEVELS.length * cardW + (LEVELS.length - 1) * gap;
+let startX = (w - totalW) / 2;
+const cardY = h * 0.2;
+
+for (let i = 0; i < LEVELS.length; i++) {
+const cx = startX + i * (cardW + gap);
+if (mx >= cx && mx <= cx + cardW && my >= cardY && my <= cardY + cardH) {
+playClick();
+currentLevel = i;
+startLevel();
+return;
+}
+}
+
+// Back button
+const backBtnX = 20, backBtnY = h - 60, backBtnW = 100, backBtnH = 40;
+if (mx >= backBtnX && mx <= backBtnX + backBtnW && my >= backBtnY && my <= backBtnY + backBtnH) {
+playClick();
+gameState = 'menu';
+}
+} else if (gameState === 'dead' && deathTimer > 0.5) {
+startLevel();
+} else if (gameState === 'complete' && completeTimer > 1.5) {
+gameState = 'levels';
+}
+});
+
+function startLevel() {
+gameState = 'playing';
+attempts = 0;
+resetPlayer();
+startBeat(LEVELS[currentLevel].bpm);
+}
+
+// Game Update
+function update(dt) {
+if (gameState !== 'playing' && gameState !== 'dead' && gameState !== 'complete') return;
+
+const level = LEVELS[currentLevel];
+const gy = getGroundY();
+
+if (gameState === 'playing') {
+updateBeat(dt);
+
+// Player movement
+player.x += level.speed;
+
+// Jump
+if (inputPressed && player.onGround) {
+player.vy = JUMP_VEL;
+player.onGround = false;
+playJump();
+spawnGroundParticle(player.x, gy, level.playerColor);
+}
+inputPressed = false;
+
+// Gravity
+if (!player.onGround) {
+player.vy += GRAVITY;
+player.y += player.vy;
+
+// Rotation during jump
+player.rotation += 0.08;
+} else {
+// Snap rotation to nearest 90 degrees
+const targetRot = Math.round(player.rotation / (Math.PI / 2)) * (Math.PI / 2);
+player.rotation += (targetRot - player.rotation) * 0.3;
+}
+
+// Ground collision
+if (player.y >= 0) {
+player.y = 0;
+player.vy = 0;
+if (!player.onGround) {
+spawnGroundParticle(player.x, gy, level.playerColor);
+}
+player.onGround = true;
+}
+
+// Platform collision
+level.objects.forEach(obj => {
+if (obj.type === 'block') {
+const rect = getObjectRect(obj);
+const prect = getPlayerRect();
+
+// Check if player is above the block and falling
+if (prect.x + prect.w > rect.x + 4 && prect.x < rect.x + rect.w - 4) {
+if (player.vy >= 0 && prect.y + prect.h >= rect.y && prect.y + prect.h <= rect.y + 15 && prect.y < rect.y) {
+player.y = rect.y - gy;
+player.vy = 0;
+player.onGround = true;
+}
+}
+
+// Side/bottom collision with blocks
+if (rectsOverlap(prect, rect)) {
+// Check if it's a side collision (player is not on top)
+if (prect.y + prect.h > rect.y + 10 && prect.y < rect.y + rect.h - 5) {
+die();
+}
+}
+}
+});
+
+// Spike collision
+level.objects.forEach(obj => {
+if (obj.type === 'spike') {
+const rect = getObjectRect(obj);
+const prect = getPlayerRect();
+if (spikeCollision(prect, rect)) {
+die();
+}
+}
+});
+
+// Fall off screen
+if (player.y > canvas.height) {
+die();
+}
+
+// Trail particles
+if (Math.random() < 0.5) {
+spawnTrailParticle(player.x - 15, gy + player.y - player.size / 2, level.playerColor);
+}
+
+// Camera
+camera.x = player.x - canvas.width * 0.3;
+
+// Level complete
+if (player.x >= level.length) {
+gameState = 'complete';
+completeTimer = 0;
+playComplete();
+spawnCompleteParticles(player.x, gy + player.y - player.size / 2, level.playerColor);
+if (!bestProgress[currentLevel] || bestProgress[currentLevel] < 1) {
+bestProgress[currentLevel] = 1;
+}
+}
+
+// Update best progress
+const progress = Math.min(1, (player.x - 100) / (level.length - 100));
+if (!bestProgress[currentLevel] || bestProgress[currentLevel] < progress) {
+bestProgress[currentLevel] = progress;
+}
+}
+
+// Death timer
+if (gameState === 'dead') {
+deathTimer += dt;
+}
+if (gameState === 'complete') {
+completeTimer += dt;
+}
+
+// Update particles
+particles.forEach(p => {
+p.x += p.vx;
+p.y += p.vy;
+if (p.type === 'death' || p.type === 'complete') {
+p.vy += 0.15;
+}
+p.life -= p.decay;
+});
+particles = particles.filter(p => p.life > 0);
+
+trailParticles.forEach(p => {
+p.life -= p.decay;
+p.size *= 0.97;
+});
+trailParticles = trailParticles.filter(p => p.life > 0);
+
+groundParticles.forEach(p => {
+p.x += p.vx;
+p.y += p.vy;
+p.vy += 0.1;
+p.life -= p.decay;
+});
+groundParticles = groundParticles.filter(p => p.life > 0);
+
+// Screen shake decay
+shakeAmount *= 0.9;
+}
+
+function die() {
+if (player.dead) return;
+player.dead = true;
+gameState = 'dead';
+deathTimer = 0;
+attempts++;
+playDeath();
+shakeAmount = 15;
+const gy = getGroundY();
+spawnDeathParticles(player.x, gy + player.y - player.size / 2, LEVELS[currentLevel].playerColor);
+}
+
+// Render
+function render() {
+const w = canvas.width;
+const h = canvas.height;
+
+ctx.clearRect(0, 0, w, h);
+
+if (gameState === 'menu') {
+drawMenu();
+return;
+}
+if (gameState === 'levels') {
+drawLevelSelect();
+return;
+}
+
+const level = LEVELS[currentLevel];
+const gy = getGroundY();
+
+// Apply screen shake
+ctx.save();
+if (shakeAmount > 0.5) {
+ctx.translate(
+(Math.random() - 0.5) * shakeAmount,
+(Math.random() - 0.5) * shakeAmount
+);
+}
+
+// Background
+drawBackground(level);
+
+// Camera transform
+ctx.save();
+ctx.translate(-camera.x, 0);
+
+// Draw objects
+level.objects.forEach(obj => {
+const rect = getObjectRect(obj);
+// Only draw if visible
+if (rect.x + rect.w > camera.x - 50 && rect.x < camera.x + w + 50) {
+if (obj.type === 'spike') {
+drawSpike(rect.x, rect.y, rect.w, rect.h, level.spikeColor);
+} else {
+drawBlock(rect.x, rect.y, rect.w, rect.h, level.blockColor);
+}
+}
+});
+
+// Draw ground
+drawGround(level);
+
+// Draw player (if not dead)
+if (gameState === 'playing') {
+const px = player.x;
+const py = gy + player.y - player.size / 2;
+drawPlayer(px, py, player.size, player.rotation, level.playerColor);
+}
+
+// Draw particles
+drawParticles();
+
+ctx.restore(); // Camera
+
+// Progress bar
+drawProgressBar(level);
+
+// Death overlay
+if (gameState === 'dead') {
+const alpha = Math.min(1, deathTimer * 2);
+ctx.fillStyle = `rgba(0,0,0,${alpha * 0.4})`;
+ctx.fillRect(0, 0, w, h);
+
+if (deathTimer > 0.3) {
+ctx.fillStyle = '#fff';
+ctx.font = 'bold 36px "Segoe UI", sans-serif';
+ctx.textAlign = 'center';
+ctx.fillText('Crashed!', w / 2, h / 2 - 20);
+
+ctx.font = '18px "Segoe UI", sans-serif';
+ctx.fillStyle = 'rgba(255,255,255,0.6)';
+const progress = Math.min(1, (player.x - 100) / (level.length - 100));
+ctx.fillText(Math.floor(progress * 100) + '% complete', w / 2, h / 2 + 15);
+
+if (deathTimer > 0.5) {
+ctx.font = '16px "Segoe UI", sans-serif';
+ctx.fillStyle = 'rgba(255,255,255,0.4)';
+ctx.fillText('Click or press Space to retry', w / 2, h / 2 + 55);
+}
+}
+}
+
+// Complete overlay
+if (gameState === 'complete') {
+const alpha = Math.min(1, completeTimer);
+ctx.fillStyle = `rgba(0,0,0,${alpha * 0.3})`;
+ctx.fillRect(0, 0, w, h);
+
+if (completeTimer > 0.3) {
+ctx.save();
+const scale = Math.min(1, completeTimer * 2);
+ctx.translate(w / 2, h / 2 - 30);
+ctx.scale(scale, scale);
+
+ctx.shadowColor = level.playerColor;
+ctx.shadowBlur = 30;
+ctx.fillStyle = '#fff';
+ctx.font = 'bold 48px "Segoe UI", sans-serif';
+ctx.textAlign = 'center';
+ctx.fillText('LEVEL COMPLETE!', 0, 0);
+ctx.shadowBlur = 0;
+ctx.restore();
+
+if (completeTimer > 0.8) {
+ctx.fillStyle = level.playerColor;
+ctx.font = 'bold 24px "Segoe UI", sans-serif';
+ctx.textAlign = 'center';
+ctx.fillText('★ ' + level.name + ' ★', w / 2, h / 2 + 20);
+
+ctx.fillStyle = 'rgba(255,255,255,0.5)';
+ctx.font = '16px "Segoe UI", sans-serif';
+ctx.fillText('Attempts: ' + attempts, w / 2, h / 2 + 55);
+}
+
+if (completeTimer > 1.5) {
+ctx.fillStyle = 'rgba(255,255,255,0.4)';
+ctx.font = '14px "Segoe UI", sans-serif';
+ctx.fillText('Click to continue', w / 2, h / 2 + 90);
+}
+}
+}
+
+ctx.restore(); // Shake
+
+// Retry on space when dead
+if (gameState === 'dead' && deathTimer > 0.5 && inputPressed) {
+inputPressed = false;
+resetPlayer();
+attempts++;
+gameState = 'playing';
+startBeat(level.bpm);
+}
+}
+
+// Game Loop
+let lastTime = 0;
+function gameLoop(timestamp) {
+const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+lastTime = timestamp;
+
+update(dt);
+render();
+
+requestAnimationFrame(gameLoop);
+}
+
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
