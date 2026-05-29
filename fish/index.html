@@ -1067,26 +1067,37 @@ GAMES.forEach((g) => {
   if (Array.isArray(g.screenshots)) g.screenshots = g.screenshots.map(__resolveUrl);
 });
 const FISH_GAMES = [
-  { n: '01', title: 'Snake', slug: 'snake', kind: 'Classic' },
-  { n: '02', title: 'Blackjack', slug: 'blackjack', kind: 'Cards' },
-  { n: '03', title: 'Rock Paper Scissors', slug: 'rockpaperscissors', kind: 'Classic' },
-  { n: '04', title: 'Bowman', slug: 'bowman', kind: 'Aim' },
-  { n: '05', title: 'Runner', slug: 'runner', kind: 'Arcade' },
-  { n: '06', title: 'Copter', slug: 'copter', kind: 'Arcade' },
-  { n: '07', title: 'Chess', slug: 'chess', kind: 'Board' },
-  { n: '08', title: 'Checkers', slug: 'checkers', kind: 'Board' },
-  { n: '09', title: 'Fall Down', slug: 'falldown', kind: 'Arcade' },
-  { n: '10', title: 'Power Grid', slug: 'powergrid', kind: 'Puzzle' },
-  { n: '11', title: 'Beyblade', slug: 'beyblade', kind: 'Action' },
-  { n: '12', title: 'Hangman', slug: 'hangman', kind: 'Word' },
-  { n: '13', title: 'Dual Shield', slug: 'dualshield', kind: 'Action' },
-  { n: '14', title: 'Gun Defence', slug: 'gundefence', kind: 'Action' },
-  { n: '15', title: 'Pong', slug: 'pong', kind: 'Classic' },
-  { n: '16', title: 'Tetris', slug: 'tetris', kind: 'Classic' },
-  { n: '17', title: 'Super Stick Fight', slug: 'superstickfight', kind: 'Fighting' },
-  { n: '18', title: 'Super Stick Fight DBZ', slug: 'superstickfightdbz', kind: 'Fighting' },
-  { n: '19', title: 'Random Chess', slug: 'randomchess', kind: 'Board' },
-  { n: '20', title: 'Game Dev IDLE', slug: 'gamedevidle', kind: 'Idle' },
+  { n: '01', title: 'Age of Battle',         slug: 'ageofbattle',       kind: 'Strategy' },
+  { n: '02', title: 'Army Conquest',         slug: 'armyconquest',      kind: 'Strategy' },
+  { n: '03', title: 'Beyblade',              slug: 'beyblade',          kind: 'Action'   },
+  { n: '04', title: 'Blackjack',             slug: 'blackjack',         kind: 'Cards'    },
+  { n: '05', title: 'Bowman',                slug: 'bowman',            kind: 'Aim'      },
+  { n: '06', title: 'Checkers',              slug: 'checkers',          kind: 'Board'    },
+  { n: '07', title: 'Chess',                 slug: 'chess',             kind: 'Board'    },
+  { n: '08', title: 'Copter',                slug: 'copter',            kind: 'Arcade'   },
+  { n: '09', title: 'Dual Shield',           slug: 'dualshield',        kind: 'Action'   },
+  { n: '10', title: 'Fall Down',             slug: 'falldown',          kind: 'Arcade'   },
+  { n: '11', title: 'Game Dev IDLE',         slug: 'gamedevidle',       kind: 'Idle'     },
+  { n: '12', title: 'Geometry Rush',         slug: 'geometryrush',      kind: 'Arcade'   },
+  { n: '13', title: 'GTA Crime City',        slug: 'gtacrimecity',      kind: 'Action'   },
+  { n: '14', title: 'Gun Defence',           slug: 'gundefence',        kind: 'Action'   },
+  { n: '15', title: 'Hangman',               slug: 'hangman',           kind: 'Word'     },
+  { n: '16', title: 'Hangman V2',            slug: 'hangmanv2',         kind: 'Word'     },
+  { n: '17', title: 'Learn to Fly',          slug: 'learntofly',        kind: 'Arcade'   },
+  { n: '18', title: 'Necromancer',           slug: 'necromancer',       kind: 'Action'   },
+  { n: '19', title: 'Paper Throw',           slug: 'paperthrow',        kind: 'Arcade'   },
+  { n: '20', title: 'Pong',                  slug: 'pong',              kind: 'Classic'  },
+  { n: '21', title: 'Power Grid',            slug: 'powergrid',         kind: 'Puzzle'   },
+  { n: '22', title: 'Random Chess',          slug: 'randomchess',       kind: 'Board'    },
+  { n: '23', title: 'Rock Paper Scissors',   slug: 'rockpaperscissors', kind: 'Classic'  },
+  { n: '24', title: 'Runner',                slug: 'runner',            kind: 'Arcade'   },
+  { n: '25', title: 'Snake',                 slug: 'snake',             kind: 'Classic'  },
+  { n: '26', title: 'Super Stick Fight',     slug: 'superstickfight',   kind: 'Fighting' },
+  { n: '27', title: 'Super Stick Fight DBZ', slug: 'superstickfightdbz',kind: 'Fighting' },
+  { n: '28', title: 'Survivor',              slug: 'survivor',          kind: 'Arcade'   },
+  { n: '29', title: 'Tetris',                slug: 'tetris',            kind: 'Classic'  },
+  { n: '30', title: 'Turbo Kart',            slug: 'turbokart',         kind: 'Racing'   },
+  { n: '31', title: 'Word Search',           slug: 'wordsearch',        kind: 'Word'     },
 ];
 const URL_BASE = 'https://loopover.co.uk/fish/';
 const RING_COLORS = [
@@ -1385,7 +1396,7 @@ function Hero() {
             color: 'var(--muted)',
           },
         },
-        'You found the secret pond. Twenty hand-made browser games live down here \u2014 most are 90s classics, some are weird experiments, all are free.'
+        'You found the secret pond. Thirty-one hand-made browser games live down here \u2014 most are 90s classics, some are weird experiments, all are free.'
       ),
       React.createElement(
         'div',
@@ -1448,7 +1459,7 @@ function Hero() {
         React.createElement(
           'span',
           null,
-          React.createElement('strong', { style: { color: 'var(--fg)' } }, '20'),
+          React.createElement('strong', { style: { color: 'var(--fg)' } }, '31'),
           '\xA0 games'
         ),
         React.createElement(
@@ -1620,7 +1631,7 @@ function GameGrid() {
       React.createElement(
         'div',
         null,
-        React.createElement(Eyebrow, null, 'The pond \xB7 20 games'),
+        React.createElement(Eyebrow, null, 'The pond \xB7 31 games'),
         React.createElement(
           'h2',
           {
