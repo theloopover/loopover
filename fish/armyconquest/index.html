@@ -1,0 +1,1663 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
+        <title>Warfront: Conquest</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            html,
+            body {
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    "Segoe UI",
+                    Roboto,
+                    sans-serif;
+                background: #0a0f1e;
+                color: #e0d8c8;
+                touch-action: none;
+                -webkit-user-select: none;
+                user-select: none;
+            }
+            :root {
+                --bg: #0a0f1e;
+                --fg: #e0d8c8;
+                --muted: #5a6a7a;
+                --accent: #ff6b35;
+                --card: rgba(10, 18, 34, 0.92);
+                --border: rgba(255, 255, 255, 0.08);
+                --player: #00d4aa;
+                --red: #ff4757;
+                --gold: #ffa502;
+                --neutral: #636e72;
+            }
+            canvas {
+                display: block;
+                position: fixed;
+                top: 0;
+                left: 0;
+                z-index: 0;
+            }
+            #hudTop {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 10;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 10px 16px;
+                background: linear-gradient(
+                    180deg,
+                    rgba(8, 14, 28, 0.95) 0%,
+                    transparent 100%
+                );
+                pointer-events: none;
+            }
+            #hudTop > * {
+                pointer-events: auto;
+            }
+            .wave-box {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .wave-badge {
+                font-weight: 700;
+                font-size: 15px;
+                color: var(--accent);
+                letter-spacing: 2px;
+                background: rgba(255, 107, 53, 0.15);
+                padding: 4px 12px;
+                border: 1px solid rgba(255, 107, 53, 0.3);
+                border-radius: 4px;
+            }
+            .wave-bar-wrap {
+                width: 100px;
+                height: 6px;
+                background: rgba(255, 255, 255, 0.08);
+                border-radius: 3px;
+                overflow: hidden;
+            }
+            .wave-bar-fill {
+                height: 100%;
+                background: var(--accent);
+                border-radius: 3px;
+                transition: width 0.3s;
+            }
+            .scores {
+                display: flex;
+                gap: 14px;
+                align-items: center;
+            }
+            .score-item {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                font-size: 13px;
+                font-weight: 600;
+            }
+            .score-dot {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+            }
+            .score-pts {
+                font-size: 16px;
+                font-weight: 700;
+            }
+            .help-btn {
+                background: none;
+                border: 1px solid var(--border);
+                color: var(--muted);
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                cursor: pointer;
+                font-size: 14px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            #hudBottom {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                z-index: 10;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 10px 16px;
+                background: linear-gradient(
+                    0deg,
+                    rgba(8, 14, 28, 0.95) 0%,
+                    transparent 100%
+                );
+                pointer-events: none;
+            }
+            #hudBottom > * {
+                pointer-events: auto;
+            }
+            #terrInfo {
+                font-size: 13px;
+                color: var(--muted);
+                text-align: center;
+            }
+            #terrInfo strong {
+                color: var(--fg);
+            }
+            #startScreen {
+                position: fixed;
+                inset: 0;
+                z-index: 100;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: radial-gradient(
+                    ellipse at center,
+                    rgba(15, 22, 40, 0.97),
+                    rgba(6, 10, 20, 0.99)
+                );
+            }
+            .start-content {
+                text-align: center;
+                max-width: 420px;
+                padding: 30px;
+            }
+            .start-content h1 {
+                font-size: clamp(42px, 10vw, 72px);
+                font-weight: 800;
+                color: var(--accent);
+                letter-spacing: 6px;
+                line-height: 1;
+                margin-bottom: 4px;
+            }
+            .start-content h2 {
+                font-size: clamp(18px, 4vw, 28px);
+                font-weight: 400;
+                color: var(--fg);
+                letter-spacing: 8px;
+                margin-bottom: 24px;
+                opacity: 0.7;
+            }
+            .start-content p {
+                color: var(--muted);
+                font-size: 14px;
+                margin-bottom: 20px;
+            }
+            .rules {
+                text-align: left;
+                margin: 20px 0 30px;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            .rules p {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-size: 13px;
+                color: var(--muted);
+            }
+            .rules i {
+                color: var(--accent);
+                width: 18px;
+                text-align: center;
+                font-style: normal;
+            }
+            #startBtn {
+                font-weight: 700;
+                font-size: 16px;
+                letter-spacing: 3px;
+                padding: 14px 40px;
+                background: var(--accent);
+                color: #fff;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            #waveAnnounce {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                z-index: 20;
+                pointer-events: none;
+                font-size: clamp(32px, 8vw, 64px);
+                font-weight: 800;
+                color: var(--accent);
+                letter-spacing: 6px;
+                opacity: 0;
+                transition: opacity 0.3s;
+            }
+            #waveAnnounce.show {
+                opacity: 1;
+            }
+            #gameOver {
+                position: fixed;
+                inset: 0;
+                z-index: 90;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                background: rgba(6, 10, 20, 0.92);
+            }
+            #gameOver.show {
+                display: flex;
+            }
+            .go-content {
+                text-align: center;
+                padding: 30px;
+            }
+            .go-content h2 {
+                font-size: clamp(28px, 6vw, 48px);
+                font-weight: 800;
+                letter-spacing: 4px;
+                margin-bottom: 8px;
+            }
+            .go-sub {
+                color: var(--muted);
+                font-size: 14px;
+                margin-bottom: 20px;
+            }
+            .go-stats {
+                display: flex;
+                gap: 24px;
+                justify-content: center;
+                margin-bottom: 24px;
+            }
+            .go-stat {
+                text-align: center;
+            }
+            .go-val {
+                font-size: 28px;
+                font-weight: 700;
+                color: var(--accent);
+            }
+            .go-lbl {
+                font-size: 11px;
+                color: var(--muted);
+                letter-spacing: 1px;
+            }
+            #restartBtn {
+                font-weight: 700;
+                font-size: 14px;
+                letter-spacing: 2px;
+                padding: 12px 32px;
+                background: var(--accent);
+                color: #fff;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            #helpModal {
+                position: fixed;
+                inset: 0;
+                z-index: 80;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                background: rgba(6, 10, 20, 0.85);
+            }
+            #helpModal.show {
+                display: flex;
+            }
+            .help-content {
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 24px;
+                max-width: 360px;
+                width: 90%;
+            }
+            .help-content h3 {
+                font-size: 18px;
+                letter-spacing: 2px;
+                margin-bottom: 14px;
+                color: var(--accent);
+            }
+            .help-content p {
+                font-size: 13px;
+                color: var(--muted);
+                margin-bottom: 8px;
+                line-height: 1.5;
+            }
+            .close-help {
+                margin-top: 14px;
+                font-weight: 600;
+                font-size: 12px;
+                letter-spacing: 1px;
+                padding: 8px 20px;
+                background: none;
+                border: 1px solid var(--border);
+                color: var(--muted);
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            .toast {
+                position: fixed;
+                top: 70px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 30;
+                font-weight: 600;
+                font-size: 14px;
+                letter-spacing: 1px;
+                padding: 8px 20px;
+                background: var(--card);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                color: var(--fg);
+                opacity: 0;
+                transition: opacity 0.3s;
+                pointer-events: none;
+            }
+            .toast.show {
+                opacity: 1;
+            }
+            @media (max-width: 500px) {
+                .wave-bar-wrap {
+                    width: 60px;
+                }
+                .scores {
+                    gap: 8px;
+                }
+                .score-item {
+                    font-size: 11px;
+                }
+                .score-pts {
+                    font-size: 13px;
+                }
+                .go-stats {
+                    gap: 14px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="hudTop">
+            <div class="wave-box">
+                <span class="wave-badge">WAVE <span id="waveNum">1</span></span>
+                <div class="wave-bar-wrap">
+                    <div
+                        id="waveBar"
+                        class="wave-bar-fill"
+                        style="width: 0%"
+                    ></div>
+                </div>
+            </div>
+            <div id="scores" class="scores"></div>
+            <button id="helpBtn" class="help-btn">?</button>
+        </div>
+
+        <div id="hudBottom">
+            <div id="terrInfo">
+                Drag from your territory to attack or reinforce
+            </div>
+        </div>
+
+        <div id="startScreen">
+            <div class="start-content">
+                <h1>WARFRONT</h1>
+                <h2>CONQUEST</h2>
+                <p>
+                    Real-time territory control. Drag to command. No turns. No
+                    mercy.
+                </p>
+                <div class="rules">
+                    <p><i>⬇</i> Press & drag from your hex to ANY target</p>
+                    <p><i>🛤</i> Troops auto-route through your territory</p>
+                    <p><i>⏱</i> Drag distance controls % sent (25% → 100%)</p>
+                    <p><i>🌊</i> Reinforcement waves arrive every 40 seconds</p>
+                    <p>
+                        <i>⚔</i> Combat triggers only at the final destination
+                    </p>
+                </div>
+                <button id="startBtn">BEGIN CONQUEST</button>
+            </div>
+        </div>
+
+        <div id="waveAnnounce">WAVE <span id="annWaveNum">1</span></div>
+
+        <div id="gameOver">
+            <div class="go-content">
+                <h2 id="goTitle">VICTORY</h2>
+                <p id="goSub" class="go-sub">
+                    You have conquered the continent
+                </p>
+                <div class="go-stats">
+                    <div class="go-stat">
+                        <div id="goTerrs" class="go-val">0</div>
+                        <div class="go-lbl">TERRITORIES</div>
+                    </div>
+                    <div class="go-stat">
+                        <div id="goKills" class="go-val">0</div>
+                        <div class="go-lbl">DEFEATED</div>
+                    </div>
+                    <div class="go-stat">
+                        <div id="goWaves" class="go-val">0</div>
+                        <div class="go-lbl">WAVES</div>
+                    </div>
+                </div>
+                <button id="restartBtn">PLAY AGAIN</button>
+            </div>
+        </div>
+
+        <div id="helpModal">
+            <div class="help-content">
+                <h3>HOW TO PLAY</h3>
+                <p>
+                    <strong>Drag:</strong> Press & drag from your territory to
+                    any tile on the map.
+                </p>
+                <p>
+                    <strong>Pathfinding:</strong> Troops automatically route
+                    through your hexes. Max 6 hops.
+                </p>
+                <p>
+                    <strong>Split:</strong> Drag further to send more troops
+                    (25% → 100%).
+                </p>
+                <p>
+                    <strong>Release:</strong> Let go to launch. Combat only
+                    happens at the destination.
+                </p>
+                <p>
+                    <strong>Waves:</strong> Every 40s all factions receive bonus
+                    troops.
+                </p>
+                <p>
+                    <strong>Combat:</strong> Risk-style dice — attacker rolls up
+                    to 3, defender up to 2.
+                </p>
+                <button id="closeHelp" class="close-help">GOT IT</button>
+            </div>
+        </div>
+
+        <div id="toast" class="toast"></div>
+
+        <script>
+            document.addEventListener("DOMContentLoaded", () => {
+                // ===== CONFIGURATION =====
+                const CFG = {
+                    troopGenInterval: 2.5,
+                    waveInterval: 40,
+                    waveBaseBonus: 3,
+                    aiInterval: 2.2,
+                    moveSpeed: 1.8,
+                    startTroops: 5,
+                    neutralTroops: 3,
+                    maxParticles: 200,
+                    maxFloats: 30,
+                    dragDeadZone: 10,
+                    dragMaxDist: 3.0,
+                    maxPathHops: 6,
+                };
+
+                // ===== FACTION DEFINITIONS =====
+                const FACTIONS = {
+                    player: {
+                        color: "#00d4aa",
+                        light: "#55ffd0",
+                        dark: "#008c70",
+                        name: "Teal Empire",
+                    },
+                    red: {
+                        color: "#ff4757",
+                        light: "#ff6b81",
+                        dark: "#b8303c",
+                        name: "Red Legion",
+                    },
+                    gold: {
+                        color: "#ffa502",
+                        light: "#ffc048",
+                        dark: "#b87500",
+                        name: "Gold Horde",
+                    },
+                    neutral: {
+                        color: "#636e72",
+                        light: "#95a5a6",
+                        dark: "#434a4e",
+                        name: "Neutral",
+                    },
+                };
+
+                // ===== MAP LAYOUT =====
+                const LAND_HEXES = [
+                    [1, 0],
+                    [2, 0],
+                    [3, 0],
+                    [4, 0],
+                    [0, 1],
+                    [1, 1],
+                    [2, 1],
+                    [3, 1],
+                    [4, 1],
+                    [5, 1],
+                    [0, 2],
+                    [1, 2],
+                    [2, 2],
+                    [3, 2],
+                    [4, 2],
+                    [5, 2],
+                    [1, 3],
+                    [2, 3],
+                    [3, 3],
+                    [4, 3],
+                    [5, 3],
+                    [2, 4],
+                    [3, 4],
+                    [4, 4],
+                ];
+                const START_OWNERS = {
+                    player: [
+                        [1, 0],
+                        [2, 0],
+                        [0, 1],
+                        [1, 1],
+                        [0, 2],
+                    ],
+                    red: [
+                        [4, 0],
+                        [4, 1],
+                        [5, 1],
+                        [5, 2],
+                        [4, 2],
+                    ],
+                    gold: [
+                        [3, 3],
+                        [4, 3],
+                        [5, 3],
+                        [3, 4],
+                        [4, 4],
+                    ],
+                };
+
+                // ===== GAME STATE =====
+                let hexes = [],
+                    movingGroups = [],
+                    particles = [],
+                    floatingTexts = [];
+                let hoveredHex = null;
+                let waveTimer = 0,
+                    waveCount = 1,
+                    troopTimer = 0,
+                    aiTimer = 0;
+                let gameRunning = false,
+                    gameOverState = false;
+                let kills = 0,
+                    conquered = 0,
+                    hexSize = 40;
+                let animTime = 0,
+                    lastTime = 0;
+
+                // Drag State
+                let drag = {
+                    active: false,
+                    from: null,
+                    startX: 0,
+                    startY: 0,
+                    curX: 0,
+                    curY: 0,
+                    target: null,
+                    path: null,
+                    percent: 0.5,
+                    dist: 0,
+                    lastHovered: null,
+                };
+
+                const canvas = document.getElementById("gameCanvas");
+                const ctx = canvas.getContext("2d");
+
+                // ===== HEX UTILITIES =====
+                function hexToPixelRaw(col, row) {
+                    return {
+                        x: Math.sqrt(3) * (col + 0.5 * (row & 1)),
+                        y: 1.5 * row,
+                    };
+                }
+                function hexVertices(cx, cy, size) {
+                    const verts = [];
+                    for (let i = 0; i < 6; i++) {
+                        const angle = (Math.PI / 180) * (60 * i - 30);
+                        verts.push({
+                            x: cx + size * Math.cos(angle),
+                            y: cy + size * Math.sin(angle),
+                        });
+                    }
+                    return verts;
+                }
+                function pointInHex(px, py, cx, cy, size) {
+                    const dx = Math.abs(px - cx),
+                        dy = Math.abs(py - cy);
+                    if (dx > (Math.sqrt(3) / 2) * size) return false;
+                    if (dy > size) return false;
+                    if (dy <= size / 2) return true;
+                    return dx <= (size - dy) * Math.sqrt(3);
+                }
+
+                // ===== PATHFINDING (BFS) =====
+                function findPath(start, end, owner) {
+                    if (start === end) return null;
+                    const queue = [[start]];
+                    const visited = new Set([start]);
+                    while (queue.length > 0) {
+                        const path = queue.shift();
+                        if (path.length > CFG.maxPathHops + 1) continue;
+                        const current = path[path.length - 1];
+                        if (current === end) return path;
+                        for (const nb of current.neighbors) {
+                            if (visited.has(nb)) continue;
+                            // Can traverse friendly hexes, or target the final hex
+                            if (nb === end || nb.owner === owner) {
+                                visited.add(nb);
+                                queue.push([...path, nb]);
+                            }
+                        }
+                    }
+                    return null;
+                }
+
+                // ===== MAP GENERATION =====
+                function generateMap() {
+                    hexes = [];
+                    const ownerMap = {};
+                    for (const [c, r] of START_OWNERS.player)
+                        ownerMap[`${c},${r}`] = "player";
+                    for (const [c, r] of START_OWNERS.red)
+                        ownerMap[`${c},${r}`] = "red";
+                    for (const [c, r] of START_OWNERS.gold)
+                        ownerMap[`${c},${r}`] = "gold";
+
+                    for (const [c, r] of LAND_HEXES) {
+                        const owner = ownerMap[`${c},${r}`] || "neutral";
+                        const troops =
+                            owner === "neutral"
+                                ? CFG.neutralTroops
+                                : CFG.startTroops;
+                        hexes.push({
+                            col: c,
+                            row: r,
+                            px: 0,
+                            py: 0,
+                            _rawX: 0,
+                            _rawY: 0,
+                            owner,
+                            troops,
+                            neighbors: [],
+                            terrain: Math.random() < 0.25 ? "hills" : "plains",
+                            pulsePhase: Math.random() * Math.PI * 2,
+                            captureFlash: 0,
+                        });
+                    }
+                    for (const h of hexes) {
+                        const p = hexToPixelRaw(h.col, h.row);
+                        h._rawX = p.x;
+                        h._rawY = p.y;
+                    }
+                    for (const a of hexes) {
+                        for (const b of hexes) {
+                            if (a === b) continue;
+                            const dx = a._rawX - b._rawX,
+                                dy = a._rawY - b._rawY;
+                            if (Math.sqrt(dx * dx + dy * dy) < 1.8)
+                                a.neighbors.push(b);
+                        }
+                    }
+                }
+
+                function recalculateLayout() {
+                    const w = window.innerWidth,
+                        h = window.innerHeight;
+                    const padT = 80,
+                        padB = 60,
+                        padL = 20,
+                        padR = 20;
+                    const availW = w - padL - padR,
+                        availH = h - padT - padB;
+                    let minX = Infinity,
+                        maxX = -Infinity,
+                        minY = Infinity,
+                        maxY = -Infinity;
+                    for (const h of hexes) {
+                        minX = Math.min(minX, h._rawX);
+                        maxX = Math.max(maxX, h._rawX);
+                        minY = Math.min(minY, h._rawY);
+                        maxY = Math.max(maxY, h._rawY);
+                    }
+                    const rawW = maxX - minX,
+                        rawH = maxY - minY;
+                    const totalW = rawW + Math.sqrt(3) * 1.1,
+                        totalH = rawH + 2.2;
+                    hexSize = Math.min(availW / totalW, availH / totalH);
+                    hexSize = Math.max(20, Math.min(55, hexSize));
+                    const cx = (minX + maxX) / 2,
+                        cy = (minY + maxY) / 2;
+                    const scx = padL + availW / 2,
+                        scy = padT + availH / 2;
+                    for (const h of hexes) {
+                        h.px = scx + (h._rawX - cx) * hexSize;
+                        h.py = scy + (h._rawY - cy) * hexSize;
+                    }
+                }
+
+                function resizeCanvas() {
+                    const dpr = window.devicePixelRatio || 1;
+                    canvas.width = window.innerWidth * dpr;
+                    canvas.height = window.innerHeight * dpr;
+                    canvas.style.width = window.innerWidth + "px";
+                    canvas.style.height = window.innerHeight + "px";
+                    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                    recalculateLayout();
+                }
+                window.addEventListener("resize", resizeCanvas);
+
+                // ===== RENDERING =====
+                function drawBackground() {
+                    const w = window.innerWidth,
+                        h = window.innerHeight;
+                    const grad = ctx.createRadialGradient(
+                        w / 2,
+                        h / 2,
+                        0,
+                        w / 2,
+                        h / 2,
+                        Math.max(w, h) * 0.7,
+                    );
+                    grad.addColorStop(0, "#0f1a30");
+                    grad.addColorStop(1, "#060b18");
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, 0, w, h);
+                    ctx.strokeStyle = "rgba(30,60,100,0.15)";
+                    ctx.lineWidth = 1;
+                    for (let i = 0; i < 8; i++) {
+                        ctx.beginPath();
+                        const baseY = h * 0.1 + i * h * 0.12;
+                        for (let x = 0; x < w; x += 4) {
+                            const y =
+                                baseY +
+                                Math.sin(x * 0.008 + animTime * 0.5 + i) * 12 +
+                                Math.sin(x * 0.003 + animTime * 0.3) * 8;
+                            x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                        }
+                        ctx.stroke();
+                    }
+                }
+
+                function drawHex(hex) {
+                    const { px, py, owner, troops, pulsePhase, captureFlash } =
+                        hex;
+                    const fac = FACTIONS[owner];
+                    const verts = hexVertices(px, py, hexSize * 0.95);
+                    ctx.beginPath();
+                    verts.forEach((v, i) =>
+                        i === 0 ? ctx.moveTo(v.x, v.y) : ctx.lineTo(v.x, v.y),
+                    );
+                    ctx.closePath();
+
+                    const grd = ctx.createRadialGradient(
+                        px,
+                        py - hexSize * 0.2,
+                        0,
+                        px,
+                        py,
+                        hexSize,
+                    );
+                    grd.addColorStop(0, fac.light);
+                    grd.addColorStop(0.6, fac.color);
+                    grd.addColorStop(1, fac.dark);
+                    ctx.fillStyle = grd;
+                    ctx.fill();
+
+                    if (hex.terrain === "hills") {
+                        ctx.fillStyle = "rgba(0,0,0,0.08)";
+                        ctx.fill();
+                        const ms = hexSize * 0.12;
+                        ctx.fillStyle = "rgba(255,255,255,0.12)";
+                        ctx.beginPath();
+                        ctx.moveTo(px - hexSize * 0.15, py + hexSize * 0.2);
+                        ctx.lineTo(
+                            px - hexSize * 0.15 + ms,
+                            py + hexSize * 0.2 - ms * 1.5,
+                        );
+                        ctx.lineTo(
+                            px - hexSize * 0.15 + ms * 2,
+                            py + hexSize * 0.2,
+                        );
+                        ctx.fill();
+                    }
+
+                    if (captureFlash > 0) {
+                        ctx.fillStyle = `rgba(255,255,255,${captureFlash * 0.4})`;
+                        ctx.fill();
+                    }
+
+                    ctx.strokeStyle = "rgba(0,0,0,0.5)";
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                    const pulse =
+                        Math.sin(animTime * 2 + pulsePhase) * 0.15 + 0.85;
+                    ctx.strokeStyle = fac.color;
+                    ctx.lineWidth = 1;
+                    ctx.globalAlpha = pulse * 0.3;
+                    ctx.stroke();
+                    ctx.globalAlpha = 1;
+
+                    if (troops > 0) {
+                        const cr = hexSize * 0.28;
+                        ctx.beginPath();
+                        ctx.arc(px, py, cr, 0, Math.PI * 2);
+                        ctx.fillStyle = "rgba(0,0,0,0.55)";
+                        ctx.fill();
+                        ctx.strokeStyle = "rgba(255,255,255,0.15)";
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                        ctx.fillStyle = "#ffffff";
+                        ctx.font = `bold ${hexSize * 0.36}px system-ui, sans-serif`;
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "middle";
+                        ctx.fillText(Math.floor(troops), px, py + 1);
+                    }
+                }
+
+                function drawFactionBorders() {
+                    for (const hex of hexes) {
+                        const verts = hexVertices(
+                            hex.px,
+                            hex.py,
+                            hexSize * 0.95,
+                        );
+                        for (const nb of hex.neighbors) {
+                            if (hex.owner !== nb.owner) {
+                                const midX = (hex.px + nb.px) / 2,
+                                    midY = (hex.py + nb.py) / 2;
+                                const sorted = [...verts].sort(
+                                    (a, b) =>
+                                        (a.x - midX) ** 2 +
+                                        (a.y - midY) ** 2 -
+                                        ((b.x - midX) ** 2 + (b.y - midY) ** 2),
+                                );
+                                ctx.strokeStyle = FACTIONS[hex.owner].color;
+                                ctx.lineWidth = 4;
+                                ctx.globalAlpha = 0.3;
+                                ctx.beginPath();
+                                ctx.moveTo(sorted[0].x, sorted[0].y);
+                                ctx.lineTo(sorted[1].x, sorted[1].y);
+                                ctx.stroke();
+                                ctx.globalAlpha = 1;
+                                ctx.strokeStyle = "#1a1a2e";
+                                ctx.lineWidth = 2.5;
+                                ctx.beginPath();
+                                ctx.moveTo(sorted[0].x, sorted[0].y);
+                                ctx.lineTo(sorted[1].x, sorted[1].y);
+                                ctx.stroke();
+                            }
+                        }
+                    }
+                }
+
+                function drawDragPreview() {
+                    if (!drag.active || !drag.from || !drag.path) return;
+
+                    // Draw path line
+                    ctx.beginPath();
+                    ctx.moveTo(drag.path[0].px, drag.path[0].py);
+                    for (let i = 1; i < drag.path.length; i++) {
+                        ctx.lineTo(drag.path[i].px, drag.path[i].py);
+                    }
+                    let lineColor = "rgba(255,255,255,0.25)";
+                    if (drag.target) {
+                        if (drag.target.owner === "player")
+                            lineColor = "rgba(0,212,170,0.7)";
+                        else if (drag.target.owner === "neutral")
+                            lineColor = "rgba(255,200,50,0.7)";
+                        else lineColor = "rgba(255,71,87,0.8)";
+                    }
+                    ctx.strokeStyle = lineColor;
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([6, 4]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    // Draw hop nodes
+                    for (let i = 1; i < drag.path.length - 1; i++) {
+                        ctx.beginPath();
+                        ctx.arc(
+                            drag.path[i].px,
+                            drag.path[i].py,
+                            hexSize * 0.15,
+                            0,
+                            Math.PI * 2,
+                        );
+                        ctx.fillStyle = "rgba(255,255,255,0.15)";
+                        ctx.fill();
+                        ctx.strokeStyle = lineColor;
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+
+                    // Target highlight
+                    if (drag.target) {
+                        const verts = hexVertices(
+                            drag.target.px,
+                            drag.target.py,
+                            hexSize * 1.02,
+                        );
+                        ctx.beginPath();
+                        verts.forEach((v, i) =>
+                            i === 0
+                                ? ctx.moveTo(v.x, v.y)
+                                : ctx.lineTo(v.x, v.y),
+                        );
+                        ctx.closePath();
+                        ctx.strokeStyle = lineColor;
+                        ctx.lineWidth = 3;
+                        ctx.globalAlpha = 0.6 + Math.sin(animTime * 6) * 0.3;
+                        ctx.stroke();
+                        ctx.globalAlpha = 1;
+                    }
+
+                    // Percentage & Count Preview
+                    if (drag.dist > CFG.dragDeadZone) {
+                        const sendCount = Math.max(
+                            1,
+                            Math.floor(drag.from.troops * drag.percent),
+                        );
+                        const last = drag.path[drag.path.length - 1];
+                        const prev = drag.path[drag.path.length - 2];
+                        const midX = (last.px + prev.px) / 2;
+                        const midY = (last.py + prev.py) / 2;
+                        ctx.fillStyle = "rgba(0,0,0,0.7)";
+                        ctx.beginPath();
+                        ctx.arc(
+                            midX,
+                            midY - 10,
+                            hexSize * 0.28,
+                            0,
+                            Math.PI * 2,
+                        );
+                        ctx.fill();
+                        ctx.fillStyle = "#fff";
+                        ctx.font = `bold ${hexSize * 0.24}px system-ui, sans-serif`;
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "middle";
+                        ctx.fillText(
+                            `${Math.floor(drag.percent * 100)}%`,
+                            midX,
+                            midY - 14,
+                        );
+                        ctx.font = `${hexSize * 0.18}px system-ui, sans-serif`;
+                        ctx.fillText(`→ ${sendCount}`, midX, midY + 4);
+                    }
+                }
+
+                function drawHoverHighlight() {
+                    if (!hoveredHex || drag.active) return;
+                    const verts = hexVertices(
+                        hoveredHex.px,
+                        hoveredHex.py,
+                        hexSize * 0.97,
+                    );
+                    ctx.beginPath();
+                    verts.forEach((v, i) =>
+                        i === 0 ? ctx.moveTo(v.x, v.y) : ctx.lineTo(v.x, v.y),
+                    );
+                    ctx.closePath();
+                    ctx.fillStyle = "rgba(255,255,255,0.06)";
+                    ctx.fill();
+                }
+
+                function drawMovingGroups() {
+                    for (const g of movingGroups) {
+                        const t = Math.min(g.progress, 1);
+                        const arc = -hexSize * 0.3;
+                        const x = g.from.px + (g.to.px - g.from.px) * t;
+                        const y =
+                            g.from.py +
+                            (g.to.py - g.from.py) * t +
+                            arc * Math.sin(t * Math.PI);
+                        const fac = FACTIONS[g.owner];
+                        for (let i = 3; i >= 1; i--) {
+                            const tt = Math.max(0, t - i * 0.06);
+                            const tx = g.from.px + (g.to.px - g.from.px) * tt;
+                            const ty =
+                                g.from.py +
+                                (g.to.py - g.from.py) * tt +
+                                arc * Math.sin(tt * Math.PI);
+                            ctx.beginPath();
+                            ctx.arc(
+                                tx,
+                                ty,
+                                (hexSize * 0.06 * (4 - i)) / 3,
+                                0,
+                                Math.PI * 2,
+                            );
+                            ctx.fillStyle = fac.color;
+                            ctx.globalAlpha = (0.2 * (4 - i)) / 3;
+                            ctx.fill();
+                            ctx.globalAlpha = 1;
+                        }
+                        ctx.beginPath();
+                        ctx.arc(x, y, hexSize * 0.1, 0, Math.PI * 2);
+                        ctx.fillStyle = fac.light;
+                        ctx.fill();
+                        ctx.strokeStyle = "rgba(0,0,0,0.4)";
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                        ctx.fillStyle = "#ffffff";
+                        ctx.font = `bold ${hexSize * 0.22}px system-ui, sans-serif`;
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "bottom";
+                        ctx.fillText(g.count, x, y - hexSize * 0.1);
+                    }
+                }
+
+                function drawParticles() {
+                    for (const p of particles) {
+                        const a = p.life / p.maxLife;
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.size * a, 0, Math.PI * 2);
+                        ctx.fillStyle = p.color;
+                        ctx.globalAlpha = a * 0.8;
+                        ctx.fill();
+                        ctx.globalAlpha = 1;
+                    }
+                }
+                function drawFloatingTexts() {
+                    for (const ft of floatingTexts) {
+                        const a = ft.life / ft.maxLife;
+                        ctx.fillStyle = ft.color;
+                        ctx.globalAlpha = a;
+                        ctx.font = `bold ${hexSize * 0.3}px system-ui, sans-serif`;
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "middle";
+                        ctx.fillText(ft.text, ft.x, ft.y);
+                        ctx.globalAlpha = 1;
+                    }
+                }
+                function drawAmbientParticles() {
+                    ctx.fillStyle = "rgba(255,200,100,0.15)";
+                    for (let i = 0; i < 12; i++) {
+                        const x =
+                            (Math.sin(animTime * 0.3 + i * 2.1) * 0.5 + 0.5) *
+                            window.innerWidth;
+                        const y =
+                            (Math.cos(animTime * 0.2 + i * 1.7) * 0.5 + 0.5) *
+                            window.innerHeight;
+                        ctx.beginPath();
+                        ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+
+                function render() {
+                    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+                    drawBackground();
+                    drawAmbientParticles();
+                    for (const h of hexes) drawHex(h);
+                    drawFactionBorders();
+                    drawHoverHighlight();
+                    drawDragPreview();
+                    drawMovingGroups();
+                    drawParticles();
+                    drawFloatingTexts();
+                }
+
+                // ===== GAME LOGIC =====
+                function generateTroops() {
+                    for (const h of hexes) {
+                        if (h.owner !== "neutral") h.troops += 1;
+                        else if (Math.random() < 0.3) h.troops += 1;
+                    }
+                }
+                function triggerWave() {
+                    waveCount++;
+                    const bonus = CFG.waveBaseBonus + Math.floor(waveCount / 3);
+                    for (const h of hexes) {
+                        if (h.owner !== "neutral") {
+                            h.troops += bonus;
+                            h.captureFlash = 1;
+                        }
+                    }
+                    document.getElementById("annWaveNum").textContent =
+                        waveCount;
+                    const ann = document.getElementById("waveAnnounce");
+                    ann.classList.add("show");
+                    setTimeout(() => ann.classList.remove("show"), 2000);
+                    document.getElementById("waveNum").textContent = waveCount;
+                }
+
+                function resolveCombat(atkCount, defCount) {
+                    let atk = atkCount,
+                        def = defCount;
+                    while (atk > 0 && def > 0) {
+                        const aDice = Math.min(3, atk),
+                            dDice = Math.min(2, def);
+                        const aR = Array.from(
+                            { length: aDice },
+                            () => Math.floor(Math.random() * 6) + 1,
+                        ).sort((x, y) => y - x);
+                        const dR = Array.from(
+                            { length: dDice },
+                            () => Math.floor(Math.random() * 6) + 1,
+                        ).sort((x, y) => y - x);
+                        for (
+                            let i = 0;
+                            i < Math.min(aR.length, dR.length);
+                            i++
+                        ) {
+                            if (aR[i] > dR[i]) def--;
+                            else atk--;
+                        }
+                    }
+                    return { atkRemain: atk, defRemain: def, atkWon: atk > 0 };
+                }
+
+                function handleArrival(group) {
+                    const { finalTarget, count, owner } = group;
+                    if (finalTarget.owner === owner) {
+                        finalTarget.troops += count;
+                        spawnParticles(
+                            finalTarget.px,
+                            finalTarget.py,
+                            FACTIONS[owner].light,
+                            4,
+                        );
+                    } else {
+                        const res = resolveCombat(count, finalTarget.troops);
+                        const prev = finalTarget.owner;
+                        if (res.atkWon) {
+                            finalTarget.owner = owner;
+                            finalTarget.troops = res.atkRemain;
+                            finalTarget.captureFlash = 1;
+                            spawnParticles(
+                                finalTarget.px,
+                                finalTarget.py,
+                                FACTIONS[owner].light,
+                                15,
+                            );
+                            addFloatingText(
+                                finalTarget.px,
+                                finalTarget.py - hexSize * 0.4,
+                                "CAPTURED!",
+                                FACTIONS[owner].light,
+                            );
+                            if (prev !== "neutral")
+                                spawnParticles(
+                                    finalTarget.px,
+                                    finalTarget.py,
+                                    FACTIONS[prev].color,
+                                    10,
+                                );
+                            if (owner === "player") conquered++;
+                        } else {
+                            finalTarget.troops = res.defRemain;
+                            spawnParticles(
+                                finalTarget.px,
+                                finalTarget.py,
+                                "#ff8844",
+                                8,
+                            );
+                            addFloatingText(
+                                finalTarget.px,
+                                finalTarget.py - hexSize * 0.4,
+                                "HELD!",
+                                FACTIONS[finalTarget.owner].light,
+                            );
+                            if (prev === "player") kills += count;
+                        }
+                    }
+                }
+
+                function spawnParticles(x, y, color, count) {
+                    for (
+                        let i = 0;
+                        i < count && particles.length < CFG.maxParticles;
+                        i++
+                    ) {
+                        const a = Math.random() * Math.PI * 2,
+                            sp = 20 + Math.random() * 60;
+                        particles.push({
+                            x,
+                            y,
+                            vx: Math.cos(a) * sp,
+                            vy: Math.sin(a) * sp,
+                            color,
+                            size: 2 + Math.random() * 3,
+                            life: 0.5 + Math.random() * 0.8,
+                            maxLife: 0.5 + Math.random() * 0.8,
+                        });
+                    }
+                }
+                function addFloatingText(x, y, text, color) {
+                    if (floatingTexts.length >= CFG.maxFloats)
+                        floatingTexts.shift();
+                    floatingTexts.push({
+                        x,
+                        y,
+                        text,
+                        color,
+                        vy: -30,
+                        life: 1.2,
+                        maxLife: 1.2,
+                    });
+                }
+
+                function checkGameState() {
+                    const alive = {};
+                    for (const h of hexes)
+                        if (h.owner !== "neutral")
+                            alive[h.owner] = (alive[h.owner] || 0) + 1;
+                    if (!alive.player && !gameOverState) {
+                        endGame(false);
+                        return;
+                    }
+                    const factions = Object.keys(alive).filter(
+                        (k) => k !== "neutral",
+                    ).length;
+                    if (factions === 1 && alive.player && !gameOverState)
+                        endGame(true);
+                }
+
+                function endGame(victory) {
+                    gameOverState = true;
+                    gameRunning = false;
+                    document.getElementById("goTitle").textContent = victory
+                        ? "VICTORY"
+                        : "DEFEATED";
+                    document.getElementById("goTitle").style.color = victory
+                        ? "#00d4aa"
+                        : "#ff4757";
+                    document.getElementById("goSub").textContent = victory
+                        ? "The continent is yours"
+                        : "Your empire has fallen";
+                    document.getElementById("goTerrs").textContent =
+                        hexes.filter((h) => h.owner === "player").length;
+                    document.getElementById("goKills").textContent = kills;
+                    document.getElementById("goWaves").textContent = waveCount;
+                    document.getElementById("gameOver").classList.add("show");
+                }
+
+                // ===== AI =====
+                function aiAction(faction) {
+                    const my = hexes.filter((h) => h.owner === faction);
+                    if (!my.length) return;
+                    const candidates = my.filter((h) => h.troops > 3);
+                    if (!candidates.length) return;
+                    const weighted = [];
+                    for (const h of candidates) {
+                        const w = Math.min(h.troops, 15);
+                        for (let i = 0; i < w; i++) weighted.push(h);
+                    }
+                    const src =
+                        weighted[Math.floor(Math.random() * weighted.length)];
+                    const attackChance = Math.min(0.85, 0.5 + waveCount * 0.03);
+                    const isAttack = Math.random() < attackChance;
+
+                    if (isAttack) {
+                        const enemies = src.neighbors.filter(
+                            (n) => n.owner !== faction,
+                        );
+                        if (!enemies.length) return;
+                        enemies.sort((a, b) => a.troops - b.troops);
+                        const tgt =
+                            enemies[
+                                Math.floor(
+                                    Math.random() * Math.min(3, enemies.length),
+                                )
+                            ];
+                        const send = src.troops - 1;
+                        if (send > 0) {
+                            src.troops -= send;
+                            movingGroups.push({
+                                path: [src, tgt],
+                                pathIndex: 0,
+                                from: src,
+                                to: tgt,
+                                finalTarget: tgt,
+                                count: send,
+                                owner: faction,
+                                progress: 0,
+                            });
+                        }
+                    } else {
+                        const friendly = src.neighbors.filter(
+                            (n) => n.owner === faction && n.troops < src.troops,
+                        );
+                        if (!friendly.length) return;
+                        friendly.sort((a, b) => a.troops - b.troops);
+                        const tgt = friendly[0];
+                        const send = Math.max(1, Math.floor(src.troops * 0.5));
+                        if (src.troops - send >= 1) {
+                            src.troops -= send;
+                            movingGroups.push({
+                                path: [src, tgt],
+                                pathIndex: 0,
+                                from: src,
+                                to: tgt,
+                                finalTarget: tgt,
+                                count: send,
+                                owner: faction,
+                                progress: 0,
+                            });
+                        }
+                    }
+                }
+
+                // ===== INPUT (DRAG + PATHFINDING) =====
+                function getHexAt(px, py) {
+                    let closest = null,
+                        minD = Infinity;
+                    for (const h of hexes) {
+                        const d = (px - h.px) ** 2 + (py - h.py) ** 2;
+                        if (
+                            d < minD &&
+                            pointInHex(px, py, h.px, h.py, hexSize * 0.95)
+                        ) {
+                            minD = d;
+                            closest = h;
+                        }
+                    }
+                    return closest;
+                }
+
+                function onPointerDown(e) {
+                    if (!gameRunning || gameOverState) return;
+                    e.preventDefault();
+                    const rect = canvas.getBoundingClientRect();
+                    const px = e.clientX - rect.left,
+                        py = e.clientY - rect.top;
+                    const hex = getHexAt(px, py);
+                    if (hex && hex.owner === "player" && hex.troops > 1) {
+                        drag.active = true;
+                        drag.from = hex;
+                        drag.startX = px;
+                        drag.startY = py;
+                        drag.curX = px;
+                        drag.curY = py;
+                        drag.target = null;
+                        drag.path = null;
+                        drag.percent = 0.5;
+                        drag.dist = 0;
+                        drag.lastHovered = null;
+                        canvas.setPointerCapture(e.pointerId);
+                        updateTerrInfo();
+                    }
+                }
+
+                function onPointerMove(e) {
+                    e.preventDefault();
+                    const rect = canvas.getBoundingClientRect();
+                    const px = e.clientX - rect.left,
+                        py = e.clientY - rect.top;
+
+                    if (!drag.active) {
+                        hoveredHex = getHexAt(px, py);
+                        canvas.style.cursor =
+                            hoveredHex && hoveredHex.owner === "player"
+                                ? "grab"
+                                : "default";
+                        return;
+                    }
+
+                    drag.curX = px;
+                    drag.curY = py;
+                    const dx = drag.curX - drag.startX,
+                        dy = drag.curY - drag.startY;
+                    drag.dist = Math.sqrt(dx * dx + dy * dy);
+
+                    const maxDist = hexSize * CFG.dragMaxDist;
+                    drag.percent = Math.min(
+                        1,
+                        Math.max(0.25, drag.dist / maxDist),
+                    );
+
+                    const hovered = getHexAt(drag.curX, drag.curY);
+                    if (hovered && hovered !== drag.lastHovered) {
+                        drag.lastHovered = hovered;
+                        if (hovered !== drag.from) {
+                            const path = findPath(drag.from, hovered, "player");
+                            if (path) {
+                                drag.path = path;
+                                drag.target = hovered;
+                            } else {
+                                drag.path = null;
+                                drag.target = null;
+                            }
+                        } else {
+                            drag.path = null;
+                            drag.target = null;
+                        }
+                    }
+
+                    canvas.style.cursor = drag.path
+                        ? drag.target.owner === "player"
+                            ? "alias"
+                            : "crosshair"
+                        : "not-allowed";
+                    updateTerrInfo();
+                }
+
+                function onPointerUp(e) {
+                    e.preventDefault();
+                    if (!drag.active) return;
+                    if (
+                        drag.path &&
+                        drag.path.length > 1 &&
+                        drag.from.troops > 1
+                    ) {
+                        const count = Math.max(
+                            1,
+                            Math.floor(drag.from.troops * drag.percent),
+                        );
+                        drag.from.troops -= count;
+                        movingGroups.push({
+                            path: drag.path,
+                            pathIndex: 0,
+                            from: drag.path[0],
+                            to: drag.path[1],
+                            finalTarget: drag.path[drag.path.length - 1],
+                            count,
+                            owner: "player",
+                            progress: 0,
+                        });
+                    }
+                    drag.active = false;
+                    drag.from = null;
+                    drag.target = null;
+                    drag.path = null;
+                    drag.lastHovered = null;
+                    canvas.style.cursor = "default";
+                    updateTerrInfo();
+                }
+
+                canvas.addEventListener("pointerdown", onPointerDown);
+                canvas.addEventListener("pointermove", onPointerMove);
+                canvas.addEventListener("pointerup", onPointerUp);
+                canvas.addEventListener("pointercancel", onPointerUp);
+                canvas.style.touchAction = "none";
+
+                function updateTerrInfo() {
+                    const el = document.getElementById("terrInfo");
+                    if (drag.active && drag.from) {
+                        const fac = FACTIONS[drag.from.owner];
+                        const pct = Math.floor(drag.percent * 100);
+                        const send = Math.max(
+                            1,
+                            Math.floor(drag.from.troops * drag.percent),
+                        );
+                        const hops = drag.path ? drag.path.length - 1 : 0;
+                        el.innerHTML = `<strong style="color:${fac.color}">${fac.name}</strong> · ${Math.floor(drag.from.troops)} troops · ${hops} hop${hops !== 1 ? "s" : ""} · ${pct}% (${send})`;
+                    } else {
+                        el.innerHTML =
+                            "Drag from your territory to attack or reinforce";
+                    }
+                }
+
+                function showToast(msg) {
+                    const el = document.getElementById("toast");
+                    el.textContent = msg;
+                    el.classList.add("show");
+                    setTimeout(() => el.classList.remove("show"), 1500);
+                }
+
+                function updateScoresUI() {
+                    const el = document.getElementById("scores");
+                    let html = "";
+                    for (const f of ["player", "red", "gold"]) {
+                        const count = hexes.filter((h) => h.owner === f).length;
+                        const troops = Math.floor(
+                            hexes
+                                .filter((h) => h.owner === f)
+                                .reduce((s, h) => s + h.troops, 0),
+                        );
+                        html += `<div class="score-item"><div class="score-dot" style="background:${FACTIONS[f].color}"></div><span class="score-pts" style="color:${FACTIONS[f].color}">${count} <small style="font-size:10px;color:var(--muted)">(${troops})</small></span></div>`;
+                    }
+                    el.innerHTML = html;
+                }
+
+                // ===== UI BUTTONS =====
+                document
+                    .getElementById("startBtn")
+                    .addEventListener("click", startGame);
+                document
+                    .getElementById("restartBtn")
+                    .addEventListener("click", restartGame);
+                document
+                    .getElementById("helpBtn")
+                    .addEventListener("click", () =>
+                        document
+                            .getElementById("helpModal")
+                            .classList.add("show"),
+                    );
+                document
+                    .getElementById("closeHelp")
+                    .addEventListener("click", () =>
+                        document
+                            .getElementById("helpModal")
+                            .classList.remove("show"),
+                    );
+
+                // ===== GAME LOOP =====
+                function startGame() {
+                    document.getElementById("startScreen").style.display =
+                        "none";
+                    generateMap();
+                    resizeCanvas();
+                    waveTimer = 0;
+                    waveCount = 1;
+                    troopTimer = 0;
+                    aiTimer = 0;
+                    kills = 0;
+                    conquered = 0;
+                    gameRunning = true;
+                    gameOverState = false;
+                    movingGroups = [];
+                    particles = [];
+                    floatingTexts = [];
+                    drag.active = false;
+                    drag.from = null;
+                    drag.target = null;
+                    drag.path = null;
+                    updateScoresUI();
+                    requestAnimationFrame(gameLoop);
+                }
+                function restartGame() {
+                    document
+                        .getElementById("gameOver")
+                        .classList.remove("show");
+                    startGame();
+                }
+
+                function update(dt) {
+                    animTime += dt;
+                    waveTimer += dt;
+                    document.getElementById("waveBar").style.width =
+                        Math.min((waveTimer / CFG.waveInterval) * 100, 100) +
+                        "%";
+                    if (waveTimer >= CFG.waveInterval) {
+                        waveTimer = 0;
+                        triggerWave();
+                    }
+                    troopTimer += dt;
+                    if (troopTimer >= CFG.troopGenInterval) {
+                        troopTimer = 0;
+                        generateTroops();
+                    }
+                    aiTimer += dt;
+                    if (aiTimer >= CFG.aiInterval) {
+                        aiTimer = 0;
+                        aiAction("red");
+                        aiAction("gold");
+                    }
+
+                    // Moving groups with path hopping
+                    for (let i = movingGroups.length - 1; i >= 0; i--) {
+                        const g = movingGroups[i];
+                        g.progress += dt * CFG.moveSpeed;
+                        if (g.progress >= 1) {
+                            g.pathIndex++;
+                            if (g.pathIndex >= g.path.length - 1) {
+                                handleArrival(g);
+                                movingGroups.splice(i, 1);
+                            } else {
+                                g.from = g.path[g.pathIndex];
+                                g.to = g.path[g.pathIndex + 1];
+                                g.progress = 0;
+                            }
+                        }
+                    }
+
+                    for (let i = particles.length - 1; i >= 0; i--) {
+                        const p = particles[i];
+                        p.x += p.vx * dt;
+                        p.y += p.vy * dt;
+                        p.vy += 80 * dt;
+                        p.life -= dt;
+                        if (p.life <= 0) particles.splice(i, 1);
+                    }
+                    for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                        const ft = floatingTexts[i];
+                        ft.y += ft.vy * dt;
+                        ft.life -= dt;
+                        if (ft.life <= 0) floatingTexts.splice(i, 1);
+                    }
+                    for (const h of hexes) {
+                        if (h.captureFlash > 0) {
+                            h.captureFlash -= dt * 2;
+                            if (h.captureFlash < 0) h.captureFlash = 0;
+                        }
+                    }
+                    updateScoresUI();
+                    checkGameState();
+                }
+
+                function gameLoop(ts) {
+                    const dt = Math.min((ts - lastTime) / 1000, 0.1);
+                    lastTime = ts;
+                    if (gameRunning && !gameOverState) update(dt);
+                    render();
+                    requestAnimationFrame(gameLoop);
+                }
+
+                generateMap();
+                resizeCanvas();
+            });
+        </script>
+    </body>
+</html>
