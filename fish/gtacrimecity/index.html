@@ -1,0 +1,1640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Crime City - Top Down GTA</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #000; touch-action: none; }
+canvas { display: block; }
+#ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+#hud { position: absolute; top: 10px; left: 10px; color: #fff; font-family: 'Courier New', monospace; font-size: 14px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); }
+#hud div { margin-bottom: 4px; }
+#stars { color: #ffcc00; font-size: 20px; letter-spacing: 2px; }
+#health-bar, #armor-bar { width: 150px; height: 12px; background: rgba(0,0,0,0.6); border: 1px solid #555; border-radius: 3px; overflow: hidden; }
+#health-fill { height: 100%; background: linear-gradient(to bottom, #ff4444, #cc0000); transition: width 0.3s; }
+#armor-fill { height: 100%; background: linear-gradient(to bottom, #6699ff, #3366cc); transition: width 0.3s; }
+#money { color: #44ff44; font-size: 18px; font-weight: bold; }
+#wanted-text { color: #ff4444; font-weight: bold; }
+#minimap { position: absolute; bottom: 10px; right: 10px; width: 140px; height: 140px; border: 2px solid rgba(255,255,255,0.5); border-radius: 5px; background: rgba(0,0,0,0.7); }
+#mobile-controls { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: none; }
+#joystick-area { position: absolute; bottom: 20px; left: 20px; width: 130px; height: 130px; pointer-events: auto; }
+#joystick-base { width: 130px; height: 130px; border-radius: 50%; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3); position: relative; }
+#joystick-thumb { width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.4); position: absolute; top: 40px; left: 40px; }
+#action-buttons { position: absolute; bottom: 20px; right: 20px; pointer-events: auto; }
+.action-btn { width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.4); color: #fff; font-size: 11px; font-weight: bold; font-family: 'Courier New', monospace; display: flex; align-items: center; justify-content: center; margin: 5px; pointer-events: auto; user-select: none; }
+.action-btn:active { background: rgba(255,255,255,0.5); }
+#btn-row { display: flex; }
+#message { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-family: 'Courier New', monospace; font-size: 24px; text-shadow: 3px 3px 6px rgba(0,0,0,0.9); text-align: center; opacity: 0; transition: opacity 0.5s; pointer-events: none; }
+#start-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #1a0a2e, #16213e, #0f3460); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+#start-screen h1 { font-family: 'Courier New', monospace; color: #ff6600; font-size: 48px; text-shadow: 4px 4px 8px rgba(0,0,0,0.8); margin-bottom: 10px; }
+#start-screen h2 { font-family: 'Courier New', monospace; color: #ffcc00; font-size: 18px; margin-bottom: 30px; }
+#start-btn { padding: 15px 40px; font-size: 20px; font-family: 'Courier New', monospace; background: linear-gradient(to bottom, #ff6600, #cc4400); color: #fff; border: 2px solid #ff8833; border-radius: 8px; cursor: pointer; pointer-events: auto; }
+#start-btn:hover { background: linear-gradient(to bottom, #ff8833, #ee5500); }
+#controls-info { color: #aaa; font-family: 'Courier New', monospace; font-size: 12px; margin-top: 20px; text-align: center; line-height: 1.8; }
+#weapon-display { position: absolute; top: 10px; right: 160px; color: #fff; font-family: 'Courier New', monospace; font-size: 14px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); text-align: right; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="ui">
+  <div id="hud">
+    <div id="stars">☆☆☆☆☆</div>
+    <div id="health-bar"><div id="health-fill" style="width:100%"></div></div>
+    <div id="armor-bar"><div id="armor-fill" style="width:0%"></div></div>
+    <div id="money">$0</div>
+    <div id="wanted-text"></div>
+  </div>
+  <div id="weapon-display"></div>
+  <canvas id="minimap"></canvas>
+  <div id="message"></div>
+  <div id="mobile-controls">
+    <div id="joystick-area">
+      <div id="joystick-base">
+        <div id="joystick-thumb"></div>
+      </div>
+    </div>
+    <div id="action-buttons">
+      <div id="btn-row">
+        <div class="action-btn" id="btn-shoot">SHOOT</div>
+        <div class="action-btn" id="btn-enter">ENTER</div>
+      </div>
+      <div id="btn-row">
+        <div class="action-btn" id="btn-weapon">WEAPON</div>
+        <div class="action-btn" id="btn-sprint">SPRINT</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="start-screen">
+  <h1>🔥 CRIME CITY 🔥</h1>
+  <h2>A Top-Down Open World Game</h2>
+  <button id="start-btn">START GAME</button>
+  <div id="controls-info">
+    <b>PC:</b> WASD/Arrows = Move | Mouse = Aim | Click = Shoot<br>
+    E = Enter/Exit Vehicle | Q = Switch Weapon | Shift = Sprint<br>
+    <b>Mobile:</b> Joystick = Move | Buttons = Actions
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const minimapCanvas = document.getElementById('minimap');
+const minimapCtx = minimapCanvas.getContext('2d');
+
+// --- CONFIG ---
+const TILE = 40;
+const WORLD_W = 120;
+const WORLD_H = 120;
+const ROAD_WIDTH = 3;
+const BLOCK_SIZE = 16;
+
+// --- AUDIO ---
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playSound(freq, type, duration, vol = 0.15) {
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+  } catch(e) {}
+}
+function shootSound() { playSound(200, 'sawtooth', 0.1, 0.12); playSound(80, 'square', 0.08, 0.08); }
+function explosionSound() { playSound(60, 'sawtooth', 0.4, 0.2); playSound(40, 'square', 0.5, 0.15); }
+function hitSound() { playSound(300, 'square', 0.05, 0.1); }
+function pickupSound() { playSound(600, 'sine', 0.15, 0.1); playSound(800, 'sine', 0.15, 0.1); }
+function sirenSound() { playSound(800, 'sine', 0.3, 0.06); setTimeout(() => playSound(600, 'sine', 0.3, 0.06), 300); }
+function carEnterSound() { playSound(400, 'sine', 0.1, 0.08); playSound(500, 'sine', 0.1, 0.08); }
+function deathSound() { playSound(200, 'sawtooth', 0.5, 0.15); playSound(100, 'square', 0.8, 0.1); }
+
+// --- GAME STATE ---
+let gameStarted = false;
+let gameTime = 0;
+let dayTime = 0.3;
+let money = 0;
+let wantedLevel = 0;
+let wantedTimer = 0;
+let messageTimer = 0;
+let messageText = '';
+let lastSiren = 0;
+
+// --- INPUT ---
+const keys = {};
+let mouseX = 0, mouseY = 0, mouseDown = false;
+let joystickX = 0, joystickY = 0;
+let mobileShoot = false, mobileEnter = false, mobileSprint = false, mobileWeapon = false;
+let isMobile = false;
+
+function detectMobile() {
+  isMobile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  document.getElementById('mobile-controls').style.display = isMobile ? 'block' : 'none';
+}
+
+// --- WORLD GENERATION ---
+const world = [];
+const buildings = [];
+const roads = [];
+
+function generateWorld() {
+  for (let y = 0; y < WORLD_H; y++) {
+    world[y] = [];
+    for (let x = 0; x < WORLD_W; x++) {
+      world[y][x] = 0; // grass
+    }
+  }
+
+  // Create road grid
+  for (let by = 0; by < WORLD_H; by += BLOCK_SIZE) {
+    for (let r = 0; r < ROAD_WIDTH; r++) {
+      let ry = by + r;
+      if (ry < WORLD_H) {
+        for (let x = 0; x < WORLD_W; x++) {
+          world[ry][x] = 1; // road
+        }
+      }
+    }
+  }
+  for (let bx = 0; bx < WORLD_W; bx += BLOCK_SIZE) {
+    for (let r = 0; r < ROAD_WIDTH; r++) {
+      let rx = bx + r;
+      if (rx < WORLD_W) {
+        for (let y = 0; y < WORLD_H; y++) {
+          world[y][rx] = 1; // road
+        }
+      }
+    }
+  }
+
+  // Fill blocks with buildings
+  const buildingColors = ['#8B7355','#6B5B4F','#A08060','#7B6B5B','#5B4B3F','#9B8B7B','#B0A090','#606060','#808080','#4A4A4A','#556B2F','#8B4513','#A0522D','#CD853F','#D2691E'];
+  for (let by = ROAD_WIDTH; by < WORLD_H; by += BLOCK_SIZE) {
+    for (let bx = ROAD_WIDTH; bx < WORLD_W; bx += BLOCK_SIZE) {
+      let blockW = BLOCK_SIZE - ROAD_WIDTH;
+      let blockH = BLOCK_SIZE - ROAD_WIDTH;
+      if (bx + blockW > WORLD_W || by + blockH > WORLD_H) continue;
+
+      // Random buildings in each block
+      let numBuildings = 1 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < numBuildings; i++) {
+        let bw = 2 + Math.floor(Math.random() * (blockW - 3));
+        let bh = 2 + Math.floor(Math.random() * (blockH - 3));
+        let ox = bx + Math.floor(Math.random() * (blockW - bw));
+        let oy = by + Math.floor(Math.random() * (blockH - bh));
+
+        // Check overlap
+        let overlap = false;
+        for (let b of buildings) {
+          if (ox < b.x + b.w && ox + bw > b.x && oy < b.y + b.h && oy + bh > b.y) {
+            overlap = true; break;
+          }
+        }
+        if (overlap) continue;
+
+        let color = buildingColors[Math.floor(Math.random() * buildingColors.length)];
+        let height = 1 + Math.floor(Math.random() * 4);
+        let type = Math.random() < 0.15 ? 'special' : 'normal';
+        if (Math.random() < 0.08) type = 'park';
+
+        let bld = { x: ox, y: oy, w: bw, h: bh, color, height, type,
+          roofColor: shadeColor(color, -20),
+          doorSide: Math.floor(Math.random() * 4)
+        };
+        buildings.push(bld);
+
+        for (let yy = oy; yy < oy + bh && yy < WORLD_H; yy++) {
+          for (let xx = ox; xx < ox + bw && xx < WORLD_W; xx++) {
+            world[yy][xx] = 2; // building
+          }
+        }
+      }
+    }
+  }
+
+  // Mark road tiles more specifically
+  for (let y = 0; y < WORLD_H; y++) {
+    for (let x = 0; x < WORLD_W; x++) {
+      if (world[y][x] === 1) {
+        // Check if intersection
+        let isH = false, isV = false;
+        if (y % BLOCK_SIZE < ROAD_WIDTH) isH = true;
+        if (x % BLOCK_SIZE < ROAD_WIDTH) isV = true;
+        if (isH && isV) world[y][x] = 3; // intersection
+      }
+    }
+  }
+}
+
+function shadeColor(color, percent) {
+  let num = parseInt(color.replace('#',''), 16);
+  let r = Math.min(255, Math.max(0, (num >> 16) + percent));
+  let g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + percent));
+  let b = Math.min(255, Math.max(0, (num & 0x0000FF) + percent));
+  return '#' + (0x1000000 + r * 0x10000 + g * 0x100 + b).toString(16).slice(1);
+}
+
+// --- ENTITIES ---
+let player, entities = [], bullets = [], particles = [], pickups = [], explosions = [];
+
+function createPlayer() {
+  return {
+    x: 8 * TILE, y: 8 * TILE,
+    vx: 0, vy: 0,
+    angle: 0,
+    speed: 0,
+    health: 100,
+    armor: 0,
+    inVehicle: null,
+    weapons: [
+      { name: 'Fist', ammo: Infinity, rate: 400, damage: 10, range: 30, type: 'melee', lastFire: 0 },
+      { name: 'Pistol', ammo: 60, rate: 300, damage: 25, range: 300, type: 'bullet', lastFire: 0 },
+      { name: 'SMG', ammo: 120, rate: 80, damage: 15, range: 250, type: 'bullet', lastFire: 0 },
+      { name: 'Shotgun', ammo: 30, rate: 600, damage: 50, range: 200, type: 'spread', lastFire: 0 },
+      { name: 'Rocket', ammo: 10, rate: 1000, damage: 100, range: 500, type: 'rocket', lastFire: 0 }
+    ],
+    currentWeapon: 1,
+    sprint: false,
+    alive: true,
+    respawnTimer: 0,
+    size: 10
+  };
+}
+
+function createVehicle(x, y, type) {
+  const types = {
+    sedan: { w: 22, h: 40, color: ['#cc3333','#3366cc','#33cc33','#cccc33','#cc6633','#9933cc','#333333','#ffffff','#666666'][Math.floor(Math.random()*9)], speed: 4, hp: 100 },
+    sports: { w: 20, h: 38, color: ['#ff0000','#ff6600','#ffff00','#00ff00','#ff00ff'][Math.floor(Math.random()*5)], speed: 6, hp: 80 },
+    truck: { w: 26, h: 48, color: ['#555555','#774422','#445522','#224455'][Math.floor(Math.random()*4)], speed: 3, hp: 200 },
+    police: { w: 22, h: 42, color: '#111144', speed: 5.5, hp: 150 },
+    ambulance: { w: 24, h: 46, color: '#ffffff', speed: 4, hp: 120 },
+  };
+  let t = types[type] || types.sedan;
+  return {
+    x, y, vx: 0, vy: 0, angle: Math.random() * Math.PI * 2,
+    w: t.w, h: t.h, color: t.color, type,
+    maxSpeed: t.speed, hp: t.hp, maxHp: t.hp,
+    driver: null, isPolice: type === 'police',
+    sirenPhase: 0, damaged: false,
+    turnSpeed: 0.04
+  };
+}
+
+function createNPC(x, y, isPolice = false) {
+  return {
+    x, y, vx: 0, vy: 0, angle: Math.random() * Math.PI * 2,
+    speed: 1 + Math.random() * 0.5,
+    health: isPolice ? 80 : 40,
+    alive: true,
+    isPolice,
+    inVehicle: null,
+    ai: { state: 'wander', timer: 0, targetX: 0, targetY: 0, fleeAngle: 0 },
+    size: 8,
+    color: isPolice ? '#4444cc' : `hsl(${Math.random()*360},${40+Math.random()*30}%,${30+Math.random()*30}%)`,
+    skinColor: `hsl(${20+Math.random()*30},${50+Math.random()*30}%,${50+Math.random()*30}%)`,
+    lastShot: 0
+  };
+}
+
+function createPickup(x, y, type) {
+  const types = {
+    health: { color: '#ff4444', symbol: '+', effect: () => { player.health = Math.min(100, player.health + 25); }},
+    armor: { color: '#4488ff', symbol: 'A', effect: () => { player.armor = Math.min(100, player.armor + 25); }},
+    money: { color: '#44ff44', symbol: '$', effect: () => { money += 500; }},
+    pistol: { color: '#ffaa00', symbol: 'P', effect: () => { player.weapons[1].ammo += 30; }},
+    smg: { color: '#ff6600', symbol: 'S', effect: () => { player.weapons[2].ammo += 60; }},
+    shotgun: { color: '#ff0000', symbol: 'G', effect: () => { player.weapons[3].ammo += 15; }},
+    rocket: { color: '#ff00ff', symbol: 'R', effect: () => { player.weapons[4].ammo += 5; }},
+  };
+  let t = types[type];
+  return { x, y, type, ...t, bobPhase: Math.random() * Math.PI * 2, alive: true };
+}
+
+// --- SPAWN ---
+function spawnEntities() {
+  entities = [];
+  bullets = [];
+  particles = [];
+  pickups = [];
+  explosions = [];
+
+  player = createPlayer();
+
+  // Spawn vehicles on roads
+  for (let i = 0; i < 60; i++) {
+    let x, y, attempts = 0;
+    do {
+      x = Math.floor(Math.random() * WORLD_W);
+      y = Math.floor(Math.random() * WORLD_H);
+      attempts++;
+    } while ((world[y][x] !== 1 && world[y][x] !== 3) && attempts < 100);
+    if (attempts < 100) {
+      let types = ['sedan','sedan','sedan','sports','truck','sedan'];
+      let type = types[Math.floor(Math.random() * types.length)];
+      let v = createVehicle(x * TILE + TILE/2, y * TILE + TILE/2, type);
+      // Align with road
+      if (world[y][x] === 1) {
+        if (y % BLOCK_SIZE < ROAD_WIDTH) {
+          v.angle = Math.random() < 0.5 ? 0 : Math.PI;
+        } else {
+          v.angle = Math.random() < 0.5 ? Math.PI/2 : -Math.PI/2;
+        }
+      }
+      entities.push(v);
+    }
+  }
+
+  // Spawn police vehicles
+  for (let i = 0; i < 8; i++) {
+    let x, y, attempts = 0;
+    do {
+      x = Math.floor(Math.random() * WORLD_W);
+      y = Math.floor(Math.random() * WORLD_H);
+      attempts++;
+    } while ((world[y][x] !== 1 && world[y][x] !== 3) && attempts < 100);
+    if (attempts < 100) {
+      let v = createVehicle(x * TILE + TILE/2, y * TILE + TILE/2, 'police');
+      entities.push(v);
+    }
+  }
+
+  // Spawn NPCs
+  for (let i = 0; i < 80; i++) {
+    let x, y, attempts = 0;
+    do {
+      x = Math.floor(Math.random() * WORLD_W);
+      y = Math.floor(Math.random() * WORLD_H);
+      attempts++;
+    } while (world[y][x] === 2 && attempts < 100);
+    if (attempts < 100) {
+      entities.push(createNPC(x * TILE + TILE/2, y * TILE + TILE/2));
+    }
+  }
+
+  // Spawn police NPCs
+  for (let i = 0; i < 12; i++) {
+    let x, y, attempts = 0;
+    do {
+      x = Math.floor(Math.random() * WORLD_W);
+      y = Math.floor(Math.random() * WORLD_H);
+      attempts++;
+    } while (world[y][x] === 2 && attempts < 100);
+    if (attempts < 100) {
+      entities.push(createNPC(x * TILE + TILE/2, y * TILE + TILE/2, true));
+    }
+  }
+
+  // Spawn pickups
+  for (let i = 0; i < 40; i++) {
+    let x, y, attempts = 0;
+    do {
+      x = Math.floor(Math.random() * WORLD_W);
+      y = Math.floor(Math.random() * WORLD_H);
+      attempts++;
+    } while (world[y][x] === 2 && attempts < 100);
+    if (attempts < 100) {
+      let types = ['health','armor','money','money','pistol','smg','shotgun','rocket'];
+      pickups.push(createPickup(x * TILE + TILE/2, y * TILE + TILE/2, types[Math.floor(Math.random() * types.length)]));
+    }
+  }
+}
+
+// --- COLLISION ---
+function tileAt(px, py) {
+  let tx = Math.floor(px / TILE);
+  let ty = Math.floor(py / TILE);
+  if (tx < 0 || tx >= WORLD_W || ty < 0 || ty >= WORLD_H) return 2;
+  return world[ty][tx];
+}
+
+function isSolid(px, py, margin = 0) {
+  let tx = Math.floor(px / TILE);
+  let ty = Math.floor(py / TILE);
+  if (tx < 0 || tx >= WORLD_W || ty < 0 || ty >= WORLD_H) return true;
+  return world[ty][tx] === 2;
+}
+
+function dist(a, b) {
+  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+}
+
+function rectCollide(ax, ay, aw, ah, bx, by, bw, bh) {
+  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+}
+
+function pointInRect(px, py, rx, ry, rw, rh) {
+  return px >= rx && px <= rx + rw && py >= ry && py <= ry + rh;
+}
+
+// --- UPDATE ---
+function update(dt) {
+  if (!gameStarted || !player.alive) {
+    if (!player.alive) {
+      player.respawnTimer -= dt;
+      if (player.respawnTimer <= 0) {
+        player.alive = true;
+        player.health = 100;
+        player.armor = 0;
+        player.inVehicle = null;
+        player.x = 8 * TILE;
+        player.y = 8 * TILE;
+        wantedLevel = 0;
+        money = Math.max(0, money - 1000);
+        showMessage('WASTED! -$1000', 2000);
+      }
+    }
+    return;
+  }
+
+  gameTime += dt;
+  dayTime = (dayTime + dt * 0.00002) % 1;
+
+  // Wanted timer
+  if (wantedLevel > 0) {
+    wantedTimer -= dt;
+    if (wantedTimer <= 0) {
+      wantedLevel = Math.max(0, wantedLevel - 1);
+      wantedTimer = 15000;
+      updateStars();
+    }
+  }
+
+  // Siren sound
+  if (wantedLevel > 0 && gameTime - lastSiren > 600) {
+    sirenSound();
+    lastSiren = gameTime;
+  }
+
+  // Player input
+  let moveX = 0, moveY = 0;
+  if (keys['KeyW'] || keys['ArrowUp']) moveY = -1;
+  if (keys['KeyS'] || keys['ArrowDown']) moveY = 1;
+  if (keys['KeyA'] || keys['ArrowLeft']) moveX = -1;
+  if (keys['KeyD'] || keys['ArrowRight']) moveX = 1;
+
+  if (isMobile) {
+    moveX = joystickX;
+    moveY = joystickY;
+  }
+
+  let mag = Math.sqrt(moveX * moveX + moveY * moveY);
+  if (mag > 0) { moveX /= mag; moveY /= mag; }
+
+  player.sprint = keys['ShiftLeft'] || keys['ShiftRight'] || mobileSprint;
+  let playerSpeed = player.sprint ? 3.5 : 2.2;
+
+  // Aim angle
+  if (!isMobile) {
+    let worldMouseX = mouseX + camX;
+    let worldMouseY = mouseY + camY;
+    player.angle = Math.atan2(worldMouseY - player.y, worldMouseX - player.x);
+  } else {
+    if (mag > 0.3) {
+      player.angle = Math.atan2(moveY, moveX);
+    }
+  }
+
+  if (player.inVehicle) {
+    let v = player.inVehicle;
+    let accel = 0;
+    if (moveY < -0.3) accel = 0.15;
+    if (moveY > 0.3) accel = -0.1;
+
+    let turn = 0;
+    if (moveX < -0.3) turn = -v.turnSpeed;
+    if (moveX > 0.3) turn = v.turnSpeed;
+
+    v.speed = (v.speed || 0) + accel;
+    v.speed *= 0.97;
+    v.speed = Math.max(-v.maxSpeed * 0.4, Math.min(v.maxSpeed, v.speed));
+
+    if (Math.abs(v.speed) > 0.5) {
+      v.angle += turn * (v.speed > 0 ? 1 : -1);
+    }
+
+    let nvx = Math.cos(v.angle) * v.speed;
+    let nvy = Math.sin(v.angle) * v.speed;
+
+    let nx = v.x + nvx;
+    let ny = v.y + nvy;
+
+    // Collision with buildings
+    let hw = v.w / 2, hh = v.h / 2;
+    let blocked = false;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        let cx = nx + dx * hw * 0.7;
+        let cy = ny + dy * hh * 0.7;
+        if (isSolid(cx, cy)) {
+          blocked = true;
+          v.speed *= -0.3;
+          break;
+        }
+      }
+      if (blocked) break;
+    }
+
+    if (!blocked) {
+      v.x = nx;
+      v.y = ny;
+    }
+
+    v.vx = nvx;
+    v.vy = nvy;
+    player.x = v.x;
+    player.y = v.y;
+    player.angle = v.angle;
+
+    // Vehicle damage
+    if (Math.abs(v.speed) > 2) {
+      // Hit NPCs
+      for (let e of entities) {
+        if (e === v || !e.alive) continue;
+        if (e.inVehicle) continue;
+        if (dist(v, e) < 25) {
+          e.health -= Math.abs(v.speed) * 15;
+          if (e.health <= 0) {
+            e.alive = false;
+            spawnBlood(e.x, e.y);
+            if (e.isPolice) { addWanted(2); } else { addWanted(1); }
+            money += 50;
+          } else {
+            hitSound();
+            e.ai.state = 'flee';
+            e.ai.fleeAngle = Math.atan2(e.y - v.y, e.x - v.x);
+          }
+        }
+      }
+    }
+
+    // Enter/exit vehicle
+    if (keys['KeyE'] || mobileEnter) {
+      keys['KeyE'] = false;
+      mobileEnter = false;
+      exitVehicle();
+    }
+  } else {
+    // On foot
+    let speed = playerSpeed * (mag > 0 ? 1 : 0);
+    let nx = player.x + moveX * speed;
+    let ny = player.y + moveY * speed;
+
+    if (!isSolid(nx, ny, 5)) {
+      player.x = nx;
+      player.y = ny;
+    } else if (!isSolid(nx, player.y, 5)) {
+      player.x = nx;
+    } else if (!isSolid(player.x, ny, 5)) {
+      player.y = ny;
+    }
+
+    // Enter vehicle
+    if (keys['KeyE'] || mobileEnter) {
+      keys['KeyE'] = false;
+      mobileEnter = false;
+      let closest = null, closestDist = 50;
+      for (let e of entities) {
+        if (e.w && e.alive !== false && dist(player, e) < closestDist) {
+          closest = e;
+          closestDist = dist(player, e);
+        }
+      }
+      if (closest) {
+        enterVehicle(closest);
+      }
+    }
+
+    // Shooting
+    let weapon = player.weapons[player.currentWeapon];
+    let canShoot = gameTime - weapon.lastFire > weapon.rate;
+
+    if ((mouseDown || mobileShoot) && canShoot && weapon.ammo > 0) {
+      weapon.lastFire = gameTime;
+      if (weapon.type !== 'melee') weapon.ammo--;
+
+      if (weapon.type === 'bullet') {
+        shootSound();
+        bullets.push({
+          x: player.x + Math.cos(player.angle) * 15,
+          y: player.y + Math.sin(player.angle) * 15,
+          vx: Math.cos(player.angle) * 10,
+          vy: Math.sin(player.angle) * 10,
+          damage: weapon.damage, range: weapon.range, dist: 0,
+          owner: 'player', size: 3
+        });
+        spawnMuzzleFlash(player.x + Math.cos(player.angle) * 15, player.y + Math.sin(player.angle) * 15);
+      } else if (weapon.type === 'spread') {
+        shootSound();
+        for (let i = -2; i <= 2; i++) {
+          let a = player.angle + i * 0.12;
+          bullets.push({
+            x: player.x + Math.cos(player.angle) * 15,
+            y: player.y + Math.sin(player.angle) * 15,
+            vx: Math.cos(a) * 9,
+            vy: Math.sin(a) * 9,
+            damage: weapon.damage / 3, range: weapon.range, dist: 0,
+            owner: 'player', size: 3
+          });
+        }
+        spawnMuzzleFlash(player.x + Math.cos(player.angle) * 15, player.y + Math.sin(player.angle) * 15);
+      } else if (weapon.type === 'rocket') {
+        explosionSound();
+        bullets.push({
+          x: player.x + Math.cos(player.angle) * 15,
+          y: player.y + Math.sin(player.angle) * 15,
+          vx: Math.cos(player.angle) * 6,
+          vy: Math.sin(player.angle) * 6,
+          damage: weapon.damage, range: weapon.range, dist: 0,
+          owner: 'player', size: 5, isRocket: true
+        });
+      } else if (weapon.type === 'melee') {
+        // Melee attack
+        for (let e of entities) {
+          if (e === player || !e.alive) continue;
+          if (dist(player, e) < weapon.range) {
+            e.health -= weapon.damage;
+            hitSound();
+            if (e.health <= 0) {
+              e.alive = false;
+              spawnBlood(e.x, e.y);
+              if (e.isPolice) addWanted(2); else addWanted(1);
+              money += 50;
+            }
+          }
+        }
+      }
+
+      if (weapon.type !== 'melee') {
+        addWanted(0.3);
+      }
+    }
+
+    // Switch weapon
+    if (keys['KeyQ'] || mobileWeapon) {
+      keys['KeyQ'] = false;
+      mobileWeapon = false;
+      player.currentWeapon = (player.currentWeapon + 1) % player.weapons.length;
+    }
+  }
+
+  // Update bullets
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    let b = bullets[i];
+    b.x += b.vx;
+    b.y += b.vy;
+    b.dist += Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+
+    if (b.dist > b.range || isSolid(b.x, b.y)) {
+      if (b.isRocket) {
+        spawnExplosion(b.x, b.y);
+      }
+      bullets.splice(i, 1);
+      continue;
+    }
+
+    // Hit entities
+    let hitSomething = false;
+    for (let e of entities) {
+      if (e === player || !e.alive || e === player.inVehicle) continue;
+      let hitDist = e.w ? Math.max(e.w, e.h) / 2 : e.size;
+      if (dist(b, e) < hitDist + b.size) {
+        if (b.isRocket) {
+          spawnExplosion(b.x, b.y);
+          e.health -= b.damage;
+        } else {
+          e.health -= b.damage;
+          hitSound();
+          spawnBlood(b.x, b.y);
+        }
+        if (e.health <= 0) {
+          e.alive = false;
+          if (!b.isRocket) spawnBlood(e.x, e.y);
+          if (e.isPolice) addWanted(2); else addWanted(1);
+          money += 50;
+          if (e.inVehicle) {
+            e.inVehicle.driver = null;
+            e.inVehicle = null;
+          }
+        }
+        hitSomething = true;
+        break;
+      }
+    }
+
+    // Hit player
+    if (b.owner !== 'player' && player.alive && !player.inVehicle) {
+      if (dist(b, player) < player.size + b.size) {
+        let dmg = b.damage;
+        if (player.armor > 0) {
+          let absorbed = Math.min(player.armor, dmg * 0.6);
+          player.armor -= absorbed;
+          dmg -= absorbed;
+        }
+        player.health -= dmg;
+        hitSound();
+        spawnBlood(player.x, player.y);
+        if (player.health <= 0) {
+          player.alive = false;
+          player.respawnTimer = 3000;
+          deathSound();
+          showMessage('WASTED!', 3000);
+        }
+        hitSomething = true;
+      }
+    }
+
+    if (hitSomething) {
+      bullets.splice(i, 1);
+    }
+  }
+
+  // Update explosions
+  for (let i = explosions.length - 1; i >= 0; i--) {
+    let e = explosions[i];
+    e.timer -= dt;
+    if (e.timer <= 0) { explosions.splice(i, 1); continue; }
+    // Damage in radius
+    if (e.timer > e.maxTimer * 0.7) {
+      for (let ent of entities) {
+        if (!ent.alive) continue;
+        if (dist(e, ent) < e.radius) {
+          ent.health -= dt * 0.5;
+          if (ent.health <= 0) {
+            ent.alive = false;
+            spawnBlood(ent.x, ent.y);
+          }
+        }
+      }
+      if (player.alive && dist(e, player) < e.radius) {
+        player.health -= dt * 0.3;
+        if (player.health <= 0) {
+          player.alive = false;
+          player.respawnTimer = 3000;
+          deathSound();
+        }
+      }
+    }
+  }
+
+  // Update particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life -= dt;
+    p.vx *= 0.95;
+    p.vy *= 0.95;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  // Update pickups
+  for (let p of pickups) {
+    if (!p.alive) continue;
+    p.bobPhase += dt * 0.003;
+    if (dist(player, p) < 25) {
+      p.effect();
+      p.alive = false;
+      pickupSound();
+      showMessage(p.type.toUpperCase() + '!', 1000);
+      // Respawn later
+      setTimeout(() => {
+        p.alive = true;
+        let nx, ny, attempts = 0;
+        do {
+          nx = Math.floor(Math.random() * WORLD_W);
+          ny = Math.floor(Math.random() * WORLD_H);
+          attempts++;
+        } while (world[ny][nx] === 2 && attempts < 100);
+        p.x = nx * TILE + TILE/2;
+        p.y = ny * TILE + TILE/2;
+      }, 30000);
+    }
+  }
+
+  // AI Update
+  for (let e of entities) {
+    if (e === player || !e.alive) continue;
+
+    if (e.w) {
+      // Vehicle AI
+      if (!e.driver && !e.isPolice) {
+        // Parked or NPC driven
+        if (Math.random() < 0.001) {
+          // Start driving randomly
+          e.speed = e.speed || 0;
+          e.speed = Math.min(e.speed + 0.05, e.maxSpeed * 0.5);
+        }
+        if (e.speed) {
+          let nx = e.x + Math.cos(e.angle) * e.speed;
+          let ny = e.y + Math.sin(e.angle) * e.speed;
+          if (!isSolid(nx, ny)) {
+            e.x = nx; e.y = ny;
+          } else {
+            e.angle += Math.PI * 0.5;
+            e.speed *= 0.5;
+          }
+          e.speed *= 0.99;
+        }
+      } else if (e.isPolice && !e.driver && wantedLevel > 0) {
+        // Police chase player
+        let dx = player.x - e.x;
+        let dy = player.y - e.y;
+        let targetAngle = Math.atan2(dy, dx);
+        let angleDiff = targetAngle - e.angle;
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        e.angle += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), e.turnSpeed);
+        e.speed = Math.min((e.speed || 0) + 0.1, e.maxSpeed);
+
+        let nx = e.x + Math.cos(e.angle) * e.speed;
+        let ny = e.y + Math.sin(e.angle) * e.speed;
+        if (!isSolid(nx, ny)) {
+          e.x = nx; e.y = ny;
+        } else {
+          e.angle += Math.PI * 0.3;
+          e.speed *= 0.5;
+        }
+
+        // Police shoot at player
+        if (dist(e, player) < 200 && gameTime - (e.lastShot || 0) > 500) {
+          e.lastShot = gameTime;
+          let a = Math.atan2(player.y - e.y, player.x - e.x);
+          bullets.push({
+            x: e.x + Math.cos(a) * 20,
+            y: e.y + Math.sin(a) * 20,
+            vx: Math.cos(a) * 8,
+            vy: Math.sin(a) * 8,
+            damage: 8, range: 250, dist: 0,
+            owner: 'police', size: 3
+          });
+        }
+      }
+      e.sirenPhase += dt * 0.005;
+    } else {
+      // NPC AI
+      if (e.isPolice && wantedLevel > 0) {
+        // Police on foot chase
+        let dx = player.x - e.x;
+        let dy = player.y - e.y;
+        let d = Math.sqrt(dx*dx + dy*dy);
+        if (d < 300) {
+          e.angle = Math.atan2(dy, dx);
+          let speed = 2;
+          let nx = e.x + Math.cos(e.angle) * speed;
+          let ny = e.y + Math.sin(e.angle) * speed;
+          if (!isSolid(nx, ny)) { e.x = nx; e.y = ny; }
+
+          // Shoot
+          if (d < 200 && gameTime - (e.lastShot || 0) > 600) {
+            e.lastShot = gameTime;
+            let a = Math.atan2(player.y - e.y, player.x - e.x);
+            bullets.push({
+              x: e.x + Math.cos(a) * 12,
+              y: e.y + Math.sin(a) * 12,
+              vx: Math.cos(a) * 7,
+              vy: Math.sin(a) * 7,
+              damage: 6, range: 200, dist: 0,
+              owner: 'police', size: 3
+            });
+          }
+        }
+      } else {
+        // Wander
+        e.ai.timer -= dt;
+        if (e.ai.timer <= 0) {
+          e.ai.timer = 2000 + Math.random() * 3000;
+          e.ai.state = Math.random() < 0.3 ? 'idle' : 'wander';
+          if (e.ai.state === 'wander') {
+            e.ai.fleeAngle = Math.random() * Math.PI * 2;
+          }
+        }
+
+        // Flee from nearby gunfire
+        if (e.ai.state !== 'flee') {
+          for (let b of bullets) {
+            if (dist(b, e) < 100) {
+              e.ai.state = 'flee';
+              e.ai.fleeAngle = Math.atan2(e.y - b.y, e.x - b.x);
+              e.ai.timer = 2000;
+              break;
+            }
+          }
+        }
+
+        if (e.ai.state === 'wander' || e.ai.state === 'flee') {
+          let speed = e.ai.state === 'flee' ? e.speed * 2 : e.speed;
+          let nx = e.x + Math.cos(e.ai.fleeAngle) * speed;
+          let ny = e.y + Math.sin(e.ai.fleeAngle) * speed;
+          if (!isSolid(nx, ny)) {
+            e.x = nx; e.y = ny;
+            e.angle = e.ai.fleeAngle;
+          } else {
+            e.ai.fleeAngle += Math.PI * (0.5 + Math.random());
+          }
+        }
+      }
+    }
+  }
+
+  // Clamp player to world
+  player.x = Math.max(TILE, Math.min(WORLD_W * TILE - TILE, player.x));
+  player.y = Math.max(TILE, Math.min(WORLD_H * TILE - TILE, player.y));
+
+  // Update HUD
+  document.getElementById('health-fill').style.width = player.health + '%';
+  document.getElementById('armor-fill').style.width = player.armor + '%';
+  document.getElementById('money').textContent = '$' + money.toLocaleString();
+
+  let w = player.weapons[player.currentWeapon];
+  document.getElementById('weapon-display').innerHTML =
+    `<span style="color:#ffcc00">${w.name}</span> | ${w.ammo === Infinity ? '∞' : w.ammo}`;
+}
+
+function enterVehicle(v) {
+  if (v.driver && v.driver !== player) {
+    // Carjack
+    v.driver.inVehicle = null;
+    v.driver = null;
+    addWanted(1);
+    showMessage('CARJACKED!', 1500);
+  }
+  player.inVehicle = v;
+  v.driver = player;
+  carEnterSound();
+}
+
+function exitVehicle() {
+  let v = player.inVehicle;
+  if (!v) return;
+  player.x = v.x + Math.cos(v.angle + Math.PI/2) * 30;
+  player.y = v.y + Math.sin(v.angle + Math.PI/2) * 30;
+  if (isSolid(player.x, player.y)) {
+    player.x = v.x - Math.cos(v.angle + Math.PI/2) * 30;
+    player.y = v.y - Math.sin(v.angle + Math.PI/2) * 30;
+  }
+  v.driver = null;
+  v.speed *= 0.5;
+  player.inVehicle = null;
+}
+
+function addWanted(amount) {
+  wantedLevel = Math.min(5, wantedLevel + amount);
+  wantedTimer = 20000;
+  updateStars();
+}
+
+function updateStars() {
+  let stars = '';
+  let level = Math.floor(wantedLevel);
+  for (let i = 0; i < 5; i++) {
+    stars += i < level ? '★' : '☆';
+  }
+  document.getElementById('stars').textContent = stars;
+  document.getElementById('wanted-text').textContent = level > 0 ? 'WANTED!' : '';
+}
+
+function spawnBlood(x, y) {
+  for (let i = 0; i < 8; i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 4,
+      vy: (Math.random() - 0.5) * 4,
+      life: 500 + Math.random() * 500,
+      color: `rgb(${150+Math.random()*105},0,0)`,
+      size: 2 + Math.random() * 3
+    });
+  }
+}
+
+function spawnMuzzleFlash(x, y) {
+  for (let i = 0; i < 5; i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 3,
+      vy: (Math.random() - 0.5) * 3,
+      life: 100 + Math.random() * 100,
+      color: `rgb(255,${200+Math.random()*55},${Math.random()*100})`,
+      size: 2 + Math.random() * 2
+    });
+  }
+}
+
+function spawnExplosion(x, y) {
+  explosionSound();
+  explosions.push({ x, y, radius: 80, timer: 500, maxTimer: 500 });
+  for (let i = 0; i < 20; i++) {
+    let a = Math.random() * Math.PI * 2;
+    let s = 2 + Math.random() * 6;
+    particles.push({
+      x, y,
+      vx: Math.cos(a) * s,
+      vy: Math.sin(a) * s,
+      life: 300 + Math.random() * 500,
+      color: `rgb(255,${Math.floor(Math.random()*200)},0)`,
+      size: 3 + Math.random() * 5
+    });
+  }
+  // Damage nearby
+  for (let e of entities) {
+    if (!e.alive) continue;
+    if (dist({x, y}, e) < 80) {
+      e.health -= 60;
+      if (e.health <= 0) {
+        e.alive = false;
+        spawnBlood(e.x, e.y);
+      }
+    }
+  }
+}
+
+function showMessage(text, duration) {
+  messageText = text;
+  messageTimer = duration;
+  let el = document.getElementById('message');
+  el.textContent = text;
+  el.style.opacity = 1;
+  setTimeout(() => { el.style.opacity = 0; }, duration);
+}
+
+// --- CAMERA ---
+let camX = 0, camY = 0;
+
+function updateCamera() {
+  let targetX = player.x - canvas.width / 2;
+  let targetY = player.y - canvas.height / 2;
+  camX += (targetX - camX) * 0.1;
+  camY += (targetY - camY) * 0.1;
+  camX = Math.max(0, Math.min(WORLD_W * TILE - canvas.width, camX));
+  camY = Math.max(0, Math.min(WORLD_H * TILE - canvas.height, camY));
+}
+
+// --- RENDER ---
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(-camX, -camY);
+
+  // Calculate visible tile range
+  let startX = Math.max(0, Math.floor(camX / TILE));
+  let startY = Math.max(0, Math.floor(camY / TILE));
+  let endX = Math.min(WORLD_W, Math.ceil((camX + canvas.width) / TILE) + 1);
+  let endY = Math.min(WORLD_H, Math.ceil((camY + canvas.height) / TILE) + 1);
+
+  // Draw ground
+  let nightAlpha = getNightAlpha();
+
+  for (let y = startY; y < endY; y++) {
+    for (let x = startX; x < endX; x++) {
+      let tile = world[y][x];
+      let px = x * TILE;
+      let py = y * TILE;
+
+      if (tile === 0) {
+        // Grass
+        ctx.fillStyle = '#3a7d3a';
+        ctx.fillRect(px, py, TILE, TILE);
+        // Grass detail
+        if ((x + y) % 3 === 0) {
+          ctx.fillStyle = '#4a8d4a';
+          ctx.fillRect(px + 5, py + 5, 4, 4);
+        }
+      } else if (tile === 1) {
+        // Road
+        ctx.fillStyle = '#444444';
+        ctx.fillRect(px, py, TILE, TILE);
+        // Road lines
+        ctx.fillStyle = '#666666';
+        if (y % BLOCK_SIZE < ROAD_WIDTH) {
+          // Horizontal road
+          if (x % 4 === 0) {
+            ctx.fillStyle = '#cccc44';
+            ctx.fillRect(px + 2, py + TILE/2 - 1, TILE - 4, 2);
+          }
+        } else {
+          // Vertical road
+          if (y % 4 === 0) {
+            ctx.fillStyle = '#cccc44';
+            ctx.fillRect(px + TILE/2 - 1, py + 2, 2, TILE - 4);
+          }
+        }
+        // Sidewalk edges
+        ctx.fillStyle = '#777777';
+        if (y % BLOCK_SIZE === 0) ctx.fillRect(px, py + TILE - 3, TILE, 3);
+        if (y % BLOCK_SIZE === ROAD_WIDTH - 1) ctx.fillRect(px, py, TILE, 3);
+        if (x % BLOCK_SIZE === 0) ctx.fillRect(px + TILE - 3, py, 3, TILE);
+        if (x % BLOCK_SIZE === ROAD_WIDTH - 1) ctx.fillRect(px, py, 3, TILE);
+      } else if (tile === 3) {
+        // Intersection
+        ctx.fillStyle = '#444444';
+        ctx.fillRect(px, py, TILE, TILE);
+        // Crosswalk
+        ctx.fillStyle = '#888888';
+        if ((x + y) % 2 === 0) {
+          ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
+        }
+      }
+    }
+  }
+
+  // Draw buildings
+  for (let b of buildings) {
+    let px = b.x * TILE;
+    let py = b.y * TILE;
+    let pw = b.w * TILE;
+    let ph = b.h * TILE;
+
+    if (px + pw < camX || px > camX + canvas.width || py + ph < camY || py > camY + canvas.height) continue;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillRect(px + b.height * 4, py + b.height * 4, pw, ph);
+
+    // Building body
+    ctx.fillStyle = b.color;
+    ctx.fillRect(px, py, pw, ph);
+
+    // Roof edge
+    ctx.fillStyle = b.roofColor;
+    ctx.fillRect(px, py, pw, 4);
+    ctx.fillRect(px, py, 4, ph);
+
+    // Windows
+    ctx.fillStyle = nightAlpha > 0.3 ? '#ffee88' : '#88aacc';
+    for (let wy = 1; wy < b.h - 1; wy++) {
+      for (let wx = 1; wx < b.w - 1; wx++) {
+        if ((wx + wy) % 2 === 0) {
+          ctx.fillRect(px + wx * TILE + 8, py + wy * TILE + 8, TILE - 16, TILE - 16);
+        }
+      }
+    }
+
+    // Door
+    ctx.fillStyle = '#553322';
+    let doorX = px + Math.floor(b.w / 2) * TILE;
+    let doorY = py + ph - TILE;
+    if (b.doorSide === 0) { doorX = px + Math.floor(b.w/2)*TILE; doorY = py + ph - TILE; }
+    else if (b.doorSide === 1) { doorX = px; doorY = py + Math.floor(b.h/2)*TILE; }
+    else if (b.doorSide === 2) { doorX = px + Math.floor(b.w/2)*TILE; doorY = py; }
+    else { doorX = px + pw - TILE; doorY = py + Math.floor(b.h/2)*TILE; }
+    ctx.fillRect(doorX + 8, doorY + 4, TILE - 16, TILE - 8);
+
+    // Building outline
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px, py, pw, ph);
+  }
+
+  // Draw pickups
+  for (let p of pickups) {
+    if (!p.alive) continue;
+    if (p.x < camX - 20 || p.x > camX + canvas.width + 20 || p.y < camY - 20 || p.y > camY + canvas.height + 20) continue;
+    let bob = Math.sin(p.bobPhase) * 3;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y + bob, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px Courier New';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(p.symbol, p.x, p.y + bob);
+  }
+
+  // Draw entities (vehicles and NPCs)
+  // Sort by Y for depth
+  let sortedEntities = [...entities].filter(e => e.alive !== false).sort((a, b) => a.y - b.y);
+
+  for (let e of sortedEntities) {
+    if (e.x < camX - 60 || e.x > camX + canvas.width + 60 || e.y < camY - 60 || e.y > camY + canvas.height + 60) continue;
+
+    if (e.w) {
+      // Vehicle
+      ctx.save();
+      ctx.translate(e.x, e.y);
+      ctx.rotate(e.angle);
+
+      // Shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.fillRect(-e.w/2 + 3, -e.h/2 + 3, e.w, e.h);
+
+      // Body
+      ctx.fillStyle = e.color;
+      ctx.fillRect(-e.w/2, -e.h/2, e.w, e.h);
+
+      // Windshield
+      ctx.fillStyle = '#88bbdd';
+      ctx.fillRect(-e.w/2 + 3, -e.h/2 + 3, e.w - 6, e.h * 0.25);
+
+      // Rear window
+      ctx.fillStyle = '#6699aa';
+      ctx.fillRect(-e.w/2 + 3, e.h/2 - e.h * 0.2, e.w - 6, e.h * 0.15);
+
+      // Wheels
+      ctx.fillStyle = '#222';
+      ctx.fillRect(-e.w/2 - 2, -e.h/2 + 4, 4, 8);
+      ctx.fillRect(e.w/2 - 2, -e.h/2 + 4, 4, 8);
+      ctx.fillRect(-e.w/2 - 2, e.h/2 - 12, 4, 8);
+      ctx.fillRect(e.w/2 - 2, e.h/2 - 12, 4, 8);
+
+      // Police markings
+      if (e.isPolice) {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(-e.w/2 + 2, -e.h/2 + e.h * 0.35, e.w - 4, 4);
+        // Siren lights
+        let sirenOn = Math.sin(e.sirenPhase) > 0;
+        ctx.fillStyle = sirenOn ? '#ff0000' : '#440000';
+        ctx.fillRect(-e.w/2 + 2, -e.h/2 + e.h * 0.28, 6, 4);
+        ctx.fillStyle = sirenOn ? '#0000ff' : '#000044';
+        ctx.fillRect(e.w/2 - 8, -e.h/2 + e.h * 0.28, 6, 4);
+      }
+
+      // Headlights
+      ctx.fillStyle = '#ffffaa';
+      ctx.fillRect(-e.w/2 + 2, -e.h/2, 5, 3);
+      ctx.fillRect(e.w/2 - 7, -e.h/2, 5, 3);
+
+      // Taillights
+      ctx.fillStyle = '#ff3333';
+      ctx.fillRect(-e.w/2 + 2, e.h/2 - 3, 5, 3);
+      ctx.fillRect(e.w/2 - 7, e.h/2 - 3, 5, 3);
+
+      // Damage
+      if (e.hp < e.maxHp * 0.5) {
+        ctx.fillStyle = 'rgba(50,50,50,0.5)';
+        for (let i = 0; i < 3; i++) {
+          ctx.fillRect(-e.w/2 + Math.random() * e.w, -e.h/2 + Math.random() * e.h, 6, 6);
+        }
+      }
+
+      ctx.restore();
+
+      // Headlight beams at night
+      if (nightAlpha > 0.2) {
+        ctx.save();
+        ctx.translate(e.x, e.y);
+        ctx.rotate(e.angle);
+        ctx.fillStyle = `rgba(255,255,200,${nightAlpha * 0.15})`;
+        ctx.beginPath();
+        ctx.moveTo(-e.w/2 + 4, -e.h/2);
+        ctx.lineTo(-e.w - 10, -e.h/2 - 80);
+        ctx.lineTo(e.w + 10, -e.h/2 - 80);
+        ctx.lineTo(e.w/2 - 4, -e.h/2);
+        ctx.fill();
+        ctx.restore();
+      }
+    } else {
+      // NPC
+      ctx.save();
+      ctx.translate(e.x, e.y);
+
+      // Shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.beginPath();
+      ctx.ellipse(2, 2, e.size, e.size * 0.7, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Body
+      ctx.fillStyle = e.color;
+      ctx.beginPath();
+      ctx.arc(0, 0, e.size, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Head
+      ctx.fillStyle = e.skinColor;
+      ctx.beginPath();
+      ctx.arc(Math.cos(e.angle) * 3, Math.sin(e.angle) * 3, e.size * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Police hat
+      if (e.isPolice) {
+        ctx.fillStyle = '#222266';
+        ctx.beginPath();
+        ctx.arc(Math.cos(e.angle) * 3, Math.sin(e.angle) * 3, e.size * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = e.skinColor;
+        ctx.beginPath();
+        ctx.arc(Math.cos(e.angle) * 4, Math.sin(e.angle) * 4, e.size * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+  }
+
+  // Draw player (if not in vehicle)
+  if (player.alive && !player.inVehicle) {
+    ctx.save();
+    ctx.translate(player.x, player.y);
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(2, 2, player.size, player.size * 0.7, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body
+    ctx.fillStyle = '#2288cc';
+    ctx.beginPath();
+    ctx.arc(0, 0, player.size, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Head
+    ctx.fillStyle = '#eebb88';
+    ctx.beginPath();
+    ctx.arc(Math.cos(player.angle) * 3, Math.sin(player.angle) * 3, player.size * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Weapon indicator
+    let w = player.weapons[player.currentWeapon];
+    if (w.type !== 'melee') {
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(player.angle) * 5, Math.sin(player.angle) * 5);
+      ctx.lineTo(Math.cos(player.angle) * 16, Math.sin(player.angle) * 16);
+      ctx.stroke();
+      ctx.strokeStyle = '#888';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(player.angle) * 5, Math.sin(player.angle) * 5);
+      ctx.lineTo(Math.cos(player.angle) * 16, Math.sin(player.angle) * 16);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  // Draw bullets
+  for (let b of bullets) {
+    if (b.isRocket) {
+      ctx.fillStyle = '#ff4400';
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+      ctx.fill();
+      // Trail
+      ctx.fillStyle = 'rgba(255,100,0,0.5)';
+      ctx.beginPath();
+      ctx.arc(b.x - b.vx, b.y - b.vy, b.size * 0.7, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = b.owner === 'police' ? '#ff4444' : '#ffcc00';
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Draw explosions
+  for (let e of explosions) {
+    let progress = 1 - e.timer / e.maxTimer;
+    let radius = e.radius * (0.5 + progress * 0.5);
+    let alpha = 1 - progress;
+    ctx.fillStyle = `rgba(255,${Math.floor(150 * (1-progress))},0,${alpha * 0.5})`;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(255,255,${Math.floor(200*(1-progress))},${alpha * 0.3})`;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, radius * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Draw particles
+  for (let p of particles) {
+    ctx.globalAlpha = Math.min(1, p.life / 200);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Night overlay
+  if (nightAlpha > 0) {
+    ctx.fillStyle = `rgba(0,0,30,${nightAlpha * 0.5})`;
+    ctx.fillRect(camX, camY, canvas.width, canvas.height);
+
+    // Player light
+    let gradient = ctx.createRadialGradient(player.x, player.y, 20, player.x, player.y, 150);
+    gradient.addColorStop(0, `rgba(255,255,200,${nightAlpha * 0.3})`);
+    gradient.addColorStop(1, 'rgba(255,255,200,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(player.x - 150, player.y - 150, 300, 300);
+  }
+
+  ctx.restore();
+
+  // Crosshair (PC only)
+  if (!isMobile && !player.inVehicle && player.alive) {
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(mouseX, mouseY, 12, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(mouseX - 18, mouseY);
+    ctx.lineTo(mouseX - 8, mouseY);
+    ctx.moveTo(mouseX + 8, mouseY);
+    ctx.lineTo(mouseX + 18, mouseY);
+    ctx.moveTo(mouseX, mouseY - 18);
+    ctx.lineTo(mouseX, mouseY - 8);
+    ctx.moveTo(mouseX, mouseY + 8);
+    ctx.lineTo(mouseX, mouseY + 18);
+    ctx.stroke();
+    ctx.fillStyle = '#ff0000';
+    ctx.beginPath();
+    ctx.arc(mouseX, mouseY, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Draw minimap
+  renderMinimap();
+}
+
+function getNightAlpha() {
+  // dayTime: 0 = midnight, 0.5 = noon
+  let t = dayTime;
+  if (t < 0.25) return 0.6;
+  if (t < 0.35) return 0.6 - (t - 0.25) * 6;
+  if (t < 0.65) return 0;
+  if (t < 0.75) return (t - 0.65) * 6;
+  return 0.6;
+}
+
+function renderMinimap() {
+  let mw = minimapCanvas.width;
+  let mh = minimapCanvas.height;
+  minimapCtx.clearRect(0, 0, mw, mh);
+
+  let scale = mw / (WORLD_W * TILE);
+  let offsetX = camX * scale;
+  let offsetY = camY * scale;
+
+  minimapCtx.fillStyle = '#1a1a2e';
+  minimapCtx.fillRect(0, 0, mw, mh);
+
+  // Draw roads
+  minimapCtx.fillStyle = '#444';
+  for (let y = 0; y < WORLD_H; y += BLOCK_SIZE) {
+    minimapCtx.fillRect(0, y * TILE * scale, mw, ROAD_WIDTH * TILE * scale);
+  }
+  for (let x = 0; x < WORLD_W; x += BLOCK_SIZE) {
+    minimapCtx.fillRect(x * TILE * scale, 0, ROAD_WIDTH * TILE * scale, mh);
+  }
+
+  // Draw buildings
+  minimapCtx.fillStyle = '#666';
+  for (let b of buildings) {
+    minimapCtx.fillRect(b.x * TILE * scale, b.y * TILE * scale, b.w * TILE * scale, b.h * TILE * scale);
+  }
+
+  // Draw entities
+  for (let e of entities) {
+    if (!e.alive) continue;
+    if (e.w) {
+      minimapCtx.fillStyle = e.isPolice ? '#4444ff' : '#aaaaaa';
+      minimapCtx.fillRect(e.x * scale - 1, e.y * scale - 1, 3, 3);
+    } else {
+      if (e.isPolice) {
+        minimapCtx.fillStyle = '#6666ff';
+        minimapCtx.fillRect(e.x * scale - 1, e.y * scale - 1, 2, 2);
+      }
+    }
+  }
+
+  // Draw pickups
+  for (let p of pickups) {
+    if (!p.alive) continue;
+    minimapCtx.fillStyle = p.color;
+    minimapCtx.fillRect(p.x * scale - 1, p.y * scale - 1, 2, 2);
+  }
+
+  // Player
+  minimapCtx.fillStyle = '#00ff00';
+  minimapCtx.beginPath();
+  minimapCtx.arc(player.x * scale, player.y * scale, 3, 0, Math.PI * 2);
+  minimapCtx.fill();
+
+  // View area
+  minimapCtx.strokeStyle = 'rgba(255,255,255,0.5)';
+  minimapCtx.lineWidth = 1;
+  minimapCtx.strokeRect(offsetX, offsetY, canvas.width * scale, canvas.height * scale);
+}
+
+// --- RESIZE ---
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  minimapCanvas.width = 140;
+  minimapCanvas.height = 140;
+}
+
+// --- INPUT HANDLERS ---
+document.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  e.preventDefault();
+});
+document.addEventListener('keyup', e => {
+  keys[e.code] = false;
+});
+canvas.addEventListener('mousemove', e => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+});
+canvas.addEventListener('mousedown', e => {
+  mouseDown = true;
+  audioCtx.resume();
+});
+canvas.addEventListener('mouseup', () => { mouseDown = false; });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// Mobile controls
+let joystickActive = false;
+let joystickCenter = { x: 0, y: 0 };
+const joystickArea = document.getElementById('joystick-area');
+const joystickThumb = document.getElementById('joystick-thumb');
+
+joystickArea.addEventListener('touchstart', e => {
+  e.preventDefault();
+  joystickActive = true;
+  let rect = joystickArea.getBoundingClientRect();
+  joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+});
+
+joystickArea.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!joystickActive) return;
+  let touch = e.touches[0];
+  let dx = touch.clientX - joystickCenter.x;
+  let dy = touch.clientY - joystickCenter.y;
+  let d = Math.sqrt(dx * dx + dy * dy);
+  let maxD = 50;
+  if (d > maxD) { dx = dx / d * maxD; dy = dy / d * maxD; }
+  joystickX = dx / maxD;
+  joystickY = dy / maxD;
+  joystickThumb.style.left = (40 + dx) + 'px';
+  joystickThumb.style.top = (40 + dy) + 'px';
+});
+
+joystickArea.addEventListener('touchend', e => {
+  e.preventDefault();
+  joystickActive = false;
+  joystickX = 0;
+  joystickY = 0;
+  joystickThumb.style.left = '40px';
+  joystickThumb.style.top = '40px';
+});
+
+function setupBtn(id, setter) {
+  let btn = document.getElementById(id);
+  btn.addEventListener('touchstart', e => { e.preventDefault(); window[setter] = true; audioCtx.resume(); });
+  btn.addEventListener('touchend', e => { e.preventDefault(); window[setter] = false; });
+}
+setupBtn('btn-shoot', 'mobileShoot');
+setupBtn('btn-enter', 'mobileEnter');
+setupBtn('btn-sprint', 'mobileSprint');
+setupBtn('btn-weapon', 'mobileWeapon');
+
+// --- GAME LOOP ---
+let lastTime = 0;
+function gameLoop(timestamp) {
+  let dt = Math.min(timestamp - lastTime, 50);
+  lastTime = timestamp;
+
+  if (gameStarted) {
+    update(dt);
+    updateCamera();
+    render();
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// --- START ---
+document.getElementById('start-btn').addEventListener('click', () => {
+  document.getElementById('start-screen').style.display = 'none';
+  gameStarted = true;
+  audioCtx.resume();
+  detectMobile();
+  generateWorld();
+  spawnEntities();
+  updateStars();
+  showMessage('Welcome to Crime City!', 3000);
+});
+
+window.addEventListener('resize', resize);
+resize();
+detectMobile();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
