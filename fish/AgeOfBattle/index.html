@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ages of Battle</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a2e;
+    color: #eee;
+    font-family: 'Georgia', serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+  #wrap {
+    position: relative;
+    box-shadow: 0 0 40px rgba(0,0,0,0.8);
+    border: 2px solid #444;
+  }
+  canvas {
+    display: block;
+    background: #87CEEB;
+  }
+  #ui {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    background: linear-gradient(to bottom, rgba(30,20,10,0.85), rgba(20,10,5,0.95));
+    border-top: 2px solid #5a3a1a;
+    padding: 8px 12px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .unit-btn {
+    flex: 1;
+    background: linear-gradient(to bottom, #5a3a1a, #3a2410);
+    border: 2px solid #8a6a3a;
+    color: #f5deb3;
+    padding: 6px 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    text-align: left;
+    transition: all 0.15s;
+    position: relative;
+    min-width: 0;
+  }
+  .unit-btn:hover:not(:disabled) {
+    background: linear-gradient(to bottom, #7a5a2a, #4a3420);
+    border-color: #f5deb3;
+  }
+  .unit-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .unit-btn .name { font-weight: bold; font-size: 13px; display:block; }
+  .unit-btn .cost { font-size: 11px; color: #ffd700; }
+  .unit-btn .key {
+    position: absolute;
+    top: 3px; right: 5px;
+    background: #222;
+    color: #fff;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 10px;
+    border: 1px solid #666;
+  }
+  .cd-overlay {
+    position: absolute;
+    left: 0; bottom: 0;
+    height: 4px;
+    background: #ff6b35;
+    transition: width 0.05s linear;
+  }
+  .unit-btn.econ {
+    background: linear-gradient(to bottom, #7a5a14, #4a3808);
+    border: 2px solid #d4af37;
+    color: #fff3c0;
+  }
+  .unit-btn.econ:hover:not(:disabled) {
+    background: linear-gradient(to bottom, #9a7a24, #5a4818);
+    border-color: #ffd700;
+  }
+  #topbar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    padding: 8px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    text-shadow: 1px 1px 2px #000;
+    pointer-events: none;
+  }
+  .stat {
+    background: rgba(0,0,0,0.55);
+    padding: 5px 10px;
+    border-radius: 4px;
+    border: 1px solid #5a3a1a;
+  }
+  #evolve-btn {
+    pointer-events: auto;
+    background: linear-gradient(to bottom, #d4af37, #8b6914);
+    color: #2a1a00;
+    border: 2px solid #ffd700;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-weight: bold;
+    font-family: inherit;
+    border-radius: 4px;
+    box-shadow: 0 0 10px #ffd700;
+    animation: pulse 1.2s infinite;
+  }
+  #evolve-btn:hover { background: linear-gradient(to bottom, #ffd700, #b8860b); }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 10px #ffd700; }
+    50% { box-shadow: 0 0 20px #ffd700; }
+  }
+  #overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #ffd700;
+    font-size: 32px;
+    text-shadow: 2px 2px 4px #000;
+    z-index: 10;
+  }
+  #overlay h1 { font-size: 56px; margin-bottom: 20px; }
+  #overlay p { font-size: 16px; color: #ddd; margin: 4px 0; max-width: 600px; text-align:center; }
+  #overlay button {
+    margin-top: 24px;
+    padding: 12px 32px;
+    font-size: 18px;
+    background: linear-gradient(to bottom, #d4af37, #8b6914);
+    color: #2a1a00;
+    border: 2px solid #ffd700;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: bold;
+    border-radius: 4px;
+  }
+  .hidden { display: none !important; }
+  #turret-btn {
+    background: linear-gradient(to bottom, #4a5a7a, #2a3a5a);
+    border: 2px solid #6a7a9a;
+    color: #d0e0ff;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    min-width: 110px;
+  }
+  #turret-btn:hover:not(:disabled) { background: linear-gradient(to bottom, #5a6a8a, #3a4a6a); }
+  #turret-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="960" height="540"></canvas>
+  <div id="topbar">
+    <div class="stat" id="gold-stat">💰 0 (+0/s)</div>
+    <div class="stat" id="age-stat">Age: Stone</div>
+    <div class="stat" id="xp-stat">⭐ 0 / 100</div>
+    <div class="stat" id="enemy-stat">Enemy: Stone</div>
+    <button id="evolve-btn" class="hidden">EVOLVE ▶</button>
+  </div>
+  <div id="ui">
+    <button id="turret-btn">🏰 Turret Lv1<br><span style="color:#ffd700">Upgrade: 100g</span></button>
+  </div>
+  <div id="overlay">
+    <h1>⚔ AGES OF BATTLE ⚔</h1>
+    <p>Train units from your base (left). They march right and auto-attack enemies.</p>
+    <p>Earn 💰 gold and ⭐ XP from kills. Spend gold on units, turret upgrades, and workers.</p>
+    <p><b style="color:#ffd700">Workers</b> boost your gold income permanently — invest early for a strong economy!</p>
+    <p>Earn enough XP to evolve through 5 ages, unlocking stronger troops.</p>
+    <p><b>Destroy the enemy base to win!</b></p>
+    <p style="margin-top:14px; color:#ffd700">Hotkeys: 1/2/3 = units, 4 = worker, U = turret upgrade, E = evolve</p>
+    <button onclick="startGame()">START BATTLE</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const GROUND_Y = 430;
+
+const AGES = [
+  {
+    name: "Stone Age", color: "#8B4513", evolveXP: 120,
+    units: [
+      {name:"Clubman", hp:50,  dmg:9,  atkSpd:1.0, speed:45, range:22, cost:15,  xp:6,  cd:1.4, color:"#a0522d", size:16, ranged:false, projColor:null},
+      {name:"Slinger", hp:30,  dmg:7,  atkSpd:1.6, speed:38, range:200,cost:30,  xp:10, cd:2.2, color:"#cd853f", size:14, ranged:true,  projColor:"#8B4513"},
+      {name:"Dino",    hp:180, dmg:22, atkSpd:0.55,speed:32, range:28, cost:130, xp:28, cd:7.5, color:"#556b2f", size:30, ranged:false, projColor:null}
+    ],
+    econ: {name:"Gatherer", cost:45,  income:2,  cd:3.0, color:"#c9a25a"},
+    turret:{dmg:12, rate:1.0, range:220, color:"#6b4423"}
+  },
+  {
+    name: "Medieval", color: "#708090", evolveXP: 280,
+    units: [
+      {name:"Swordsman", hp:70,  dmg:12, atkSpd:1.1, speed:48, range:24, cost:20,  xp:8,  cd:1.3, color:"#b0b0b0", size:16, ranged:false},
+      {name:"Archer",    hp:40,  dmg:10, atkSpd:1.8, speed:40, range:240,cost:45,  xp:12, cd:2.0, color:"#2e8b57", size:14, ranged:true, projColor:"#654321"},
+      {name:"Knight",    hp:260, dmg:30, atkSpd:0.6, speed:36, range:30, cost:170, xp:35, cd:7.0, color:"#4a4a6a", size:32, ranged:false}
+    ],
+    econ: {name:"Peasant",  cost:80,  income:4,  cd:3.5, color:"#8b6f47"},
+    turret:{dmg:20, rate:1.1, range:250, color:"#5a5a7a"}
+  },
+  {
+    name: "Renaissance", color: "#b8860b", evolveXP: 550,
+    units: [
+      {name:"Pikeman",   hp:90,  dmg:16, atkSpd:1.2, speed:50, range:30, cost:30,  xp:10, cd:1.2, color:"#8b7355", size:17, ranged:false},
+      {name:"Musketeer", hp:55,  dmg:22, atkSpd:0.9, speed:42, range:280,cost:70,  xp:18, cd:2.4, color:"#4682b4", size:15, ranged:true, projColor:"#333"},
+      {name:"Cannon",    hp:340, dmg:55, atkSpd:0.35,speed:24, range:320,cost:260, xp:50, cd:9.0, color:"#3a2a1a", size:34, ranged:true, projColor:"#111", splash:30}
+    ],
+    econ: {name:"Merchant", cost:140, income:7,  cd:4.0, color:"#b8860b"},
+    turret:{dmg:32, rate:1.2, range:280, color:"#705020"}
+  },
+  {
+    name: "Modern", color: "#556b2f", evolveXP: 1000,
+    units: [
+      {name:"Rifleman",  hp:110, dmg:20, atkSpd:1.4, speed:55, range:260,cost:45,  xp:14, cd:1.1, color:"#6b8e23", size:16, ranged:true, projColor:"#ffeb3b"},
+      {name:"Sniper",    hp:65,  dmg:60, atkSpd:0.55,speed:42, range:420,cost:110, xp:28, cd:3.0, color:"#2f4f4f", size:15, ranged:true, projColor:"#ff0"},
+      {name:"Tank",      hp:600, dmg:70, atkSpd:0.45,speed:28, range:300,cost:380, xp:75, cd:10,  color:"#4a5a3a", size:38, ranged:true, projColor:"#ff4500", splash:40}
+    ],
+    econ: {name:"Miner",    cost:220, income:11, cd:4.5, color:"#7a6a3a"},
+    turret:{dmg:50, rate:1.4, range:320, color:"#3a4a2a"}
+  },
+  {
+    name: "Future", color: "#4169e1", evolveXP: Infinity,
+    units: [
+      {name:"Cyborg",    hp:160, dmg:30, atkSpd:1.6, speed:60, range:300,cost:70,  xp:20, cd:1.0, color:"#00ced1", size:17, ranged:true, projColor:"#0ff"},
+      {name:"Railgun",   hp:90,  dmg:100,atkSpd:0.5, speed:45, range:500,cost:170, xp:40, cd:3.2, color:"#9370db", size:16, ranged:true, projColor:"#f0f"},
+      {name:"Mech",      hp:1100,dmg:120,atkSpd:0.55,speed:30, range:340,cost:550, xp:110,cd:12,  color:"#c0c0d0", size:44, ranged:true, projColor:"#ff1493", splash:50}
+    ],
+    econ: {name:"Harvester",cost:320, income:16, cd:5.0, color:"#00e5ff"},
+    turret:{dmg:85, rate:1.6, range:380, color:"#4169e1"}
+  }
+];
+
+let state = null;
+
+function newState() {
+  return {
+    running: false,
+    ended: false,
+    gold: 50,
+    xp: 0,
+    ageIdx: 0,
+    goldPerSec: 0,
+    enemyGold: 50,
+    enemyXp: 0,
+    enemyAgeIdx: 0,
+    enemyGoldPerSec: 0,
+    units: [],
+    projectiles: [],
+    particles: [],
+    floatTexts: [],
+    playerBase: { x: 70, y: GROUND_Y-110, w: 80, h: 110, hp: 1000, maxHp: 1000, team: 'p', turretLv: 1, turretCd: 0 },
+    enemyBase:  { x: W-150, y: GROUND_Y-110, w: 80, h: 110, hp: 1000, maxHp: 1000, team: 'e', turretLv: 1, turretCd: 0 },
+    cooldowns: [0,0,0,0],
+    enemyCooldowns: [0,0,0,0],
+    playerWorkers: 0,
+    enemyWorkers: 0,
+    time: 0,
+    goldTick: 0,
+    enemyThink: 0,
+    enemyAgeCooldown: 0
+  };
+}
+
+function rand(a,b){ return a + Math.random()*(b-a); }
+
+function spawnParticles(x,y,color,count=10,speed=120) {
+  for(let i=0;i<count;i++){
+    state.particles.push({
+      x, y,
+      vx: rand(-1,1)*speed,
+      vy: rand(-1,0.3)*speed,
+      life: rand(0.3,0.7),
+      maxLife: 0.7,
+      color,
+      size: rand(2,5)
+    });
+  }
+}
+
+function addFloatText(x,y,text,color="#ffd700") {
+  state.floatTexts.push({x,y,text,color,life:1.0});
+}
+
+function spawnUnit(ageIdx, unitIdx, team) {
+  const age = AGES[ageIdx];
+  const def = age.units[unitIdx];
+  const base = team === 'p' ? state.playerBase : state.enemyBase;
+  const dir = team === 'p' ? 1 : -1;
+  state.units.push({
+    x: base.x + base.w/2 + dir*30,
+    y: GROUND_Y,
+    team, dir,
+    def,
+    ageIdx,
+    hp: def.hp,
+    maxHp: def.hp,
+    atkCd: 0,
+    walkPhase: Math.random()*Math.PI*2,
+    hitFlash: 0,
+    size: def.size
+  });
+}
+
+function spawnWorker(team) {
+  const ageIdx = team === 'p' ? state.ageIdx : state.enemyAgeIdx;
+  const age = AGES[ageIdx];
+  const base = team === 'p' ? state.playerBase : state.enemyBase;
+  const dir = team === 'p' ? 1 : -1;
+  state.units.push({
+    x: base.x + base.w/2 + dir*20,
+    y: GROUND_Y,
+    team, dir,
+    def: { name: age.econ.name, hp: 40, dmg: 0, atkSpd: 0, speed: 60, range: 0, cost: age.econ.cost, xp: 0, cd: age.econ.cd, color: age.econ.color, size: 14, ranged: false },
+    ageIdx,
+    hp: 40,
+    maxHp: 40,
+    atkCd: 0,
+    walkPhase: Math.random()*Math.PI*2,
+    hitFlash: 0,
+    size: 14,
+    isWorker: true,
+    workerTarget: base.x + base.w/2 + dir*80,
+    workerIncome: age.econ.income
+  });
+}
+
+function fireProjectile(from, to, dmg, color, splash=0, isTurret=false) {
+  const fx = from.x + (from.dir||0) * (from.size||10);
+  const fy = from.y - (from.size||10)*0.7;
+  state.projectiles.push({
+    x: fx, y: fy,
+    target: to,
+    speed: 500,
+    dmg, color, splash,
+    isTurret,
+    team: from.team,
+    fromX: fx, fromY: fy
+  });
+}
+
+function damageUnit(u, dmg, fromTeam) {
+  u.hp -= dmg;
+  u.hitFlash = 0.15;
+  addFloatText(u.x, u.y - u.size - 10, Math.round(dmg), fromTeam==='p'?"#ff4444":"#ff8888");
+  if (u.hp <= 0) {
+    if (fromTeam === 'p') {
+      state.gold += Math.round(u.def.cost * 0.6);
+      state.xp += u.def.xp;
+    } else {
+      state.enemyGold += Math.round(u.def.cost * 0.6);
+      state.enemyXp += u.def.xp;
+    }
+    spawnParticles(u.x, u.y - u.size/2, u.def.color, 14, 160);
+    u.dead = true;
+  }
+}
+
+function damageBase(base, dmg) {
+  base.hp -= dmg;
+  addFloatText(base.x + base.w/2, base.y, Math.round(dmg), "#ff2222");
+  spawnParticles(base.x + base.w/2, base.y + base.h/2, "#884422", 6, 100);
+  if (base.hp <= 0) {
+    base.hp = 0;
+    endGame(base.team === 'p' ? 'lose' : 'win');
+  }
+}
+
+function update(dt) {
+  if (!state.running) return;
+  state.time += dt;
+
+  state.goldTick += dt;
+  if (state.goldTick >= 1.0) {
+    state.goldTick = 0;
+    const playerBaseIncome = 3 + state.ageIdx*2 + state.goldPerSec;
+    const enemyBaseIncome = 3 + state.enemyAgeIdx*2 + state.enemyGoldPerSec;
+    state.gold += playerBaseIncome;
+    state.enemyGold += enemyBaseIncome;
+  }
+
+  for (let i=0;i<4;i++) {
+    if (state.cooldowns[i] > 0) state.cooldowns[i] -= dt;
+    if (state.enemyCooldowns[i] > 0) state.enemyCooldowns[i] -= dt;
+  }
+
+  updateTurret(state.playerBase, dt);
+  updateTurret(state.enemyBase, dt);
+
+  for (const u of state.units) {
+    if (u.dead) continue;
+    u.walkPhase += dt * 8;
+    if (u.hitFlash > 0) u.hitFlash -= dt;
+    if (u.atkCd > 0) u.atkCd -= dt;
+
+    if (u.isWorker) {
+      const dist = Math.abs(u.x - u.workerTarget);
+      if (dist > 2) {
+        u.x += u.dir * u.def.speed * dt;
+      } else {
+        if (u.team === 'p') {
+          state.goldPerSec += u.workerIncome;
+          state.playerWorkers++;
+          addFloatText(u.x, u.y - 30, "+" + u.workerIncome + " 💰/s", "#ffd700");
+        } else {
+          state.enemyGoldPerSec += u.workerIncome;
+          state.enemyWorkers++;
+          addFloatText(u.x, u.y - 30, "+" + u.workerIncome + " 💰/s", "#ff8888");
+        }
+        spawnParticles(u.x, u.y - 10, u.def.color, 12, 100);
+        spawnParticles(u.x, u.y - 10, "#ffd700", 8, 80);
+        u.dead = true;
+      }
+      continue;
+    }
+
+    // ===== FIXED TARGETING: consider both enemy units AND enemy base =====
+    const eBase = u.team === 'p' ? state.enemyBase : state.playerBase;
+    const baseCenterX = eBase.x + eBase.w/2;
+
+    let target = null, bestD = Infinity, targetIsBase = false;
+    for (const o of state.units) {
+      if (o.dead || o.team === u.team || o.isWorker) continue;
+      const d = Math.abs(o.x - u.x);
+      if (d < bestD) { bestD = d; target = o; targetIsBase = false; }
+    }
+    const baseD = Math.abs(baseCenterX - u.x);
+    if (baseD < bestD) {
+      target = eBase;
+      bestD = baseD;
+      targetIsBase = true;
+    }
+
+    if (!target) {
+      u.x += u.dir * u.def.speed * dt;
+      continue;
+    }
+
+    if (bestD <= u.def.range) {
+      if (u.atkCd <= 0) {
+        if (targetIsBase) {
+          if (u.def.ranged) {
+            fireProjectile(u, eBase, u.def.dmg, u.def.projColor, u.def.splash||0);
+          } else {
+            damageBase(eBase, u.def.dmg);
+          }
+        } else {
+          if (u.def.ranged) {
+            fireProjectile(u, target, u.def.dmg, u.def.projColor, u.def.splash||0);
+          } else {
+            damageUnit(target, u.def.dmg, u.team);
+            spawnParticles(target.x, target.y - target.size/2, "#fff", 3, 60);
+          }
+        }
+        u.atkCd = 1/u.def.atkSpd;
+      }
+    } else {
+      u.x += u.dir * u.def.speed * dt;
+    }
+  }
+
+  state.units = state.units.filter(u => !u.dead);
+
+  for (const p of state.projectiles) {
+    if (p.dead) continue;
+    let tx, ty;
+    if (p.target && !p.target.dead) {
+      if (p.target.w !== undefined) {
+        tx = p.target.x + p.target.w/2;
+        ty = p.target.y + p.target.h/2;
+      } else {
+        tx = p.target.x;
+        ty = p.target.y - (p.target.size||10)/2;
+      }
+    } else {
+      p.dead = true;
+      continue;
+    }
+    const dx = tx - p.x, dy = ty - p.y;
+    const d = Math.hypot(dx,dy);
+    const step = p.speed * dt;
+    if (d <= step) {
+      if (p.target && !p.target.dead) {
+        if (p.target.w !== undefined) {
+          damageBase(p.target, p.dmg);
+        } else {
+          damageUnit(p.target, p.dmg, p.team);
+        }
+        if (p.splash > 0) {
+          for (const u of state.units) {
+            if (u === p.target || u.dead || u.team === p.team) continue;
+            if (Math.abs(u.x - tx) < p.splash) {
+              damageUnit(u, p.dmg*0.5, p.team);
+            }
+          }
+          spawnParticles(tx, ty, "#ff8800", 20, 200);
+        }
+      }
+      p.dead = true;
+    } else {
+      p.x += dx/d * step;
+      p.y += dy/d * step;
+    }
+  }
+  state.projectiles = state.projectiles.filter(p => !p.dead);
+
+  for (const p of state.particles) {
+    p.vy += 300 * dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
+  }
+  state.particles = state.particles.filter(p => p.life > 0);
+
+  for (const f of state.floatTexts) {
+    f.y -= 30 * dt;
+    f.life -= dt;
+  }
+  state.floatTexts = state.floatTexts.filter(f => f.life > 0);
+
+  state.enemyThink += dt;
+  if (state.enemyThink >= 0.5) {
+    state.enemyThink = 0;
+    aiThink();
+  }
+  if (state.enemyAgeCooldown > 0) state.enemyAgeCooldown -= dt;
+
+  updateUI();
+}
+
+function updateTurret(base, dt) {
+  if (base.turretCd > 0) base.turretCd -= dt;
+  const age = base.team === 'p' ? AGES[state.ageIdx] : AGES[state.enemyAgeIdx];
+  const t = age.turret;
+  const turretX = base.x + base.w/2;
+  let target = null, bestD = Infinity;
+  for (const u of state.units) {
+    if (u.team === base.team || u.dead || u.isWorker) continue;
+    const d = Math.abs(u.x - turretX);
+    if (d < t.range * (0.8 + base.turretLv*0.2) && d < bestD) {
+      bestD = d; target = u;
+    }
+  }
+  if (target && base.turretCd <= 0) {
+    const dmg = t.dmg * (1 + (base.turretLv-1)*0.5);
+    const fromObj = {x: turretX, y: base.y + 10, dir: target.x > turretX ? 1 : -1, size: 20, team: base.team};
+    fireProjectile(fromObj, target, dmg, t.color, 0, true);
+    base.turretCd = 1/t.rate;
+  }
+}
+
+function aiThink() {
+  if (state.enemyAgeIdx < AGES.length-1 && state.enemyAgeCooldown <= 0) {
+    const needed = AGES[state.enemyAgeIdx].evolveXP;
+    if (state.enemyXp >= needed && state.enemyGold >= 50) {
+      if (Math.random() < 0.4) {
+        state.enemyAgeIdx++;
+        state.enemyXp -= needed;
+        state.enemyGold -= 50;
+        state.enemyAgeCooldown = 8;
+        state.enemyCooldowns = [0,0,0,0];
+        addFloatText(state.enemyBase.x + state.enemyBase.w/2, state.enemyBase.y - 20, "EVOLVED!", "#ff4444");
+        return;
+      }
+    }
+  }
+
+  const age = AGES[state.enemyAgeIdx];
+
+  if (state.enemyCooldowns[3] <= 0 && state.enemyGold >= age.econ.cost) {
+    const workerChance = state.enemyWorkers < 4 ? 0.35 : 0.10;
+    let nearThreat = 0;
+    for (const u of state.units) {
+      if (u.team === 'p' && Math.abs(u.x - state.enemyBase.x) < 300) nearThreat++;
+    }
+    if (nearThreat === 0 && Math.random() < workerChance) {
+      state.enemyGold -= age.econ.cost;
+      state.enemyCooldowns[3] = age.econ.cd;
+      spawnWorker('e');
+      return;
+    }
+  }
+
+  const choices = [];
+  for (let i=0;i<3;i++) {
+    if (state.enemyGold >= age.units[i].cost && state.enemyCooldowns[i] <= 0) {
+      choices.push(i);
+    }
+  }
+  if (choices.length === 0) return;
+
+  let pick;
+  if (choices.includes(2) && Math.random() < 0.5) pick = 2;
+  else if (choices.includes(1) && Math.random() < 0.55) pick = 1;
+  else pick = choices[Math.floor(Math.random()*choices.length)];
+
+  const def = age.units[pick];
+  state.enemyGold -= def.cost;
+  state.enemyCooldowns[pick] = def.cd;
+  spawnUnit(state.enemyAgeIdx, pick, 'e');
+}
+
+function drawSky() {
+  const g = ctx.createLinearGradient(0,0,0,GROUND_Y);
+  g.addColorStop(0, "#5ba3d9");
+  g.addColorStop(1, "#b8d8e8");
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,GROUND_Y);
+  ctx.fillStyle = "rgba(255,255,255,0.7)";
+  const t = state.time * 8;
+  for (let i=0;i<5;i++){
+    const cx = ((i*220 + t) % (W+200)) - 100;
+    const cy = 60 + (i%2)*30;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 40, 16, 0, 0, Math.PI*2);
+    ctx.ellipse(cx+25, cy+5, 30, 14, 0, 0, Math.PI*2);
+    ctx.ellipse(cx-25, cy+5, 28, 13, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawGround() {
+  ctx.fillStyle = "#6b8e23";
+  ctx.fillRect(0, GROUND_Y, W, H-GROUND_Y);
+  ctx.fillStyle = "#556b2f";
+  ctx.fillRect(0, GROUND_Y, W, 4);
+  ctx.strokeStyle = "#3a5a1a";
+  ctx.lineWidth = 1;
+  for (let i=0;i<40;i++){
+    const gx = (i*24) % W;
+    ctx.beginPath();
+    ctx.moveTo(gx, GROUND_Y);
+    ctx.lineTo(gx+2, GROUND_Y-4);
+    ctx.stroke();
+  }
+}
+
+function drawMine(base, team) {
+  const dir = team === 'p' ? 1 : -1;
+  const mx = base.x + base.w/2 + dir*80;
+  const my = GROUND_Y;
+  ctx.fillStyle = "#8b7355";
+  ctx.beginPath();
+  ctx.moveTo(mx-14, my);
+  ctx.lineTo(mx-8, my-16);
+  ctx.lineTo(mx+8, my-14);
+  ctx.lineTo(mx+14, my);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#ffd700";
+  ctx.beginPath();
+  ctx.arc(mx-4, my-8, 3, 0, Math.PI*2);
+  ctx.arc(mx+5, my-10, 2.5, 0, Math.PI*2);
+  ctx.arc(mx+1, my-4, 2, 0, Math.PI*2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,215,0,0.7)";
+  ctx.lineWidth = 1;
+  const t = state.time * 3;
+  for (let i=0;i<3;i++) {
+    const sx = mx + Math.cos(t + i*2) * 8;
+    const sy = my - 12 + Math.sin(t + i*2) * 4;
+    ctx.beginPath();
+    ctx.moveTo(sx-2, sy); ctx.lineTo(sx+2, sy);
+    ctx.moveTo(sx, sy-2); ctx.lineTo(sx, sy+2);
+    ctx.stroke();
+  }
+}
+
+function drawBase(base, age, ageIdx) {
+  const x = base.x, y = base.y, w = base.w, h = base.h;
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.fillRect(x+5, GROUND_Y-5, w, 5);
+
+  if (ageIdx === 0) {
+    ctx.fillStyle = "#6b5a3a";
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = "#8b7a5a";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x+w/2, y-30);
+    ctx.lineTo(x+w, y);
+    ctx.fill();
+    ctx.fillStyle = "#2a1a0a";
+    ctx.fillRect(x+w/2-10, y+h-40, 20, 40);
+  } else if (ageIdx === 1) {
+    ctx.fillStyle = "#707080";
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = "#606070";
+    for (let i=0;i<5;i++){
+      ctx.fillRect(x+i*(w/5), y-10, w/10, 10);
+    }
+    ctx.fillStyle = "#3a2a1a";
+    ctx.fillRect(x+w/2-8, y+h-35, 16, 35);
+    ctx.strokeStyle = "#3a2a1a";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x+w/2, y-10);
+    ctx.lineTo(x+w/2, y-35);
+    ctx.stroke();
+    ctx.fillStyle = base.team==='p'?"#c00":"#00c";
+    ctx.fillRect(x+w/2, y-35, 14, 10);
+  } else if (ageIdx === 2) {
+    ctx.fillStyle = "#8a7a5a";
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = "#6a5a3a";
+    ctx.fillRect(x, y, w, 8);
+    ctx.fillStyle = "#4a3a2a";
+    ctx.fillRect(x+w/2-10, y+h-40, 20, 40);
+    ctx.fillStyle = "#ffd700";
+    ctx.fillRect(x+10, y+20, 8, 10);
+    ctx.fillRect(x+w-18, y+20, 8, 10);
+  } else if (ageIdx === 3) {
+    ctx.fillStyle = "#556b4a";
+    ctx.fillRect(x, y+20, w, h-20);
+    ctx.fillStyle = "#3a4a2a";
+    ctx.fillRect(x-5, y+15, w+10, 10);
+    ctx.fillStyle = "#222";
+    ctx.fillRect(x+w/2-12, y+h-35, 24, 35);
+    ctx.strokeStyle = "#333";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x+w/2, y+15);
+    ctx.lineTo(x+w/2, y-10);
+    ctx.stroke();
+    ctx.fillStyle = "#f00";
+    ctx.beginPath();
+    ctx.arc(x+w/2, y-10, 3, 0, Math.PI*2);
+    ctx.fill();
+  } else {
+    ctx.fillStyle = "#2a3a6a";
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = "#4169e1";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x+w/2, y-25);
+    ctx.lineTo(x+w, y);
+    ctx.fill();
+    ctx.fillStyle = "#00ffff";
+    for (let i=0;i<3;i++){
+      ctx.fillRect(x+10+i*20, y+25, 12, 6);
+      ctx.fillRect(x+10+i*20, y+55, 12, 6);
+    }
+  }
+
+  const t = age.turret;
+  const tx = x + w/2;
+  const ty = y + 10;
+  ctx.fillStyle = t.color;
+  ctx.fillRect(tx-8, ty-5, 16, 10);
+  ctx.fillStyle = "#222";
+  const aimDir = base.team === 'p' ? 1 : -1;
+  ctx.fillRect(tx, ty-2, aimDir * (15 + base.turretLv*3), 4);
+  ctx.fillStyle = "#ffd700";
+  for (let i=0;i<Math.min(base.turretLv,5);i++){
+    ctx.beginPath();
+    ctx.arc(tx - 10 + i*5, ty+10, 1.5, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  const hpW = w;
+  ctx.fillStyle = "#222";
+  ctx.fillRect(x, y-18, hpW, 6);
+  ctx.fillStyle = base.team==='p' ? "#4caf50" : "#e53935";
+  ctx.fillRect(x, y-18, hpW * (base.hp/base.maxHp), 6);
+  ctx.strokeStyle = "#000";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, y-18, hpW, 6);
+}
+
+function drawUnit(u) {
+  const x = u.x, y = u.y;
+  const s = u.size;
+  const dir = u.dir;
+  const color = u.hitFlash > 0 ? "#fff" : u.def.color;
+
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.ellipse(x, y, s*0.5, 3, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  const legSwing = Math.sin(u.walkPhase) * 4;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x-3, y-s*0.4);
+  ctx.lineTo(x-3+legSwing, y);
+  ctx.moveTo(x+3, y-s*0.4);
+  ctx.lineTo(x+3-legSwing, y);
+  ctx.stroke();
+
+  ctx.fillStyle = color;
+  ctx.fillRect(x-s*0.3, y-s*0.9, s*0.6, s*0.55);
+
+  ctx.beginPath();
+  ctx.arc(x, y-s*1.05, s*0.22, 0, Math.PI*2);
+  ctx.fill();
+
+  if (u.isWorker) {
+    const swing = Math.sin(state.time * 6) * 0.4;
+    ctx.strokeStyle = "#654321";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x + dir*s*0.2, y-s*0.7);
+    ctx.lineTo(x + dir*s*0.8, y-s*1.2 - swing*8);
+    ctx.stroke();
+    ctx.fillStyle = "#888";
+    ctx.fillRect(x + dir*s*0.7, y-s*1.3 - swing*8, 6, 3);
+    ctx.fillStyle = "#ffd700";
+    ctx.beginPath();
+    ctx.arc(x - dir*s*0.3, y-s*0.7, 3, 0, Math.PI*2);
+    ctx.fill();
+  } else {
+    ctx.strokeStyle = "#222";
+    ctx.lineWidth = 2;
+    if (u.def.ranged) {
+      ctx.beginPath();
+      ctx.moveTo(x + dir*s*0.2, y-s*0.7);
+      ctx.lineTo(x + dir*s*0.8, y-s*0.75);
+      ctx.stroke();
+      if (u.def.name === "Archer" || u.def.name === "Slinger") {
+        ctx.strokeStyle = "#654321";
+        ctx.beginPath();
+        ctx.arc(x + dir*s*0.5, y-s*0.7, s*0.4, -Math.PI/2*dir + Math.PI/2, Math.PI/2*dir + Math.PI/2, dir<0);
+        ctx.stroke();
+      }
+    } else {
+      if (u.def.name === "Dino") {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.ellipse(x + dir*s*0.3, y-s*0.7, s*0.5, s*0.3, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.moveTo(x + dir*s*0.7, y-s*0.75);
+        ctx.lineTo(x + dir*s*0.85, y-s*0.7);
+        ctx.lineTo(x + dir*s*0.7, y-s*0.65);
+        ctx.fill();
+        ctx.fillStyle = "#f00";
+        ctx.beginPath();
+        ctx.arc(x + dir*s*0.5, y-s*0.8, 2, 0, Math.PI*2);
+        ctx.fill();
+      } else if (u.def.name === "Knight") {
+        ctx.fillStyle = "#888";
+        ctx.fillRect(x-s*0.25, y-s*1.25, s*0.5, s*0.3);
+        ctx.strokeStyle = "#ccc";
+        ctx.beginPath();
+        ctx.moveTo(x + dir*s*0.3, y-s*0.6);
+        ctx.lineTo(x + dir*s*0.9, y-s*0.9);
+        ctx.stroke();
+      } else if (u.def.name === "Tank") {
+        ctx.fillStyle = color;
+        ctx.fillRect(x-s*0.5, y-s*0.6, s, s*0.3);
+        ctx.fillRect(x-s*0.2, y-s*0.85, s*0.4, s*0.3);
+        ctx.strokeStyle = "#222";
+        ctx.beginPath();
+        ctx.moveTo(x + dir*s*0.1, y-s*0.75);
+        ctx.lineTo(x + dir*s*0.7, y-s*0.8);
+        ctx.stroke();
+        ctx.fillStyle = "#222";
+        ctx.fillRect(x-s*0.5, y-s*0.3, s, s*0.3);
+      } else if (u.def.name === "Mech") {
+        ctx.fillStyle = color;
+        ctx.fillRect(x-s*0.5, y-s*1.2, s, s*0.7);
+        ctx.fillStyle = "#ff1493";
+        ctx.fillRect(x-s*0.3, y-s*1.0, s*0.6, s*0.15);
+        ctx.strokeStyle = "#444";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(x + dir*s*0.4, y-s*0.8);
+        ctx.lineTo(x + dir*s*1.0, y-s*0.9);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(x + dir*s*0.3, y-s*0.7);
+        ctx.lineTo(x + dir*s*0.7, y-s*1.0);
+        ctx.stroke();
+      }
+    }
+  }
+
+  ctx.fillStyle = u.team === 'p' ? "#4caf50" : "#e53935";
+  ctx.beginPath();
+  ctx.arc(x, y-s*1.3, 2.5, 0, Math.PI*2);
+  ctx.fill();
+
+  if (u.hp < u.maxHp) {
+    const bw = s*1.4;
+    ctx.fillStyle = "#222";
+    ctx.fillRect(x-bw/2, y-s*1.5, bw, 3);
+    ctx.fillStyle = u.team==='p'?"#4caf50":"#e53935";
+    ctx.fillRect(x-bw/2, y-s*1.5, bw*(u.hp/u.maxHp), 3);
+  }
+}
+
+function drawProjectile(p) {
+  ctx.strokeStyle = p.color || "#000";
+  ctx.lineWidth = 2;
+  const dx = p.x - p.fromX, dy = p.y - p.fromY;
+  const len = Math.min(10, Math.hypot(dx,dy));
+  const ang = Math.atan2(dy, dx);
+  ctx.beginPath();
+  ctx.moveTo(p.x - Math.cos(ang)*len, p.y - Math.sin(ang)*len);
+  ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+  if (p.color === "#0ff" || p.color === "#f0f" || p.color === "#ff1493") {
+    ctx.strokeStyle = p.color;
+    ctx.globalAlpha = 0.3;
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(p.x - Math.cos(ang)*len, p.y - Math.sin(ang)*len);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function render() {
+  drawSky();
+  drawGround();
+
+  drawMine(state.playerBase, 'p');
+  drawMine(state.enemyBase, 'e');
+
+  drawBase(state.playerBase, AGES[state.ageIdx], state.ageIdx);
+  drawBase(state.enemyBase, AGES[state.enemyAgeIdx], state.enemyAgeIdx);
+
+  const sorted = [...state.units].sort((a,b)=>a.x-b.x);
+  for (const u of sorted) drawUnit(u);
+
+  for (const p of state.projectiles) drawProjectile(p);
+
+  for (const p of state.particles) {
+    ctx.globalAlpha = Math.max(0, p.life/p.maxLife);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x-p.size/2, p.y-p.size/2, p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+
+  for (const f of state.floatTexts) {
+    ctx.globalAlpha = Math.max(0, f.life);
+    ctx.fillStyle = f.color;
+    ctx.font = "bold 14px Georgia";
+    ctx.textAlign = "center";
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 3;
+    ctx.strokeText(f.text, f.x, f.y);
+    ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.globalAlpha = 1;
+}
+
+const ui = document.getElementById('ui');
+const turretBtn = document.getElementById('turret-btn');
+const evolveBtn = document.getElementById('evolve-btn');
+const goldStat = document.getElementById('gold-stat');
+const ageStat = document.getElementById('age-stat');
+const xpStat = document.getElementById('xp-stat');
+const enemyStat = document.getElementById('enemy-stat');
+
+let unitButtons = [];
+
+function rebuildUnitButtons() {
+  unitButtons.forEach(b => b.remove());
+  unitButtons = [];
+  const age = AGES[state.ageIdx];
+  for (let i=0;i<3;i++){
+    const def = age.units[i];
+    const btn = document.createElement('button');
+    btn.className = 'unit-btn';
+    btn.innerHTML = `<span class="name">${def.name}</span>
+      <span class="cost">💰 ${def.cost} · ❤${def.hp} · ⚔${def.dmg}</span>
+      <span class="key">${i+1}</span>
+      <div class="cd-overlay" style="width:0%"></div>`;
+    btn.onclick = () => trySpawn(i);
+    ui.appendChild(btn);
+    unitButtons.push(btn);
+  }
+  const e = age.econ;
+  const eBtn = document.createElement('button');
+  eBtn.className = 'unit-btn econ';
+  eBtn.innerHTML = `<span class="name">💰 ${e.name}</span>
+    <span class="cost">Cost ${e.cost}g · +${e.income}/s</span>
+    <span class="key">4</span>
+    <div class="cd-overlay" style="width:0%"></div>`;
+  eBtn.onclick = () => trySpawn(3);
+  ui.appendChild(eBtn);
+  unitButtons.push(eBtn);
+}
+
+function trySpawn(idx) {
+  if (!state.running) return;
+  const age = AGES[state.ageIdx];
+  if (idx === 3) {
+    const e = age.econ;
+    if (state.gold < e.cost) return;
+    if (state.cooldowns[3] > 0) return;
+    state.gold -= e.cost;
+    state.cooldowns[3] = e.cd;
+    spawnWorker('p');
+    return;
+  }
+  const def = age.units[idx];
+  if (state.gold < def.cost) return;
+  if (state.cooldowns[idx] > 0) return;
+  state.gold -= def.cost;
+  state.cooldowns[idx] = def.cd;
+  spawnUnit(state.ageIdx, idx, 'p');
+}
+
+function tryUpgradeTurret() {
+  if (!state.running) return;
+  const cost = turretUpgradeCost();
+  if (state.gold < cost) return;
+  if (state.playerBase.turretLv >= 5) return;
+  state.gold -= cost;
+  state.playerBase.turretLv++;
+}
+
+function turretUpgradeCost() {
+  return 80 + state.playerBase.turretLv * 70;
+}
+
+function tryEvolve() {
+  if (!state.running) return;
+  if (state.ageIdx >= AGES.length-1) return;
+  const needed = AGES[state.ageIdx].evolveXP;
+  if (state.xp < needed) return;
+  if (state.gold < 50) return;
+  state.xp -= needed;
+  state.gold -= 50;
+  state.ageIdx++;
+  state.cooldowns = [0,0,0,0];
+  addFloatText(state.playerBase.x + state.playerBase.w/2, state.playerBase.y - 30, "EVOLVED!", "#ffd700");
+  spawnParticles(state.playerBase.x + state.playerBase.w/2, state.playerBase.y, "#ffd700", 30, 200);
+  rebuildUnitButtons();
+}
+
+turretBtn.onclick = tryUpgradeTurret;
+evolveBtn.onclick = tryEvolve;
+
+function updateUI() {
+  const baseIncome = 3 + state.ageIdx*2;
+  const totalIncome = baseIncome + state.goldPerSec;
+  goldStat.textContent = `💰 ${Math.floor(state.gold)} (+${totalIncome}/s)`;
+  ageStat.textContent = "Age: " + AGES[state.ageIdx].name;
+  enemyStat.textContent = "Enemy: " + AGES[state.enemyAgeIdx].name;
+
+  const age = AGES[state.ageIdx];
+  if (state.ageIdx < AGES.length-1) {
+    const needed = age.evolveXP;
+    xpStat.textContent = "⭐ " + Math.floor(state.xp) + " / " + needed;
+    if (state.xp >= needed && state.gold >= 50) {
+      evolveBtn.classList.remove('hidden');
+      evolveBtn.textContent = `EVOLVE ▶ (${needed}⭐, 50💰)`;
+    } else {
+      evolveBtn.classList.add('hidden');
+    }
+  } else {
+    xpStat.textContent = "⭐ " + Math.floor(state.xp) + " (MAX AGE)";
+    evolveBtn.classList.add('hidden');
+  }
+
+  for (let i=0;i<3;i++){
+    const btn = unitButtons[i];
+    if (!btn) continue;
+    const def = age.units[i];
+    const canAfford = state.gold >= def.cost;
+    const cdOk = state.cooldowns[i] <= 0;
+    btn.disabled = !(canAfford && cdOk && state.running);
+    const cdOverlay = btn.querySelector('.cd-overlay');
+    if (state.cooldowns[i] > 0) {
+      cdOverlay.style.width = (100 * state.cooldowns[i] / def.cd) + '%';
+    } else {
+      cdOverlay.style.width = '0%';
+    }
+  }
+
+  const eBtn = unitButtons[3];
+  if (eBtn) {
+    const e = age.econ;
+    const canAfford = state.gold >= e.cost;
+    const cdOk = state.cooldowns[3] <= 0;
+    eBtn.disabled = !(canAfford && cdOk && state.running);
+    const cdOverlay = eBtn.querySelector('.cd-overlay');
+    if (state.cooldowns[3] > 0) {
+      cdOverlay.style.width = (100 * state.cooldowns[3] / e.cd) + '%';
+    } else {
+      cdOverlay.style.width = '0%';
+    }
+  }
+
+  const tCost = turretUpgradeCost();
+  if (state.playerBase.turretLv >= 5) {
+    turretBtn.innerHTML = `🏰 Turret MAX<br><span style="color:#ffd700">Lv 5</span>`;
+    turretBtn.disabled = true;
+  } else {
+    turretBtn.innerHTML = `🏰 Turret Lv${state.playerBase.turretLv}<br><span style="color:#ffd700">Upgrade: ${tCost}g</span>`;
+    turretBtn.disabled = !(state.gold >= tCost && state.running);
+  }
+}
+
+function endGame(result) {
+  if (state.ended) return;
+  state.ended = true;
+  state.running = false;
+  const overlay = document.getElementById('overlay');
+  overlay.classList.remove('hidden');
+  if (result === 'win') {
+    overlay.innerHTML = `<h1 style="color:#4caf50">🏆 VICTORY 🏆</h1>
+      <p>You conquered the enemy through ${state.ageIdx+1} age(s) of warfare!</p>
+      <p>Time: ${Math.floor(state.time)}s · Workers hired: ${state.playerWorkers}</p>
+      <button onclick="startGame()">PLAY AGAIN</button>`;
+  } else {
+    overlay.innerHTML = `<h1 style="color:#e53935">💀 DEFEAT 💀</h1>
+      <p>Your base has fallen. The enemy has triumphed.</p>
+      <p>You reached: ${AGES[state.ageIdx].name} · Workers: ${state.playerWorkers}</p>
+      <button onclick="startGame()">TRY AGAIN</button>`;
+  }
+}
+
+function startGame() {
+  state = newState();
+  state.running = true;
+  document.getElementById('overlay').classList.add('hidden');
+  rebuildUnitButtons();
+  updateUI();
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!state || !state.running) return;
+  if (e.key === '1') trySpawn(0);
+  else if (e.key === '2') trySpawn(1);
+  else if (e.key === '3') trySpawn(2);
+  else if (e.key === '4') trySpawn(3);
+  else if (e.key.toLowerCase() === 'u') tryUpgradeTurret();
+  else if (e.key.toLowerCase() === 'e') tryEvolve();
+});
+
+let lastT = performance.now();
+function loop(t) {
+  const dt = Math.min(0.05, (t - lastT)/1000);
+  lastT = t;
+  if (state) {
+    update(dt);
+    render();
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
