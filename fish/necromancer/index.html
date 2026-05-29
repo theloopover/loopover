@@ -1,0 +1,1649 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
+        <title>Right Click to Necromance - Army-Centric Necromance</title>
+        <style>
+            /* Reset & Base */
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                touch-action: none;
+                user-select: none;
+                -webkit-user-select: none;
+            }
+            html,
+            body {
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                background: #0f0f13;
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            }
+
+            /* Canvas */
+            #gameCanvas {
+                display: block;
+                width: 100%;
+                height: 100%;
+                background: #15151d;
+            }
+
+            /* UI Overlay Base */
+            .ui-layer {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                padding: 12px;
+            }
+            .ui-element {
+                pointer-events: auto;
+            }
+
+            /* Progress Bar */
+            #progressContainer {
+                position: absolute;
+                top: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 60%;
+                max-width: 500px;
+                height: 10px;
+                background: rgba(0, 0, 0, 0.6);
+                border-radius: 5px;
+                overflow: hidden;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                pointer-events: none;
+            }
+            #progressFill {
+                height: 100%;
+                width: 0%;
+                background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+                transition: width 0.2s ease-out;
+            }
+            #progressLabel {
+                position: absolute;
+                top: 24px;
+                left: 50%;
+                transform: translateX(-50%);
+                color: #ccc;
+                font-size: 11px;
+                pointer-events: none;
+                text-shadow: 0 1px 2px #000;
+            }
+
+            /* HUD */
+            #hud {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 10px;
+                margin-top: 40px;
+            }
+            .stat-box {
+                background: rgba(0, 0, 0, 0.6);
+                color: #eee;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 14px;
+                line-height: 1.4;
+                backdrop-filter: blur(4px);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+            .stat-box span {
+                color: #8ff;
+                font-weight: bold;
+            }
+            .currency-display {
+                color: #fbbf24;
+            }
+
+            /* Mobile Controls */
+            #mobileControls {
+                display: none;
+                position: absolute;
+                bottom: 20px;
+                right: 20px;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .ctrl-btn {
+                width: 64px;
+                height: 64px;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.15);
+                border: 2px solid rgba(255, 255, 255, 0.3);
+                color: #fff;
+                font-size: 12px;
+                font-weight: bold;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                backdrop-filter: blur(4px);
+                transition: background 0.2s;
+            }
+            .ctrl-btn:active {
+                background: rgba(255, 255, 255, 0.35);
+            }
+            #necroBtn {
+                background: rgba(140, 50, 255, 0.25);
+                border-color: rgba(180, 100, 255, 0.5);
+            }
+
+            /* Menus */
+            .menu-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.85);
+                display: none;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
+                gap: 16px;
+                backdrop-filter: blur(6px);
+                pointer-events: auto;
+                overflow-y: auto;
+                padding: 20px;
+            }
+            .menu-overlay.active {
+                display: flex;
+            }
+            .menu-title {
+                color: #fff;
+                font-size: 32px;
+                font-weight: bold;
+                text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+            }
+            .menu-sub {
+                color: #ccc;
+                font-size: 16px;
+                text-align: center;
+                max-width: 80%;
+                line-height: 1.5;
+            }
+            .menu-btn {
+                padding: 12px 28px;
+                font-size: 18px;
+                background: #4a6fa5;
+                color: #fff;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                transition:
+                    transform 0.1s,
+                    background 0.2s;
+            }
+            .menu-btn:hover {
+                background: #5a8bc4;
+                transform: scale(1.05);
+            }
+            .menu-btn:active {
+                transform: scale(0.95);
+            }
+            .menu-btn:disabled {
+                background: #555;
+                cursor: not-allowed;
+                transform: none;
+                opacity: 0.7;
+            }
+
+            /* Run Upgrade Menu */
+            #upgradeGrid {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 16px;
+                justify-content: center;
+                max-width: 90%;
+                margin-top: 10px;
+            }
+            .upgrade-card {
+                background: rgba(30, 30, 45, 0.9);
+                border: 2px solid rgba(139, 92, 246, 0.4);
+                border-radius: 10px;
+                padding: 16px;
+                width: 140px;
+                text-align: center;
+                cursor: pointer;
+                transition:
+                    transform 0.15s,
+                    border-color 0.2s,
+                    background 0.2s;
+            }
+            .upgrade-card:hover {
+                transform: translateY(-4px);
+                border-color: rgba(167, 139, 250, 0.8);
+                background: rgba(40, 40, 60, 0.95);
+            }
+            .upgrade-card:active {
+                transform: scale(0.96);
+            }
+            .upgrade-icon {
+                font-size: 28px;
+                margin-bottom: 8px;
+                display: block;
+            }
+            .upgrade-name {
+                color: #e9d5ff;
+                font-weight: bold;
+                font-size: 14px;
+                margin-bottom: 4px;
+            }
+            .upgrade-desc {
+                color: #a1a1aa;
+                font-size: 12px;
+                line-height: 1.3;
+            }
+
+            /* Meta Shop */
+            #metaShopGrid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+                gap: 12px;
+                width: 90%;
+                max-width: 600px;
+                margin: 10px 0;
+            }
+            .meta-card {
+                background: rgba(20, 20, 30, 0.9);
+                border: 2px solid rgba(251, 191, 36, 0.3);
+                border-radius: 8px;
+                padding: 12px;
+                text-align: center;
+                cursor: pointer;
+                transition: 0.2s;
+            }
+            .meta-card:hover {
+                border-color: rgba(251, 191, 36, 0.7);
+                background: rgba(30, 30, 45, 0.95);
+            }
+            .meta-card:active {
+                transform: scale(0.97);
+            }
+            .meta-card .cost {
+                color: #fbbf24;
+                font-weight: bold;
+                margin-top: 6px;
+                font-size: 13px;
+            }
+            .meta-card .level {
+                color: #9ca3af;
+                font-size: 11px;
+                margin-top: 2px;
+            }
+
+            /* Responsive */
+            @media (max-width: 768px) {
+                .stat-box {
+                    font-size: 12px;
+                    padding: 6px 10px;
+                }
+                #mobileControls {
+                    display: flex;
+                }
+                .menu-title {
+                    font-size: 26px;
+                }
+                .menu-sub {
+                    font-size: 14px;
+                }
+                #progressContainer {
+                    width: 80%;
+                }
+                .upgrade-card,
+                .meta-card {
+                    width: 100%;
+                }
+                #metaShopGrid {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Progress Bar -->
+        <div id="progressContainer"><div id="progressFill"></div></div>
+        <div id="progressLabel">Next Upgrade: 0 / 50</div>
+
+        <!-- HUD -->
+        <div id="hud" class="ui-layer">
+            <div class="stat-box ui-element">
+                Army: <span id="armyCount">0</span><br />
+                Score: <span id="scoreVal">0</span><br />
+                Wave: <span id="waveVal">1</span><br />
+                <span class="currency-display"
+                    >💰 <span id="currencyVal">0</span></span
+                >
+            </div>
+            <div class="stat-box ui-element" style="text-align: right">
+                Drag to move army<br />
+                Right-click / Tap to resurrect near army<br />
+                <span style="color: #aaa; font-size: 12px">ESC to Pause</span>
+            </div>
+        </div>
+
+        <!-- Mobile Controls -->
+        <div id="mobileControls" class="ui-element">
+            <button id="necroBtn" class="ctrl-btn">☠️<br />Necro</button>
+            <button id="pauseBtn" class="ctrl-btn">⏸️<br />Pause</button>
+        </div>
+
+        <!-- Pause Menu -->
+        <div id="pauseMenu" class="menu-overlay">
+            <div class="menu-title">PAUSED</div>
+            <div class="menu-sub">Take a breath. Your undead await.</div>
+            <button id="resumeBtn" class="menu-btn">Resume</button>
+        </div>
+
+        <!-- Run Upgrade Menu -->
+        <div id="upgradeMenu" class="menu-overlay">
+            <div class="menu-title" style="color: #c4b5fd">
+                CHOOSE AN UPGRADE
+            </div>
+            <div class="menu-sub">Your army grows stronger...</div>
+            <div id="upgradeGrid"></div>
+        </div>
+
+        <!-- Meta Shop / Game Over -->
+        <div id="metaShopMenu" class="menu-overlay">
+            <div class="menu-title" id="metaTitle">DEFEAT</div>
+            <div class="menu-sub" id="metaStats">Score: 0 | Wave: 1</div>
+            <div class="menu-sub" style="color: #fbbf24; margin-bottom: 5px">
+                💰 Earned: <span id="earnedCurrency">0</span> | Total:
+                <span id="totalCurrency">0</span>
+            </div>
+            <div id="metaShopGrid"></div>
+            <button
+                id="newRunBtn"
+                class="menu-btn"
+                style="margin-top: 10px; background: #22c55e"
+            >
+                Start New Run
+            </button>
+        </div>
+
+        <script>
+            /**
+             * RIGHT CLICK TO NECROMANCE - ARMY-CENTRIC NECROMANCE UPDATE
+             *
+             * MECHANIC CHANGE:
+             * - Necromance no longer triggers at cursor position.
+             * - Right-click / Tap now casts a resurrection pulse centered on your army's centroid.
+             * - Prevents long-range cheese, rewards positioning and tactical retreats.
+             *
+             * ARCHITECTURE NOTES FOR FUTURE SPRITE INTEGRATION:
+             * - All rendering is isolated in the `draw()` methods of entities.
+             * - Search for `// [SPRITE READY]` comments to find exact swap points.
+             * - When adding sprites: preload images in an `ASSETS` object, replace ctx.shape calls
+             *   with `ctx.drawImage(ASSETS[unit.team][unit.tier], x, y, w, h)`.
+             * - Canvas scaling is handled automatically. Sprite sheets can be integrated by adding
+             *   a `frameIndex` and `animTimer` to the Unit class.
+             */
+
+            // === CANVAS & CONTEXT ===
+            const canvas = document.getElementById("gameCanvas");
+            const ctx = canvas.getContext("2d");
+
+            // === UI ELEMENTS ===
+            const ui = {
+                army: document.getElementById("armyCount"),
+                score: document.getElementById("scoreVal"),
+                wave: document.getElementById("waveVal"),
+                currency: document.getElementById("currencyVal"),
+                progressFill: document.getElementById("progressFill"),
+                progressLabel: document.getElementById("progressLabel"),
+                pauseMenu: document.getElementById("pauseMenu"),
+                upgradeMenu: document.getElementById("upgradeMenu"),
+                upgradeGrid: document.getElementById("upgradeGrid"),
+                metaShopMenu: document.getElementById("metaShopMenu"),
+                metaTitle: document.getElementById("metaTitle"),
+                metaStats: document.getElementById("metaStats"),
+                earnedCurrency: document.getElementById("earnedCurrency"),
+                totalCurrency: document.getElementById("totalCurrency"),
+                metaShopGrid: document.getElementById("metaShopGrid"),
+                newRunBtn: document.getElementById("newRunBtn"),
+                resumeBtn: document.getElementById("resumeBtn"),
+                necroBtn: document.getElementById("necroBtn"),
+                pauseBtn: document.getElementById("pauseBtn"),
+            };
+
+            // === SAVE/LOAD SYSTEM ===
+            const META_KEY = "necromance_meta_v1";
+            let meta = {
+                currency: 0,
+                highScore: 0,
+                permHp: 0,
+                permDmg: 0,
+                permSpeed: 0,
+                permNecroCount: 0,
+                permNecroRadius: 0,
+                permStartUnits: 0,
+                costs: {
+                    hp: 40,
+                    dmg: 40,
+                    speed: 40,
+                    necroCount: 60,
+                    necroRadius: 60,
+                    startUnits: 80,
+                },
+            };
+
+            function loadMeta() {
+                try {
+                    const saved = localStorage.getItem(META_KEY);
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        Object.keys(meta).forEach((k) => {
+                            if (parsed[k] !== undefined) meta[k] = parsed[k];
+                        });
+                    }
+                } catch (e) {
+                    console.warn("Meta load failed, using defaults.");
+                }
+            }
+
+            function saveMeta() {
+                try {
+                    localStorage.setItem(META_KEY, JSON.stringify(meta));
+                } catch (e) {
+                    console.warn("Meta save failed.");
+                }
+            }
+
+            // === GAME STATE ===
+            let state = {
+                running: true,
+                paused: false,
+                gameOver: false,
+                upgradeMenuActive: false,
+                metaShopActive: false,
+                width: 0,
+                height: 0,
+                lastTime: 0,
+                dt: 0,
+                score: 0,
+                wave: 1,
+                waveTimer: 0,
+                waveDuration: 15,
+                difficulty: 1,
+                spawnTimer: 0,
+                spawnInterval: 1.2,
+                playerTarget: { x: 0, y: 0 },
+                isDragging: false,
+                dragStart: { x: 0, y: 0 },
+                necroMode: false,
+                maxUnits: 220,
+                maxCorpses: 80,
+                upgradeProgress: 0,
+                upgradeThreshold: 50,
+                upgradeLevel: 0,
+                playerStats: {
+                    hpMult: 1.0,
+                    speedMult: 1.0,
+                    defReduction: 0.0,
+                    dmgMult: 1.0,
+                    necroCount: 3,
+                    necroRadius: 20,
+                },
+                // Visual pulse for army-centric necromance
+                necroPulse: { x: 0, y: 0, radius: 0, alpha: 0, active: false },
+            };
+
+            // === ENTITY ARRAYS ===
+            let units = [];
+            let corpses = [];
+            let particles = [];
+
+            // === CONSTANTS & TIER DEFINITIONS ===
+            const TEAM = { PLAYER: 0, ENEMY: 1 };
+            const TIERS = [
+                {
+                    name: "Grunt",
+                    hpM: 1.0,
+                    dmgM: 1.0,
+                    spdM: 1.0,
+                    size: 6,
+                    shape: "circle",
+                    cP: "#4ade80",
+                    cE: "#f87171",
+                },
+                {
+                    name: "Knight",
+                    hpM: 1.4,
+                    dmgM: 1.3,
+                    spdM: 0.95,
+                    size: 7.5,
+                    shape: "square",
+                    cP: "#22d3ee",
+                    cE: "#fb923c",
+                },
+                {
+                    name: "Champion",
+                    hpM: 2.0,
+                    dmgM: 1.8,
+                    spdM: 0.9,
+                    size: 9,
+                    shape: "triangle",
+                    cP: "#a78bfa",
+                    cE: "#f472b6",
+                },
+            ];
+            const BOSS_TIER = {
+                name: "Boss",
+                hpM: 8.0,
+                dmgM: 2.5,
+                spdM: 0.6,
+                size: 14,
+                shape: "hexagon",
+                cP: "#fbbf24",
+                cE: "#fbbf24",
+            };
+
+            const ATTACK_RANGE = 14;
+            const ATTACK_COOLDOWN = 0.6;
+            const BASE_MOVE_SPEED = 90;
+            const BASE_ENEMY_SPEED = 70;
+            const SEPARATION_DIST = 18;
+
+            // === RUN UPGRADE DEFINITIONS ===
+            const RUN_UPGRADES = [
+                {
+                    id: "necroCount",
+                    name: "Mass Resurrection",
+                    desc: "+1 Max resurrects/click",
+                    icon: "☠️",
+                    apply: () => {
+                        state.playerStats.necroCount++;
+                    },
+                },
+                {
+                    id: "necroRadius",
+                    name: "Soul Reach",
+                    desc: "+12 Necromance radius",
+                    icon: "🌐",
+                    apply: () => {
+                        state.playerStats.necroRadius += 12;
+                    },
+                },
+                {
+                    id: "hp",
+                    name: "Undead Vitality",
+                    desc: "+15% Unit Max HP",
+                    icon: "❤️",
+                    apply: () => {
+                        state.playerStats.hpMult += 0.15;
+                        applyStatToUnits("hp");
+                    },
+                },
+                {
+                    id: "speed",
+                    name: "March of the Dead",
+                    desc: "+10% Unit Speed",
+                    icon: "👢",
+                    apply: () => {
+                        state.playerStats.speedMult += 0.1;
+                        applyStatToUnits("speed");
+                    },
+                },
+                {
+                    id: "defense",
+                    name: "Bone Armor",
+                    desc: "+10% Damage Reduction",
+                    icon: "🛡️",
+                    apply: () => {
+                        state.playerStats.defReduction = Math.min(
+                            0.75,
+                            state.playerStats.defReduction + 0.1,
+                        );
+                    },
+                },
+                {
+                    id: "damage",
+                    name: "Cursed Blades",
+                    desc: "+12% Unit Damage",
+                    icon: "⚔️",
+                    apply: () => {
+                        state.playerStats.dmgMult += 0.12;
+                        applyStatToUnits("damage");
+                    },
+                },
+            ];
+
+            // === META UPGRADE DEFINITIONS ===
+            const META_UPGRADES = [
+                {
+                    key: "permHp",
+                    name: "Eternal Vitality",
+                    desc: "+10% Base HP",
+                    icon: "❤️‍🔥",
+                    apply: () => {
+                        meta.permHp++;
+                        meta.costs.hp = Math.floor(meta.costs.hp * 1.4);
+                    },
+                },
+                {
+                    key: "permDmg",
+                    name: "Soul Edge",
+                    desc: "+10% Base Damage",
+                    icon: "🗡️",
+                    apply: () => {
+                        meta.permDmg++;
+                        meta.costs.dmg = Math.floor(meta.costs.dmg * 1.4);
+                    },
+                },
+                {
+                    key: "permSpeed",
+                    name: "Phantom March",
+                    desc: "+8% Base Speed",
+                    icon: "💨",
+                    apply: () => {
+                        meta.permSpeed++;
+                        meta.costs.speed = Math.floor(meta.costs.speed * 1.4);
+                    },
+                },
+                {
+                    key: "permNecroCount",
+                    name: "Grim Harvest",
+                    desc: "+1 Base Necro Count",
+                    icon: "💀",
+                    apply: () => {
+                        meta.permNecroCount++;
+                        meta.costs.necroCount = Math.floor(
+                            meta.costs.necroCount * 1.5,
+                        );
+                    },
+                },
+                {
+                    key: "permNecroRadius",
+                    name: "Aura of Death",
+                    desc: "+10 Base Necro Radius",
+                    icon: "🔮",
+                    apply: () => {
+                        meta.permNecroRadius++;
+                        meta.costs.necroRadius = Math.floor(
+                            meta.costs.necroRadius * 1.5,
+                        );
+                    },
+                },
+                {
+                    key: "permStartUnits",
+                    name: "First Legion",
+                    desc: "+1 Starting Unit",
+                    icon: "🚩",
+                    apply: () => {
+                        meta.permStartUnits++;
+                        meta.costs.startUnits = Math.floor(
+                            meta.costs.startUnits * 1.6,
+                        );
+                    },
+                },
+            ];
+
+            // === RESIZE HANDLER ===
+            function resize() {
+                state.width = window.innerWidth;
+                state.height = window.innerHeight;
+                canvas.width = state.width;
+                canvas.height = state.height;
+            }
+            window.addEventListener("resize", resize);
+            resize();
+
+            // === UTILITIES ===
+            function rand(min, max) {
+                return Math.random() * (max - min) + min;
+            }
+            function dist(a, b) {
+                return Math.hypot(a.x - b.x, a.y - b.y);
+            }
+            function clamp(v, min, max) {
+                return Math.max(min, Math.min(max, v));
+            }
+
+            // Calculate center of mass of living player units
+            function getPlayerArmyCentroid() {
+                let sumX = 0,
+                    sumY = 0,
+                    count = 0;
+                for (let u of units) {
+                    if (u.alive && u.team === TEAM.PLAYER) {
+                        sumX += u.x;
+                        sumY += u.y;
+                        count++;
+                    }
+                }
+                return count > 0 ? { x: sumX / count, y: sumY / count } : null;
+            }
+
+            // === STAT APPLICATION ===
+            function applyStatToUnits(stat) {
+                for (let u of units) {
+                    if (u.team === TEAM.PLAYER && u.alive) {
+                        if (stat === "hp") {
+                            u.maxHp = Math.floor(
+                                30 *
+                                    TIERS[u.tier].hpM *
+                                    state.playerStats.hpMult *
+                                    (1 + meta.permHp * 0.1),
+                            );
+                            u.hp = Math.min(u.hp * 1.15, u.maxHp);
+                        } else if (stat === "speed") {
+                            u.speed =
+                                BASE_MOVE_SPEED *
+                                TIERS[u.tier].spdM *
+                                state.playerStats.speedMult *
+                                (1 + meta.permSpeed * 0.08);
+                        } else if (stat === "damage") {
+                            u.damage = Math.floor(
+                                8 *
+                                    TIERS[u.tier].dmgM *
+                                    state.playerStats.dmgMult *
+                                    (1 + meta.permDmg * 0.1),
+                            );
+                        }
+                    }
+                }
+            }
+
+            // === ENTITY CLASSES ===
+            class Unit {
+                constructor(x, y, team, tier = 0, isBoss = false) {
+                    this.x = x;
+                    this.y = y;
+                    this.vx = 0;
+                    this.vy = 0;
+                    this.team = team;
+                    this.tier = tier;
+                    this.isBoss = isBoss;
+                    this.alive = true;
+                    this.flash = 0;
+                    this.cooldown = 0;
+                    this.target = null;
+
+                    const tData = isBoss ? BOSS_TIER : TIERS[tier];
+                    const pMetaHp = 1 + meta.permHp * 0.1;
+                    const pMetaDmg = 1 + meta.permDmg * 0.1;
+                    const pMetaSpd = 1 + meta.permSpeed * 0.08;
+
+                    if (team === TEAM.PLAYER) {
+                        this.hp = Math.floor(
+                            30 * tData.hpM * state.playerStats.hpMult * pMetaHp,
+                        );
+                        this.maxHp = this.hp;
+                        this.speed =
+                            BASE_MOVE_SPEED *
+                            tData.spdM *
+                            state.playerStats.speedMult *
+                            pMetaSpd;
+                        this.damage = Math.floor(
+                            8 *
+                                tData.dmgM *
+                                state.playerStats.dmgMult *
+                                pMetaDmg,
+                        );
+                    } else {
+                        let waveScale = 1 + (state.wave - 1) * 0.15;
+                        this.hp = Math.floor(
+                            (isBoss ? 150 : 25) * tData.hpM * waveScale,
+                        );
+                        this.maxHp = this.hp;
+                        this.speed = BASE_ENEMY_SPEED * tData.spdM;
+                        this.damage = Math.floor(
+                            (isBoss ? 20 : 6) * tData.dmgM * waveScale,
+                        );
+                    }
+                    this.size = tData.size;
+                    this.shape = tData.shape;
+                    this.color = team === TEAM.PLAYER ? tData.cP : tData.cE;
+                }
+
+                takeDamage(amount) {
+                    if (!this.alive) return;
+                    let finalDmg = amount;
+                    if (this.team === TEAM.PLAYER)
+                        finalDmg *= 1 - state.playerStats.defReduction;
+
+                    this.hp -= finalDmg;
+                    this.flash = 1;
+                    spawnParticles(this.x, this.y, this.color, 3);
+
+                    if (this.hp <= 0) {
+                        this.alive = false;
+                        spawnCorpse(
+                            this.x,
+                            this.y,
+                            this.team,
+                            this.tier,
+                            this.isBoss,
+                        );
+                        if (this.team === TEAM.ENEMY) {
+                            let reward = this.isBoss ? 50 : 10 + this.tier * 5;
+                            state.score += reward;
+                            state.upgradeProgress += this.isBoss
+                                ? 40
+                                : 6 + Math.floor(state.wave * 0.5);
+                            checkUpgradeThreshold();
+                        }
+                    }
+                }
+
+                update(dt) {
+                    if (!this.alive) return;
+                    this.cooldown = Math.max(0, this.cooldown - dt);
+                    this.flash = Math.max(0, this.flash - dt * 3);
+
+                    if (!this.target || !this.target.alive)
+                        this.target = this.findNearestEnemy();
+
+                    let tx = this.x,
+                        ty = this.y;
+                    if (this.team === TEAM.PLAYER) {
+                        tx = state.playerTarget.x;
+                        ty = state.playerTarget.y;
+                        this.applySeparation(dt);
+                    } else {
+                        if (this.target) {
+                            tx = this.target.x;
+                            ty = this.target.y;
+                        } else {
+                            tx = state.width / 2;
+                            ty = state.height / 2;
+                        }
+                    }
+
+                    let dx = tx - this.x,
+                        dy = ty - this.y,
+                        d = Math.hypot(dx, dy);
+                    if (d > 2) {
+                        let speed = this.speed * dt;
+                        if (d < 30) speed *= d / 30;
+                        this.x += (dx / d) * speed;
+                        this.y += (dy / d) * speed;
+                    }
+
+                    this.x = clamp(this.x, this.size, state.width - this.size);
+                    this.y = clamp(this.y, this.size, state.height - this.size);
+
+                    if (this.target && this.target.alive) {
+                        if (
+                            dist(this, this.target) <=
+                            ATTACK_RANGE + this.size + this.target.size
+                        ) {
+                            if (this.cooldown <= 0) {
+                                this.target.takeDamage(this.damage);
+                                this.cooldown = ATTACK_COOLDOWN;
+                            }
+                        }
+                    }
+                }
+
+                applySeparation(dt) {
+                    let sx = 0,
+                        sy = 0,
+                        count = 0;
+                    for (let u of units) {
+                        if (u === this || !u.alive || u.team !== this.team)
+                            continue;
+                        let d = dist(this, u);
+                        if (d < SEPARATION_DIST && d > 0) {
+                            let force = (SEPARATION_DIST - d) / SEPARATION_DIST;
+                            sx -= ((u.x - this.x) / d) * force;
+                            sy -= ((u.y - this.y) / d) * force;
+                            count++;
+                        }
+                    }
+                    if (count > 0) {
+                        let mag = Math.hypot(sx, sy);
+                        if (mag > 0) {
+                            this.x += (sx / mag) * 22 * dt;
+                            this.y += (sy / mag) * 22 * dt;
+                        }
+                    }
+                }
+
+                findNearestEnemy() {
+                    let best = null,
+                        bestDist = Infinity;
+                    let enemyTeam =
+                        this.team === TEAM.PLAYER ? TEAM.ENEMY : TEAM.PLAYER;
+                    for (let u of units) {
+                        if (u.team === enemyTeam && u.alive) {
+                            let d = dist(this, u);
+                            if (d < bestDist) {
+                                bestDist = d;
+                                best = u;
+                            }
+                        }
+                    }
+                    return best;
+                }
+
+                // [SPRITE READY] Replace this entire draw() method with sprite rendering when assets are added.
+                draw() {
+                    if (!this.alive) return;
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+
+                    ctx.fillStyle = this.flash > 0 ? "#fff" : this.color;
+                    ctx.strokeStyle = "rgba(0,0,0,0.6)";
+                    ctx.lineWidth = 1.5;
+
+                    ctx.beginPath();
+                    switch (this.shape) {
+                        case "circle":
+                            ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+                            break;
+                        case "square":
+                            ctx.rect(
+                                -this.size,
+                                -this.size,
+                                this.size * 2,
+                                this.size * 2,
+                            );
+                            break;
+                        case "triangle":
+                            ctx.moveTo(0, -this.size);
+                            ctx.lineTo(this.size, this.size);
+                            ctx.lineTo(-this.size, this.size);
+                            ctx.closePath();
+                            break;
+                        case "hexagon":
+                            for (let i = 0; i < 6; i++) {
+                                let angle = (Math.PI / 3) * i - Math.PI / 2;
+                                let hx = Math.cos(angle) * this.size;
+                                let hy = Math.sin(angle) * this.size;
+                                i === 0
+                                    ? ctx.moveTo(hx, hy)
+                                    : ctx.lineTo(hx, hy);
+                            }
+                            ctx.closePath();
+                            break;
+                    }
+                    ctx.fill();
+                    ctx.stroke();
+
+                    if (this.isBoss) {
+                        ctx.fillStyle = "#fbbf24";
+                        ctx.font = `${this.size}px sans-serif`;
+                        ctx.textAlign = "center";
+                        ctx.fillText("👑", 0, -this.size - 4);
+                    }
+
+                    ctx.restore();
+
+                    if (this.hp < this.maxHp) {
+                        let w = this.size * 2.2,
+                            h = 3,
+                            pct = this.hp / this.maxHp;
+                        ctx.fillStyle = "#333";
+                        ctx.fillRect(
+                            this.x - w / 2,
+                            this.y - this.size - 8,
+                            w,
+                            h,
+                        );
+                        ctx.fillStyle =
+                            pct > 0.5
+                                ? "#4ade80"
+                                : pct > 0.25
+                                  ? "#facc15"
+                                  : "#ef4444";
+                        ctx.fillRect(
+                            this.x - w / 2,
+                            this.y - this.size - 8,
+                            w * pct,
+                            h,
+                        );
+                    }
+                }
+            }
+
+            class Corpse {
+                constructor(x, y, team, tier, isBoss) {
+                    this.x = x;
+                    this.y = y;
+                    this.team = team;
+                    this.tier = tier;
+                    this.isBoss = isBoss;
+                    this.alive = true;
+                    this.timer = 12;
+                    this.angle = rand(0, Math.PI * 2);
+                    this.size = (isBoss ? BOSS_TIER : TIERS[tier]).size * 0.8;
+                }
+                update(dt) {
+                    this.timer -= dt;
+                    if (this.timer <= 0) this.alive = false;
+                }
+                // [SPRITE READY] Swap with dead sprite variant later
+                draw() {
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(this.angle);
+                    ctx.fillStyle = "#6b7280";
+                    ctx.globalAlpha = clamp(this.timer / 3, 0.2, 1);
+                    ctx.fillRect(
+                        -this.size,
+                        -this.size / 2,
+                        this.size * 2,
+                        this.size,
+                    );
+                    ctx.restore();
+                    ctx.globalAlpha = 1;
+                }
+            }
+
+            class Particle {
+                constructor(x, y, color) {
+                    this.x = x;
+                    this.y = y;
+                    this.vx = rand(-30, 30);
+                    this.vy = rand(-30, 30);
+                    this.life = rand(0.3, 0.6);
+                    this.maxLife = this.life;
+                    this.color = color;
+                    this.size = rand(1.5, 3);
+                }
+                update(dt) {
+                    this.x += this.vx * dt;
+                    this.y += this.vy * dt;
+                    this.life -= dt;
+                }
+                draw() {
+                    ctx.globalAlpha = this.life / this.maxLife;
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                }
+            }
+
+            function spawnParticles(x, y, color, count) {
+                for (let i = 0; i < count; i++)
+                    particles.push(new Particle(x, y, color));
+            }
+
+            function spawnCorpse(x, y, team, tier, isBoss) {
+                if (corpses.length >= state.maxCorpses) corpses.shift();
+                corpses.push(new Corpse(x, y, team, tier, isBoss));
+            }
+
+            // === SPAWNING SYSTEM ===
+            function getSpawnEdge() {
+                let side = Math.floor(rand(0, 4));
+                if (side === 0) return { x: rand(0, state.width), y: -20 };
+                if (side === 1)
+                    return { x: state.width + 20, y: rand(0, state.height) };
+                if (side === 2)
+                    return { x: rand(0, state.width), y: state.height + 20 };
+                return { x: -20, y: rand(0, state.height) };
+            }
+
+            function spawnEnemy(tierOverride = null, isBoss = false) {
+                if (
+                    units.filter((u) => u.alive && u.team === TEAM.ENEMY)
+                        .length >=
+                    state.maxUnits * 0.6
+                )
+                    return;
+                let pos = getSpawnEdge();
+                let tier =
+                    tierOverride !== null
+                        ? tierOverride
+                        : Math.min(2, Math.floor(state.wave / 3));
+                units.push(new Unit(pos.x, pos.y, TEAM.ENEMY, tier, isBoss));
+            }
+
+            function spawnBoss() {
+                spawnEnemy(2, true);
+                setTimeout(() => {
+                    if (!state.gameOver) spawnEnemy(1);
+                }, 500);
+                setTimeout(() => {
+                    if (!state.gameOver) spawnEnemy(1);
+                }, 1000);
+            }
+
+            function updateSpawning(dt) {
+                state.waveTimer += dt;
+                if (state.waveTimer >= state.waveDuration) {
+                    state.wave++;
+                    state.waveTimer = 0;
+                    state.difficulty += 0.5;
+                    state.spawnInterval = Math.max(
+                        0.3,
+                        state.spawnInterval - 0.08,
+                    );
+                    ui.wave.textContent = state.wave;
+
+                    if (state.wave % 5 === 0) {
+                        spawnBoss();
+                        state.spawnTimer = -2;
+                    }
+                }
+
+                state.spawnTimer += dt;
+                if (state.spawnTimer >= state.spawnInterval) {
+                    state.spawnTimer = 0;
+                    let count = Math.floor(rand(1, 2 + state.difficulty * 0.4));
+                    for (let i = 0; i < count; i++) spawnEnemy();
+                }
+            }
+
+            // === UPGRADE SYSTEMS ===
+            function checkUpgradeThreshold() {
+                if (
+                    state.upgradeProgress >= state.upgradeThreshold &&
+                    !state.upgradeMenuActive &&
+                    !state.gameOver &&
+                    !state.metaShopActive
+                ) {
+                    openRunUpgradeMenu();
+                }
+                updateProgressUI();
+            }
+
+            function updateProgressUI() {
+                let pct = Math.min(
+                    (state.upgradeProgress / state.upgradeThreshold) * 100,
+                    100,
+                );
+                ui.progressFill.style.width = `${pct}%`;
+                ui.progressLabel.textContent = `Next Upgrade: ${Math.floor(state.upgradeProgress)} / ${state.upgradeThreshold}`;
+            }
+
+            function openRunUpgradeMenu() {
+                state.paused = true;
+                state.upgradeMenuActive = true;
+                ui.upgradeMenu.classList.add("active");
+
+                let pool = [...RUN_UPGRADES];
+                let choices = [];
+                for (let i = 0; i < 3; i++) {
+                    if (pool.length === 0) break;
+                    let idx = Math.floor(Math.random() * pool.length);
+                    choices.push(pool.splice(idx, 1)[0]);
+                }
+
+                ui.upgradeGrid.innerHTML = "";
+                choices.forEach((upg) => {
+                    let card = document.createElement("div");
+                    card.className = "upgrade-card";
+                    card.innerHTML = `<span class="upgrade-icon">${upg.icon}</span><div class="upgrade-name">${upg.name}</div><div class="upgrade-desc">${upg.desc}</div>`;
+                    card.addEventListener("click", () => selectRunUpgrade(upg));
+                    card.addEventListener("touchend", (e) => {
+                        e.preventDefault();
+                        selectRunUpgrade(upg);
+                    });
+                    ui.upgradeGrid.appendChild(card);
+                });
+            }
+
+            function selectRunUpgrade(upgrade) {
+                upgrade.apply();
+                state.upgradeProgress = 0;
+                state.upgradeLevel++;
+                state.upgradeThreshold = Math.floor(
+                    state.upgradeThreshold * 1.35,
+                );
+                state.upgradeMenuActive = false;
+                state.paused = false;
+                ui.upgradeMenu.classList.remove("active");
+                updateProgressUI();
+                spawnParticles(
+                    state.width / 2,
+                    state.height / 2,
+                    "#c4b5fd",
+                    15,
+                );
+            }
+
+            // === META SHOP & GAME OVER ===
+            function triggerGameOver() {
+                state.gameOver = true;
+                state.metaShopActive = true;
+
+                let earned =
+                    Math.floor(state.score / 8) +
+                    state.wave * 5 +
+                    state.upgradeLevel * 10;
+                meta.currency += earned;
+                if (state.score > meta.highScore) meta.highScore = state.score;
+                saveMeta();
+
+                ui.metaTitle.textContent = "DEFEAT";
+                ui.metaStats.textContent = `Score: ${state.score} | Wave: ${state.wave} | Run Upgrades: ${state.upgradeLevel}`;
+                ui.earnedCurrency.textContent = earned;
+                ui.totalCurrency.textContent = meta.currency;
+                ui.metaShopMenu.classList.add("active");
+                renderMetaShop();
+            }
+
+            function renderMetaShop() {
+                ui.metaShopGrid.innerHTML = "";
+                META_UPGRADES.forEach((upg) => {
+                    let level = meta[upg.key];
+                    let cost =
+                        meta.costs[upg.key.replace("perm", "").toLowerCase()] ||
+                        meta.costs[upg.key];
+                    let canBuy = meta.currency >= cost;
+
+                    let card = document.createElement("div");
+                    card.className = "meta-card";
+                    card.style.opacity = canBuy ? 1 : 0.6;
+                    card.innerHTML = `
+          <div style="font-size:22px;">${upg.icon}</div>
+          <div style="color:#e5e7eb; font-weight:bold; font-size:13px; margin:4px 0;">${upg.name}</div>
+          <div style="color:#9ca3af; font-size:11px;">${upg.desc}</div>
+          <div class="level">Lvl ${level}</div>
+          <div class="cost">💰 ${cost}</div>
+        `;
+                    if (canBuy) {
+                        card.addEventListener("click", () =>
+                            buyMetaUpgrade(upg, cost),
+                        );
+                        card.addEventListener("touchend", (e) => {
+                            e.preventDefault();
+                            buyMetaUpgrade(upg, cost);
+                        });
+                    }
+                    ui.metaShopGrid.appendChild(card);
+                });
+            }
+
+            function buyMetaUpgrade(upg, cost) {
+                if (meta.currency >= cost) {
+                    meta.currency -= cost;
+                    upg.apply();
+                    saveMeta();
+                    ui.totalCurrency.textContent = meta.currency;
+                    renderMetaShop();
+                }
+            }
+
+            // === NECROMANCE (ARMY-CENTRIC) ===
+            function tryNecromance() {
+                if (
+                    state.gameOver ||
+                    state.paused ||
+                    state.upgradeMenuActive ||
+                    state.metaShopActive
+                )
+                    return;
+
+                let centroid = getPlayerArmyCentroid();
+                if (!centroid) return; // Cannot cast without a living army
+
+                let resurrected = 0;
+                let maxRes = state.playerStats.necroCount + meta.permNecroCount;
+                let radius =
+                    state.playerStats.necroRadius + meta.permNecroRadius;
+
+                // Trigger visual pulse at army center
+                state.necroPulse = {
+                    x: centroid.x,
+                    y: centroid.y,
+                    radius: radius,
+                    alpha: 0.7,
+                    active: true,
+                };
+                spawnParticles(centroid.x, centroid.y, "#a78bfa", 8);
+
+                for (let i = corpses.length - 1; i >= 0; i--) {
+                    let c = corpses[i];
+                    if (!c.alive) continue;
+                    // Distance checked from army centroid, NOT cursor
+                    if (dist(centroid, c) <= radius + c.size) {
+                        c.alive = false;
+                        let u = new Unit(c.x, c.y, TEAM.PLAYER, c.tier, false);
+                        units.push(u);
+                        spawnParticles(c.x, c.y, "#a78bfa", 4);
+                        resurrected++;
+                        if (resurrected >= maxRes) break;
+                    }
+                }
+            }
+
+            // === INPUT HANDLING ===
+            function getPos(e) {
+                if (e.touches)
+                    return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                return { x: e.clientX, y: e.clientY };
+            }
+
+            function handleStart(e) {
+                if (
+                    state.paused ||
+                    state.gameOver ||
+                    state.upgradeMenuActive ||
+                    state.metaShopActive
+                )
+                    return;
+                let p = getPos(e);
+                state.isDragging = true;
+                state.dragStart = { ...p };
+                state.playerTarget = { ...p };
+            }
+
+            function handleMove(e) {
+                if (
+                    !state.isDragging ||
+                    state.paused ||
+                    state.gameOver ||
+                    state.upgradeMenuActive ||
+                    state.metaShopActive
+                )
+                    return;
+                state.playerTarget = { ...getPos(e) };
+            }
+
+            function handleEnd(e) {
+                if (!state.isDragging) return;
+                state.isDragging = false;
+                let p = e.changedTouches
+                    ? {
+                          x: e.changedTouches[0].clientX,
+                          y: e.changedTouches[0].clientY,
+                      }
+                    : { x: e.clientX, y: e.clientY };
+                if (dist(state.dragStart, p) < 10 && !state.necroMode)
+                    state.playerTarget = { ...p };
+            }
+
+            function handleRightClick(e) {
+                e.preventDefault();
+                if (
+                    state.paused ||
+                    state.gameOver ||
+                    state.upgradeMenuActive ||
+                    state.metaShopActive
+                )
+                    return;
+                tryNecromance(); // Cursor position ignored for AoE center
+            }
+
+            canvas.addEventListener("mousedown", (e) => {
+                if (e.button === 0) handleStart(e);
+            });
+            canvas.addEventListener("mousemove", handleMove);
+            canvas.addEventListener("mouseup", handleEnd);
+            canvas.addEventListener("contextmenu", handleRightClick);
+            canvas.addEventListener(
+                "touchstart",
+                (e) => {
+                    e.preventDefault();
+                    handleStart(e);
+                },
+                { passive: false },
+            );
+            canvas.addEventListener(
+                "touchmove",
+                (e) => {
+                    e.preventDefault();
+                    handleMove(e);
+                },
+                { passive: false },
+            );
+            canvas.addEventListener(
+                "touchend",
+                (e) => {
+                    e.preventDefault();
+                    handleEnd(e);
+                },
+                { passive: false },
+            );
+
+            ui.necroBtn.addEventListener("touchstart", (e) => {
+                e.preventDefault();
+                state.necroMode = !state.necroMode;
+                ui.necroBtn.style.background = state.necroMode
+                    ? "rgba(168, 85, 247, 0.5)"
+                    : "rgba(140, 50, 255, 0.25)";
+            });
+            canvas.addEventListener(
+                "touchstart",
+                (e) => {
+                    if (
+                        state.necroMode &&
+                        !state.paused &&
+                        !state.gameOver &&
+                        !state.upgradeMenuActive &&
+                        !state.metaShopActive
+                    ) {
+                        tryNecromance();
+                    }
+                },
+                { passive: false },
+            );
+
+            function togglePause() {
+                if (
+                    state.gameOver ||
+                    state.upgradeMenuActive ||
+                    state.metaShopActive
+                )
+                    return;
+                state.paused = !state.paused;
+                ui.pauseMenu.classList.toggle("active", state.paused);
+            }
+            window.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") togglePause();
+            });
+            ui.pauseBtn.addEventListener("click", togglePause);
+            ui.resumeBtn.addEventListener("click", togglePause);
+
+            function resetGame() {
+                units = [];
+                corpses = [];
+                particles = [];
+                state.score = 0;
+                state.wave = 1;
+                state.difficulty = 1;
+                state.waveTimer = 0;
+                state.spawnTimer = 0;
+                state.spawnInterval = 1.2;
+                state.playerTarget = {
+                    x: state.width / 2,
+                    y: state.height / 2,
+                };
+                state.gameOver = false;
+                state.paused = false;
+                state.upgradeMenuActive = false;
+                state.metaShopActive = false;
+                state.upgradeProgress = 0;
+                state.upgradeThreshold = 50;
+                state.upgradeLevel = 0;
+                state.necroPulse = {
+                    x: 0,
+                    y: 0,
+                    radius: 0,
+                    alpha: 0,
+                    active: false,
+                };
+                state.playerStats = {
+                    hpMult: 1.0,
+                    speedMult: 1.0,
+                    defReduction: 0.0,
+                    dmgMult: 1.0,
+                    necroCount: 3,
+                    necroRadius: 20,
+                };
+
+                ui.pauseMenu.classList.remove("active");
+                ui.upgradeMenu.classList.remove("active");
+                ui.metaShopMenu.classList.remove("active");
+
+                let startCount = 3 + meta.permStartUnits;
+                for (let i = 0; i < startCount; i++) {
+                    units.push(
+                        new Unit(
+                            state.width / 2 + rand(-40, 40),
+                            state.height / 2 + rand(-40, 40),
+                            TEAM.PLAYER,
+                            0,
+                        ),
+                    );
+                }
+                updateUI();
+                updateProgressUI();
+                ui.currency.textContent = meta.currency;
+            }
+
+            ui.newRunBtn.addEventListener("click", resetGame);
+
+            // === GAME LOOP ===
+            function update(dt) {
+                if (
+                    state.paused ||
+                    state.gameOver ||
+                    state.upgradeMenuActive ||
+                    state.metaShopActive
+                )
+                    return;
+
+                // Decay necromance pulse visual
+                if (state.necroPulse.active) {
+                    state.necroPulse.alpha -= dt * 1.8;
+                    state.necroPulse.radius += dt * 25;
+                    if (state.necroPulse.alpha <= 0)
+                        state.necroPulse.active = false;
+                }
+
+                let playerAlive = 0;
+                for (let i = units.length - 1; i >= 0; i--) {
+                    let u = units[i];
+                    u.update(dt);
+                    if (!u.alive) {
+                        units.splice(i, 1);
+                    } else if (u.team === TEAM.PLAYER) {
+                        playerAlive++;
+                    }
+                }
+
+                for (let i = corpses.length - 1; i >= 0; i--) {
+                    corpses[i].update(dt);
+                    if (!corpses[i].alive) corpses.splice(i, 1);
+                }
+
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    particles[i].update(dt);
+                    if (particles[i].life <= 0) particles.splice(i, 1);
+                }
+
+                updateSpawning(dt);
+
+                if (playerAlive === 0 && units.length > 0) triggerGameOver();
+                updateUI();
+            }
+
+            function updateUI() {
+                ui.army.textContent = units.filter(
+                    (u) => u.alive && u.team === TEAM.PLAYER,
+                ).length;
+                ui.score.textContent = state.score;
+            }
+
+            function render() {
+                ctx.clearRect(0, 0, state.width, state.height);
+
+                // [SPRITE READY] Replace grid with tiled background image when available
+                ctx.strokeStyle = "rgba(255,255,255,0.03)";
+                ctx.lineWidth = 1;
+                let gridSize = 40;
+                for (let x = 0; x < state.width; x += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, state.height);
+                    ctx.stroke();
+                }
+                for (let y = 0; y < state.height; y += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(state.width, y);
+                    ctx.stroke();
+                }
+
+                if (
+                    !state.paused &&
+                    !state.gameOver &&
+                    !state.upgradeMenuActive &&
+                    !state.metaShopActive
+                ) {
+                    ctx.beginPath();
+                    ctx.arc(
+                        state.playerTarget.x,
+                        state.playerTarget.y,
+                        8,
+                        0,
+                        Math.PI * 2,
+                    );
+                    ctx.strokeStyle = "rgba(74, 222, 128, 0.5)";
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                // Draw necromance pulse ring
+                if (state.necroPulse.active) {
+                    ctx.beginPath();
+                    ctx.arc(
+                        state.necroPulse.x,
+                        state.necroPulse.y,
+                        state.necroPulse.radius,
+                        0,
+                        Math.PI * 2,
+                    );
+                    ctx.strokeStyle = `rgba(167, 139, 250, ${state.necroPulse.alpha})`;
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
+
+                for (let c of corpses) c.draw();
+                for (let u of units) u.draw();
+                for (let p of particles) p.draw();
+
+                if (state.necroMode) {
+                    ctx.fillStyle = "rgba(168, 85, 247, 0.15)";
+                    ctx.fillRect(0, 0, state.width, state.height);
+                    ctx.fillStyle = "#d8b4fe";
+                    ctx.font = "16px sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.fillText(
+                        "Necromance Mode Active - Tap to resurrect near army",
+                        state.width / 2,
+                        state.height - 90,
+                    );
+                }
+            }
+
+            function loop(timestamp) {
+                if (!state.lastTime) state.lastTime = timestamp;
+                state.dt = Math.min((timestamp - state.lastTime) / 1000, 0.1);
+                state.lastTime = timestamp;
+                update(state.dt);
+                render();
+                requestAnimationFrame(loop);
+            }
+
+            // === INIT ===
+            loadMeta();
+            resetGame();
+            requestAnimationFrame(loop);
+        </script>
+    </body>
+</html>
