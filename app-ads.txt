@@ -1,3 +1,4 @@
+google.com, pub-3941010756812987, DIRECT, f08c47fec0942fa0
 adagio.io, 1522, RESELLER
 adagio.io, 1575, RESELLER
 admanmedia.com, 2242, RESELLER
@@ -162,5 +163,3 @@ triplelift.com, 95054, RESELLER, 6c33edb13117fd86
 brightcom.com, 23120, RESELLER
 themediagrid.com, FALINO, RESELLER, 9fac4a4a87c2a44f
 smartadserver.com, 4972, RESELLER, 060d053dcf45cbf3
-
-google.com, pub-3941010756812987, DIRECT, f08c47fec0942fa0
